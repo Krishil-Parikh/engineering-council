@@ -119,7 +119,11 @@ class GeminiClient:
         self._settings = settings
         self._types = types
         self._sleep = sleep
-        self._use_schema = True  # flipped off if the SDK/model rejects a response_schema
+        # Gemma rejects JSON mode / response_schema on large prompts with an instant 500. For those models the schema is
+        # embedded in the prompt instead and the reply is parsed and validated locally. Gemini models use native JSON mode.
+        gemini = settings.model.lower().startswith("gemini")
+        self._json_mode = gemini
+        self._use_schema = gemini
         # Thought summaries only exist on Gemini thinking models; Gemma answers a thinking config with a 500.
         self._use_thoughts = settings.model.lower().startswith("gemini")
         self._pause_until = 0.0  # shared by all concurrent calls: one 429 slows everybody down
@@ -170,8 +174,15 @@ class GeminiClient:
                     continue
                 kind, _ = classify_error(exc)
                 msg = s.redact(str(exc))
-                if self._use_thoughts and kind == "transient" and time.monotonic() - started < 3:
-                    self._use_thoughts = False  # failed instantly with thinking on: retry once without it
+                if kind == "transient" and time.monotonic() - started < 3 and (self._use_thoughts or self._use_schema or self._json_mode):
+                    # An instant 5xx usually means the model dislikes a request option: drop the fanciest one and retry.
+                    if self._use_thoughts:
+                        self._use_thoughts = False
+                    elif self._use_schema:
+                        self._use_schema = False
+                    else:
+                        self._json_mode = False
+                    self._emit("retry", stage, attempt, info="instant server error; retrying with simpler request options")
                     attempt -= 1
                     continue
                 if kind == "auth":
@@ -230,7 +241,7 @@ class GeminiClient:
             )
         kwargs = dict(
             system_instruction=system or None,
-            response_mime_type="application/json",
+            response_mime_type="application/json" if self._json_mode else None,
             response_schema=schema if self._use_schema else None,
             temperature=0.5,
             max_output_tokens=self._settings.max_output_tokens,

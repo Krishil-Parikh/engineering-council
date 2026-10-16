@@ -130,11 +130,12 @@ def review(agent: str) -> AgentReview:
 class FakeLLM:
     """Dispatches on the requested schema. Counts calls per stage and can fail chosen stages."""
 
-    def __init__(self, fail_stages: tuple[str, ...] = (), cover_dispute: bool = True, bad_spec_once: bool = False) -> None:
+    def __init__(self, fail_stages: tuple[str, ...] = (), fail_once: tuple[str, ...] = (), cover_dispute: bool = True, bad_spec_once: bool = False) -> None:
         self.usage: list[dict] = []
         self.observer = None
         self.calls: Counter[str] = Counter()
         self.fail_stages = fail_stages
+        self.fail_once = set(fail_once)
         self.cover_dispute = cover_dispute
         self.bad_spec_once = bad_spec_once
         self.overrides: dict[type, Callable] = {}
@@ -160,6 +161,9 @@ class FakeLLM:
 
     async def _make(self, prompt, schema, stage):
         self.calls[stage] += 1
+        if stage in self.fail_once:
+            self.fail_once.discard(stage)
+            raise LLMError(f"{stage}: injected one-time failure")
         if any(stage.startswith(f) for f in self.fail_stages):
             raise LLMError(f"{stage}: injected failure")
         if schema in self.overrides:

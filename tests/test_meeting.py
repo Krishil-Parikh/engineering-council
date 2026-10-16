@@ -50,6 +50,14 @@ def test_one_failed_agent_is_reported_not_hidden(tmp_path):
     assert "Absent" in (result.out_dir / "minutes.md").read_text(encoding="utf-8")
 
 
+def test_transient_proposal_failure_gets_one_second_chance(tmp_path):
+    llm = FakeLLM(fail_once=("proposal:RED_TEAM_QA",))
+    result = run(make_input(tmp_path), llm)
+    assert llm.calls["proposal:RED_TEAM_QA"] == 2 or (result.out_dir / "proposals" / "RED_TEAM_QA.json").exists()
+    assert (result.out_dir / "proposals" / "RED_TEAM_QA.json").exists()
+    assert not any("did not contribute" in w for w in result.warnings)
+
+
 def test_below_quorum_stops_but_keeps_completed_work(tmp_path):
     llm = FakeLLM(fail_stages=("proposal:RED_TEAM_QA", "proposal:PRODUCT_UX"))
     with pytest.raises(MeetingError, match="quorum"):

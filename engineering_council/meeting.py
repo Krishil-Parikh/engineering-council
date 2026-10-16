@@ -320,9 +320,17 @@ async def _proposals(llm: LLM, settings: Settings, ctx: str, store: MeetingStore
         return prop
 
     results = await asyncio.gather(*(one(a) for a in AGENT_IDS), return_exceptions=True)
+    outcome = dict(zip(AGENT_IDS, results))
+    failed = [a for a, r in outcome.items() if isinstance(r, BaseException) and not isinstance(r, (AuthError, ModelError, KeyboardInterrupt, asyncio.CancelledError))]
+    if failed and len(failed) < len(AGENT_IDS):
+        # One bounded second chance: a transient overload often clears while the other members were working.
+        rep.note(f"Giving {', '.join(failed)} one more try...")
+        again = await asyncio.gather(*(one(a) for a in failed), return_exceptions=True)
+        outcome.update(zip(failed, again))
     proposals: dict[str, AgentProposal] = {}
     missing: list[str] = []
-    for agent, res in zip(AGENT_IDS, results):
+    for agent in AGENT_IDS:
+        res = outcome[agent]
         if isinstance(res, (AuthError, ModelError)):
             raise MeetingError(str(res))
         if isinstance(res, BaseException):
