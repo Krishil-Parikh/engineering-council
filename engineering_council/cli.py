@@ -40,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output", default="output", help="base output directory (default: ./output)")
     p.add_argument("--yes", "-y", action="store_true", help="skip confirmation and accept default answers")
     p.add_argument("--verbose", "-v", action="store_true", help="show diagnostic details")
+    p.add_argument("--plain", action="store_true", help="plain scrolling output instead of the full-screen TUI")
     return p
 
 
@@ -112,6 +113,37 @@ def gather_input(args: argparse.Namespace) -> MeetingInput:
     )
 
 
+def input_from_args(args: argparse.Namespace) -> MeetingInput | None:
+    """Build the meeting input from flags alone. None means the TUI form should ask for the rest."""
+    problem = args.problem or (_read_problem_file(args.problem_file) if args.problem_file else "")
+    if not (args.name and problem):
+        return None
+    repo = (args.repo or "").strip()
+    is_url = repo.lower().startswith(("http://", "https://"))
+    if repo and not is_url and not Path(repo).expanduser().is_dir():
+        raise MeetingError(f"Repository path is not a directory: {repo}")
+    return MeetingInput(
+        project_name=args.name.strip(), problem=problem.strip(), constraints=list(args.constraint),
+        repo_path=repo if repo and not is_url else None, github_url=repo if is_url else None, output_dir=args.output,
+    )
+
+
+def _interactive_terminal() -> bool:
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def finish_tui(app) -> int:
+    """After the full-screen UI closes, leave a short summary in the normal terminal."""
+    if app.result is not None:
+        print_summary(app.result)
+        return 0 if app.result.report.passed else 2
+    if app.error:
+        print(f"\nError: {app.error}", file=sys.stderr)
+    if app.out_dir is not None and (app.out_dir / "meeting.json").exists():
+        print(f"Completed stages are saved. Continue with:  python -m engineering_council resume \"{app.out_dir}\"")
+    return 1 if app.error else 130
+
+
 def confirm(inp: MeetingInput, settings: Settings, assume_yes: bool) -> None:
     print("\nConfiguration")
     print(f"  Project:     {inp.project_name}")
@@ -157,6 +189,11 @@ def main(argv: list[str] | None = None, llm_factory=_make_llm) -> int:
             return _sub(argv, llm_factory)
         args = build_parser().parse_args(argv)
         settings = load_settings()
+        if not args.plain and _interactive_terminal():
+            from engineering_council.tui import run_tui  # imported lazily: --plain and tests never need Textual
+
+            app = run_tui(settings, llm_factory(settings), input_from_args(args), base_output=args.output, auto_answers=args.yes)
+            return finish_tui(app)
         inp = gather_input(args)
         confirm(inp, settings, args.yes)
         result = asyncio.run(
@@ -178,6 +215,7 @@ def _sub(argv: list[str], llm_factory) -> int:
     p.add_argument("directory", help="the meeting output directory")
     p.add_argument("--yes", "-y", action="store_true")
     p.add_argument("--verbose", "-v", action="store_true")
+    p.add_argument("--plain", action="store_true", help="plain scrolling output instead of the TUI")
     if cmd == "revise":
         p.add_argument("--feedback", help="what to change")
     args = p.parse_args(argv[1:])
@@ -189,6 +227,10 @@ def _sub(argv: list[str], llm_factory) -> int:
     if cmd == "resume":
         inp = load_saved_input(out_dir)
         inp = inp.model_copy(update={"output_dir": str(out_dir.parent)})
+        if not args.plain and _interactive_terminal():
+            from engineering_council.tui import run_tui
+
+            return finish_tui(run_tui(settings, llm_factory(settings), inp, base_output=str(out_dir.parent), auto_answers=args.yes, resume=True))
         result = asyncio.run(run_meeting(inp, settings, llm_factory(settings), rep, interactive=not args.yes, resume=True))
     else:
         feedback = (args.feedback or _ask("What should change? ")).strip()

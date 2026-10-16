@@ -132,6 +132,7 @@ class FakeLLM:
 
     def __init__(self, fail_stages: tuple[str, ...] = (), cover_dispute: bool = True, bad_spec_once: bool = False) -> None:
         self.usage: list[dict] = []
+        self.observer = None
         self.calls: Counter[str] = Counter()
         self.fail_stages = fail_stages
         self.cover_dispute = cover_dispute
@@ -139,6 +140,25 @@ class FakeLLM:
         self.overrides: dict[type, Callable] = {}
 
     async def generate(self, prompt, schema, *, stage, system=""):
+        from engineering_council.gemini_client import LLMEvent
+
+        def emit(kind, text="", info=""):
+            if self.observer:
+                self.observer(LLMEvent(kind, stage, 1, text, info))
+
+        emit("start", info="fake prompt")
+        try:
+            obj = await self._make(prompt, schema, stage)
+        except Exception as exc:
+            emit("error", info=str(exc))
+            raise
+        raw = obj.model_dump_json()
+        emit("chunk", raw[: len(raw) // 2])
+        emit("chunk", raw[len(raw) // 2 :])
+        emit("done", info="0.0s fake")
+        return obj
+
+    async def _make(self, prompt, schema, stage):
         self.calls[stage] += 1
         if any(stage.startswith(f) for f in self.fail_stages):
             raise LLMError(f"{stage}: injected failure")

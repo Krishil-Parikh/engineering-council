@@ -13,6 +13,7 @@ from engineering_council.gemini_client import (
     QuotaError,
     classify_error,
     extract_json,
+    retry_delay_seconds,
 )
 
 
@@ -33,7 +34,7 @@ def make_client(replies):
     c = GeminiClient(Settings(api_key="secret-key", model="m", max_attempts=3), sleep=no_sleep)
     queue = list(replies)
 
-    async def fake_call(prompt, schema, system):
+    async def fake_call(prompt, schema, system, stage="", attempt=1):
         item = queue.pop(0)
         if isinstance(item, Exception):
             raise item
@@ -71,7 +72,7 @@ def test_transient_error_retried():
 
 def test_quota_exhaustion_reports_quota_error():
     with pytest.raises(QuotaError):
-        gen(make_client([FakeAPIError(429)] * 3))
+        gen(make_client([FakeAPIError(429)] * 8))
 
 
 def test_auth_and_model_errors_are_fatal_and_do_not_leak_key():
@@ -109,3 +110,18 @@ def test_live_structured_call():
     c = GeminiClient(s)
     out = asyncio.run(c.generate("Return a short greeting.", Out, stage="live"))
     assert out.greeting
+
+
+def test_quota_is_waited_out_then_succeeds_and_emits_events():
+    c = make_client([FakeAPIError(429, "Please retry in 34.5s"), '{"greeting": "ok"}'])
+    seen = []
+    c.observer = seen.append
+    assert gen(c).greeting == "ok"
+    assert any(e.kind == "retry" and "429" in e.info for e in seen)
+    assert seen[-1].kind == "done"
+
+
+def test_retry_delay_parsing():
+    assert retry_delay_seconds("Please retry in 34.5s.") == 34.5
+    assert retry_delay_seconds("{'retryDelay': '12s'}") == 12.0
+    assert retry_delay_seconds("nothing") is None

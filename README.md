@@ -26,10 +26,27 @@ pip install -e ".[dev]"
 copy .env.example .env              # then set GEMINI_API_KEY (and optionally GEMINI_MODEL)
 ```
 
+## The TUI (default in a real terminal)
+
+Running `python -m engineering_council` opens a full-screen interface so you can oversee the whole meeting:
+
+| Area | What you see |
+|---|---|
+| Left: **Stages** | The 8 stages, with the current one highlighted. |
+| Left: **Council** | Each member's live state (waiting, thinking, writing, retrying, done, failed), seconds elapsed and characters produced. |
+| **Feed** tab (`f`) | The conversation: every proposal, review, objection, rebuttal and decision as a full, colour-coded card. |
+| Member tabs (`1`-`5`) | The raw model output streaming token by token for Architect, Product/UX, MVP, Red Team and the Arbiter, including retries. Thought summaries appear in dim italics on Gemini thinking models. |
+| **Activity** tab (`l`) | Every request sent, rate-limit wait, retry and failure, with timestamps. |
+| **Documents** tab (`p` PRD, `t` Technical, `d` Design, `m` minutes, `v` verification) | The finished documents rendered in place. |
+
+Product questions appear as a pop-up: arrow keys to choose, Enter to confirm, Esc for the recommended default. `q` quits; completed stages are saved and `resume` continues. Use `--plain` for simple scrolling output (also used automatically when output is piped).
+
+Gemma/Gemini models on the free tier return 429/503 under load. The client waits out rate limits (honouring the server's retry hint, shared across parallel calls) and retries transient errors; you can watch this in the Activity tab.
+
 ## Use
 
 ```text
-python -m engineering_council                          # interactive
+python -m engineering_council                          # opens the TUI with a start form
 python -m engineering_council --name "My App" --problem-file problem.md --repo ./my-repo --constraint "Python" -y
 python -m engineering_council resume output/my-app     # continue an interrupted meeting
 python -m engineering_council revise output/my-app --feedback "Add CSV export"

@@ -12,8 +12,10 @@ from typing import Callable
 from pydantic import BaseModel
 
 from engineering_council import documents, prompts, questions, repository, synthesis, verification
+from engineering_council import questions as _questions
+from engineering_council.formatting import format_dispute, format_proposal, format_rebuttal, format_review
 from engineering_council.config import Settings
-from engineering_council.gemini_client import LLM, AuthError, LLMError, ModelError
+from engineering_council.gemini_client import LLM, AuthError, LLMError, LLMEvent, ModelError
 from engineering_council.models import (
     AGENT_IDS,
     Answer,
@@ -23,6 +25,7 @@ from engineering_council.models import (
     Decision,
     DecisionSet,
     Dispute,
+    HumanQuestion,
     MeetingInput,
     QuestionCuration,
     RepoSnapshot,
@@ -52,16 +55,21 @@ class QuestionLedger(BaseModel):
 
 
 class Reporter:
-    """Terminal output. Concise by default; the 'meeting feed' lines make the discussion visible."""
+    """Plain terminal output. The TUI subclasses this and overrides every method to render richly."""
 
-    def __init__(self, verbose: bool = False, out: Callable[[str], None] = print) -> None:
-        self.verbose, self.out = verbose, out
+    def __init__(self, verbose: bool = False, out: Callable[[str], None] | None = None) -> None:
+        self.verbose = verbose
+        self.out = out or (lambda text: print(text, flush=True))
 
     def stage(self, n: int, label: str) -> None:
         self.out(f"\n[{n}/{TOTAL_STAGES}] {label}")
 
     def say(self, who: str, text: str) -> None:
         self.out(f"      {who}: {_clip(text, 220)}")
+
+    def publish(self, kind: str, who: str, title: str, body: str) -> None:
+        """A finished contribution (proposal, objection, rebuttal, decision). Plain mode shows the headline only."""
+        self.say(who, title)
 
     def note(self, text: str) -> None:
         self.out(f"      {text}")
@@ -72,6 +80,14 @@ class Reporter:
     def debug(self, text: str) -> None:
         if self.verbose:
             self.out(f"      · {text}")
+
+    def llm_event(self, ev: LLMEvent) -> None:
+        """Live model activity. Plain mode only surfaces retries and failures (and everything with -v)."""
+        if ev.kind in ("retry", "error") or (self.verbose and ev.kind in ("start", "done")):
+            self.out(f"      · [{ev.stage}] {ev.kind}: {ev.info}")
+
+    async def ask(self, questions: list[HumanQuestion], interactive: bool, input_fn: Callable[[str], str]) -> list[Answer]:
+        return _questions.ask(questions, interactive=interactive, input_fn=input_fn, output_fn=self.out)
 
 
 @dataclass
@@ -135,6 +151,7 @@ async def run_meeting(
     if (out_dir / "meeting.json").exists() and not resume:
         raise MeetingError(f"{out_dir} already holds a meeting. Use `resume` to continue it or pick another project name.")
     store = MeetingStore(out_dir, settings.model)
+    llm.observer = reporter.llm_event
     try:
         return await _run(inp, settings, llm, reporter, store, interactive, input_fn)
     except (KeyboardInterrupt, asyncio.CancelledError):
@@ -178,7 +195,7 @@ async def _run(
         for w in warns:
             store.warn(w)
     for d in ledger.formal:
-        rep.say(d.source_agent, f"{d.severity} objection to {d.target_agent} ({d.dispute_id}): {d.claim}")
+        rep.publish("dispute", d.source_agent, f"{d.severity} objection to {d.target_agent} ({d.dispute_id}): {d.claim}", format_dispute(d))
     if not ledger.formal:
         rep.note("No CRITICAL or MAJOR objections were raised.")
     if ledger.nitpicks:
@@ -206,7 +223,7 @@ async def _run(
             rep.note(f"{len(curation.questions)} question(s) need your decision.")
         else:
             rep.note("No material questions; continuing without pausing.")
-        answers = questions.ask(curation.questions, interactive=interactive, input_fn=input_fn, output_fn=rep.out)
+        answers = await rep.ask(curation.questions, interactive, input_fn)
         qledger = QuestionLedger(curation=curation, answers=answers)
         store.save("questions.json", qledger)
     store.complete("questions")
@@ -226,7 +243,7 @@ async def _run(
         dset = DecisionSet(decisions=decisions)
         store.save("decisions.json", dset)
     for d in dset.decisions:
-        rep.say(d.decision_id, f"[{d.status}] {d.statement} -> {d.chosen_option}")
+        rep.publish("decision", "ARBITER", f"{d.decision_id} [{d.status}] {d.statement} -> {d.chosen_option}", documents.render_decision(d))
     store.complete("decisions")
 
     # 7 ---- specification + documents -------------------------------------------------------
@@ -317,7 +334,7 @@ async def _proposals(llm: LLM, settings: Settings, ctx: str, store: MeetingStore
             rep.warn(msg)
         else:
             proposals[agent] = res
-            rep.say(agent, res.thesis)
+            rep.publish("proposal", agent, res.thesis, format_proposal(res))
     if len(proposals) < settings.min_quorum:
         raise MeetingError(
             f"Only {len(proposals)} of {len(AGENT_IDS)} proposals succeeded (quorum is {settings.min_quorum}). "
@@ -356,8 +373,7 @@ async def _reviews(llm: LLM, settings: Settings, ctx: str, proposals: dict[str, 
             rep.warn(msg)
         else:
             reviews[agent] = res
-            if res.summary:
-                rep.say(agent, res.summary)
+            rep.publish("review", agent, res.summary or "Review complete.", format_review(res))
     if not reviews:
         raise MeetingError("No reviews completed; refusing to synthesize without any adversarial review.")
     return reviews
@@ -399,7 +415,7 @@ async def _rebuttals(llm: LLM, settings: Settings, proposals: dict[str, AgentPro
             continue
         out[agent] = res
         for r in res.responses:
-            rep.say(agent, f"{r.stance} {r.dispute_id}: {r.response}")
+            rep.publish("rebuttal", agent, f"{r.stance} {r.dispute_id}: {r.response}", format_rebuttal(r))
         answered = {r.dispute_id for r in res.responses}
         for d in targets[agent]:
             if d.dispute_id not in answered:
@@ -498,3 +514,4 @@ async def revise_meeting(out_dir: Path, feedback: str, settings: Settings, llm: 
         return MeetingResult(out_dir, report, list(store.state.warnings), new_spec.decisions)
     finally:
         _save_usage(store, llm)
+

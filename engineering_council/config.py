@@ -18,9 +18,10 @@ class Settings:
     api_key: str = field(default="", repr=False)  # repr=False keeps the key out of logs
     model: str = "gemini-2.5-flash"
     request_timeout_s: float = 600.0  # large structured outputs on big models can be slow
-    max_attempts: int = 3  # per call: transient errors and malformed output share this budget
+    max_attempts: int = 6  # per call: transient errors and malformed output share this budget
+    max_quota_waits: int = 8  # separate budget for 429s, which are waited out rather than failed
     max_output_tokens: int = 32768
-    max_concurrency: int = 4
+    max_concurrency: int = 2  # free-tier quotas are per minute; two calls at a time is gentler
     min_quorum: int = 3  # proposals required to continue the meeting
     max_questions: int = 5
     max_disputes_per_reviewer: int = 6
