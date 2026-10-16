@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engineering-council"
+version = "0.1.0"
+description = "Terminal multi-agent council that turns a problem statement into PRD, Technical Approach and Design documents."
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai>=1.0",
+    "pydantic>=2.6",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+engineering-council = "engineering_council.cli:main"
+
+[tool.setuptools]
+packages = ["engineering_council"]
+
+[tool.setuptools.package-data]
+engineering_council = ["system_prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

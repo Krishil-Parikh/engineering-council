@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+output/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# user-supplied prompt pack source (packaged copy lives in engineering_council/system_prompts)
+Engineering_Council_System_Prompts*
