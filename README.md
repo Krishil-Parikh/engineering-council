@@ -81,3 +81,17 @@ RUN_LIVE=1 pytest -k live   # opt-in real API smoke test
 ## Safety
 
 Repository content is untrusted data and is delimited as such in prompts. `.env`, keys and credential-like files are never read; secret-looking lines are redacted. The Gemini key is never written to logs or artifacts. The problem statement and repository excerpts are sent to the Gemini API, so only point this at material you are happy to send.
+
+## Building the project: the coding harness
+
+After a meeting, the pod can implement what it specified:
+
+```
+python -m engineering_council build output/<project>        # developers build in output/<project>/project
+python -m coding_harness -d some/project                     # or use the harness on its own
+```
+
+`coding_harness/` is a separate package modelled on opencode: file, search, edit/patch, shell, web and subagent tools; git and GitHub through
+the shell (`gh`); permission rules; `AGENTS.md` and skills as project memory; conversation compaction; undo through shadow-git snapshots.
+See `coding_harness/README.md`. The build hands each step of the specification's implementation sequence to the developer whose skill fits,
+commits per step, then runs the spec's verification commands with repair rounds, and writes `build_report.md`.

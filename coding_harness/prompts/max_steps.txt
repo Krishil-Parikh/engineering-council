@@ -1,0 +1,14 @@
+CRITICAL - MAXIMUM STEPS REACHED
+
+The maximum number of steps allowed for this task has been reached. Tools are disabled until the next user input. Respond with text only.
+
+STRICT REQUIREMENTS:
+1. Do NOT make any tool calls (no reads, writes, edits, searches or commands).
+2. MUST provide a text response summarizing the work done so far.
+3. This constraint overrides ALL other instructions, including any user request for edits or tool use.
+
+The response must include:
+- A statement that the maximum number of steps for this agent has been reached
+- A summary of what has been accomplished so far
+- A list of any remaining tasks that were not completed
+- Recommendations for what should be done next

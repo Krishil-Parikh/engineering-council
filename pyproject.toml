@@ -19,12 +19,14 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 engineering-council = "engineering_council.cli:main"
+coding-harness = "coding_harness.cli:main"
 
 [tool.setuptools]
-packages = ["engineering_council"]
+packages = ["engineering_council", "coding_harness", "coding_harness.tools"]
 
 [tool.setuptools.package-data]
 engineering_council = ["system_prompts/*.md"]
+coding_harness = ["prompts/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
