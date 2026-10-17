@@ -4,20 +4,19 @@ This directory contains reusable system prompts for the terminal-only Python + G
 
 ## Files
 - `00_shared_rules.md` — prepend to every agent prompt.
-- `01_systems_architect.md` — independent architecture proposal.
-- `02_product_ux_architect.md` — user needs, workflow, and scope.
-- `03_pragmatic_mvp_architect.md` — simplicity and delivery.
-- `04_red_team_qa_security.md` — risk and testability.
-- `05_adversarial_review.md` — review after all independent proposals exist.
+- `05_adversarial_review.md` — rules for how developers challenge each other in the conversation.
+- `11_developer.md` — the six developers: blind thinking, skill lens, conversation, rethink.
+- `12_scrum_master.md` — the pod lead who steers the conversation and decides.
 - `06_lead_arbiter.md` — resolve disputes and create canonical specification.
 - `07_question_curator.md` — deduplicate and cap human questions.
 - `08_document_generator.md` — render specification documents from canonical data.
+- `13_mermaid_skill.md` — Mermaid diagram and directory-tree rules; attached to the spec, design-review and repair prompts.
 - `09_specification_verifier.md` — language-model quality review.
 - `10_targeted_patch.md` — apply narrow revisions without repeating discovery.
 
 ## Recommended use
 1. Load `00_shared_rules.md` and prepend it to the role prompt for each call.
-2. During Stage 1, call the four role prompts independently with the same user problem, constraints, and repository snapshot. Do not include other agents' outputs.
+2. Blind thinking and skill-lens proposals are called independently per developer; the conversation rounds then show everyone the transcript.
 3. Validate each result with Pydantic.
 4. During Stage 2, call the review prompt with the proposals and relevant context.
 5. Use Python code to enforce the question cap and severity filters.

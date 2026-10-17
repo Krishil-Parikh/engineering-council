@@ -30,11 +30,19 @@ def test_full_meeting_produces_all_artifacts(tmp_path):
         assert (out / name).read_text(encoding="utf-8").strip(), name
     assert result.report.passed
     assert json.loads((out / "meeting.json").read_text())["status"] == "completed"
-    assert sorted(p.stem for p in (out / "proposals").glob("*.json")) == sorted(["SYSTEMS_ARCHITECT", "PRODUCT_UX", "PRAGMATIC_MVP", "RED_TEAM_QA"])
-    # one rebuttal call for the single agent that was objected to
-    assert llm.calls["rebuttal:PRAGMATIC_MVP"] == 1
+    assert sorted(p.stem for p in (out / "proposals").glob("*.json")) == sorted(f"DEV_{i}" for i in range(1, 7))
+    # blind thinking and skill lens come from the same six developers; the conversation is not fixed rounds
+    assert all(llm.calls[f"blind:DEV_{i}"] == 1 and llm.calls[f"proposal:DEV_{i}"] == 1 for i in range(1, 7))
+    talks = {i: sum(n for k, n in llm.calls.items() if k.startswith("talk") and k.endswith(f":DEV_{i}")) for i in range(1, 7)}
+    assert all(n >= 2 for n in talks.values()), talks  # everyone spoke more than once
+    assert len(list((out / "conversation").glob("segment-*.json"))) >= 2
+    assert json.loads((out / "roster.json").read_text())["skills"] == {
+        "DEV_1": "FRONTEND", "DEV_2": "BACKEND", "DEV_3": "AIML", "DEV_4": "MLOPS", "DEV_5": "DEVOPS", "DEV_6": "DATABASE"}
+    # the developer who was objected to answers it themself, in their own turn, not via a separate rebuttal agent
+    segs = " ".join(p.read_text(encoding="utf-8") for p in (out / "conversation").glob("segment-*.json"))
+    assert "DSP-001" in segs and "ACCEPT" in segs
     minutes = (out / "minutes.md").read_text(encoding="utf-8")
-    assert "DSP-001" in minutes and "Round 3" in minutes
+    assert "DSP-001" in minutes and "Part 4 — The conversation" in minutes and "Part 2 — Skills picked" in minutes
 
 
 def test_question_gate_never_exceeds_five(tmp_path):
@@ -44,26 +52,26 @@ def test_question_gate_never_exceeds_five(tmp_path):
 
 
 def test_one_failed_agent_is_reported_not_hidden(tmp_path):
-    result = run(make_input(tmp_path), FakeLLM(fail_stages=("proposal:RED_TEAM_QA",)))
-    assert any("RED_TEAM_QA did not contribute" in w for w in result.warnings)
-    assert not (result.out_dir / "proposals" / "RED_TEAM_QA.json").exists()
+    result = run(make_input(tmp_path), FakeLLM(fail_stages=("proposal:DEV_4",)))
+    assert any("DEV_4" in w and "did not contribute" in w for w in result.warnings)
+    assert not (result.out_dir / "proposals" / "DEV_4.json").exists()
     assert "Absent" in (result.out_dir / "minutes.md").read_text(encoding="utf-8")
 
 
 def test_transient_proposal_failure_gets_one_second_chance(tmp_path):
-    llm = FakeLLM(fail_once=("proposal:RED_TEAM_QA",))
+    llm = FakeLLM(fail_once=("proposal:DEV_4",))
     result = run(make_input(tmp_path), llm)
-    assert llm.calls["proposal:RED_TEAM_QA"] == 2 or (result.out_dir / "proposals" / "RED_TEAM_QA.json").exists()
-    assert (result.out_dir / "proposals" / "RED_TEAM_QA.json").exists()
+    assert llm.calls["proposal:DEV_4"] == 2 or (result.out_dir / "proposals" / "DEV_4.json").exists()
+    assert (result.out_dir / "proposals" / "DEV_4.json").exists()
     assert not any("did not contribute" in w for w in result.warnings)
 
 
 def test_below_quorum_stops_but_keeps_completed_work(tmp_path):
-    llm = FakeLLM(fail_stages=("proposal:RED_TEAM_QA", "proposal:PRODUCT_UX"))
+    llm = FakeLLM(fail_stages=("proposal:DEV_4", "proposal:DEV_2", "proposal:DEV_5"))
     with pytest.raises(MeetingError, match="quorum"):
         run(make_input(tmp_path), llm)
     out = tmp_path / "todo-cli"
-    assert (out / "proposals" / "SYSTEMS_ARCHITECT.json").exists()
+    assert (out / "proposals" / "DEV_1.json").exists()
     assert json.loads((out / "meeting.json").read_text())["status"] == "failed"
 
 
@@ -73,7 +81,7 @@ def test_resume_skips_completed_stages(tmp_path):
     llm = FakeLLM()
     result = run(make_input(tmp_path), llm, resume=True)
     assert result.report.passed
-    assert llm.calls["proposal:SYSTEMS_ARCHITECT"] == 0 and llm.calls["review:RED_TEAM_QA"] == 0
+    assert llm.calls["proposal:DEV_1"] == 0 and llm.calls["review:DEV_4"] == 0
     assert llm.calls["decisions"] == 1
 
 
@@ -111,22 +119,22 @@ def test_revision_preserves_previous_version_and_reverifies(tmp_path):
 # ------------------------------------------------------------------ synthesis units
 
 
-def _dispute(sev, target="PRODUCT_UX"):
+def _dispute(sev, target="DEV_2"):
     return Dispute(target_agent=target, claim="c", severity=sev, category="OTHER", failure_mechanism="f", counterproposal="p")
 
 
 def test_collect_disputes_assigns_ids_and_caps():
     from engineering_council.models import AgentReview
-    reviews = {"RED_TEAM_QA": AgentReview(disputes=[_dispute("NITPICK")] * 3 + [_dispute("CRITICAL")] * 9 + [_dispute("MAJOR", target="NOBODY")])}
+    reviews = {"DEV_4": AgentReview(disputes=[_dispute("NITPICK")] * 3 + [_dispute("CRITICAL")] * 9 + [_dispute("MAJOR", target="NOBODY")])}
     formal, nits, warns = synthesis.collect_disputes(reviews, Settings(max_disputes_per_reviewer=6))
     assert [d.dispute_id for d in formal] == [f"DSP-{i:03d}" for i in range(1, 7)]
     assert not nits and warns
-    assert all(d.source_agent == "RED_TEAM_QA" for d in formal)
+    assert all(d.source_agent == "DEV_4" for d in formal)
 
 
 def test_unknown_target_is_mapped_to_council():
     from engineering_council.models import AgentReview
-    formal, _, _ = synthesis.collect_disputes({"RED_TEAM_QA": AgentReview(disputes=[_dispute("MAJOR", target="NOBODY")])}, Settings())
+    formal, _, _ = synthesis.collect_disputes({"DEV_4": AgentReview(disputes=[_dispute("MAJOR", target="NOBODY")])}, Settings())
     assert formal[0].target_agent == "COUNCIL"
 
 
@@ -163,7 +171,114 @@ def test_council_rediscusses_after_human_answers(tmp_path):
     llm = FakeLLM()
     result = run(make_input(tmp_path), llm)
     out = result.out_dir
-    for agent in ("SYSTEMS_ARCHITECT", "PRODUCT_UX", "PRAGMATIC_MVP", "RED_TEAM_QA"):
+    for agent in (f"DEV_{i}" for i in range(1, 7)):
         assert llm.calls[f"rediscuss:{agent}"] == 1
         assert (out / "reconsiderations" / f"{agent}.json").exists()
-    assert "Re-discussion after the human's answers" in (out / "minutes.md").read_text(encoding="utf-8")
+    assert "Rethink after the human's answers" in (out / "minutes.md").read_text(encoding="utf-8")
+
+
+def test_skill_assignment_gives_everyone_a_distinct_skill_even_on_clashes():
+    from engineering_council.conversation import assign_skills
+    from engineering_council.models import BlindThoughts, SKILLS
+    same = {f"DEV_{i}": BlindThoughts(agent_id=f"DEV_{i}", understanding="u", skill_preferences=["backend", "AI/ML", "db"]) for i in range(1, 7)}
+    roster = assign_skills(same, [f"DEV_{i}" for i in range(1, 7)])
+    assert sorted(roster.values()) == sorted(SKILLS)
+    assert roster["DEV_1"] == "BACKEND" and roster["DEV_2"] == "AIML" and roster["DEV_3"] == "DATABASE"
+
+
+def test_later_speakers_hear_what_was_just_said_and_the_flow_is_not_rounds(tmp_path):
+    prompts_seen = []
+
+    class Spy(FakeLLM):
+        async def _make(self, prompt, schema, stage):
+            if stage.startswith("talk"):
+                prompts_seen.append((stage, prompt))
+            return await super()._make(prompt, schema, stage)
+
+    run(make_input(tmp_path), Spy())
+    assert "(nothing yet since the scrum master spoke)" in prompts_seen[0][1]
+    assert "speaks in part 1" in prompts_seen[1][1]  # the second speaker heard the first
+    first_speakers = [st.split(":")[1] for st, _ in prompts_seen[:3]]
+    assert len(set(first_speakers)) == 3  # nobody monopolises the opening
+
+
+def test_addressed_developer_is_called_on_next():
+    from collections import Counter
+    from engineering_council.conversation import pick_speaker
+    from engineering_council.models import AgentTurn, ScrumNote, Utterance
+    agents = [f"DEV_{i}" for i in range(1, 7)]
+    spoken = Counter({a: 3 for a in agents})
+    recent = [AgentTurn(agent_id="DEV_1", utterances=[Utterance(to="DEV_5", kind="CHALLENGE", text="x")])]
+    nxt = pick_speaker(agents, spoken, "DEV_1", recent, {}, set(), ScrumNote(summary="s"), 2)
+    assert nxt == "DEV_5"
+    # someone who passed and was not addressed is not asked again
+    assert pick_speaker(["DEV_2"], Counter({"DEV_2": 3}), "DEV_1", [], {}, {"DEV_2"}, ScrumNote(summary="s"), 2) is None
+
+
+def test_conversation_ends_by_itself_when_everyone_has_nothing_to_add(tmp_path):
+    from engineering_council.models import AgentTurn
+
+    class Quiet(FakeLLM):
+        async def _make(self, prompt, schema, stage):
+            self.calls[stage] += 0
+            if schema is AgentTurn and "talk1" not in stage:
+                self.calls[stage] += 1
+                return AgentTurn(agent_id="x", pass_turn=True)
+            return await super()._make(prompt, schema, stage)
+
+    result = run(make_input(tmp_path), Quiet())
+    assert result.report.passed
+    assert len(list((result.out_dir / "conversation").glob("segment-*.json"))) <= 4
+
+
+def test_unanswered_objection_is_reported(tmp_path):
+    dead = tuple(f"talk{n}:DEV_3" for n in range(1, 12))
+    result = run(make_input(tmp_path), FakeLLM(fail_stages=dead))
+    assert any("never answered" in w and "DSP-001" in w for w in result.warnings)
+
+
+# --------------------------------------------------------------------------- diagrams and design review
+
+
+def test_documents_carry_valid_mermaid_diagrams_and_the_directory_tree(tmp_path):
+    from engineering_council import mermaid
+
+    out = run(make_input(tmp_path), FakeLLM()).out_dir
+    for name in ("PRD.md", "Technical_Approach.md", "Design.md"):
+        text = (out / name).read_text(encoding="utf-8")
+        blocks = mermaid.BLOCK.findall(text)
+        assert blocks, name
+        assert all(not mermaid.lint(b) for b in blocks), (name, [mermaid.lint(b) for b in blocks])
+        assert "todo-cli/" in text, name  # the directory structure appears in each document
+    assert "Part 6" in (out / "minutes.md").read_text(encoding="utf-8")
+
+
+def test_invalid_model_diagram_is_replaced_by_one_built_from_the_components():
+    from engineering_council import mermaid
+
+    from tests.fakes import draft_spec
+
+    bad = "flowchart TD" + chr(10) + "  A[(broken"
+    spec = synthesis.finalize_spec(draft_spec().model_copy(update={"architecture_diagram": bad}), [])
+    assert not mermaid.lint(spec.architecture_diagram)
+    assert not mermaid.mentions(spec.architecture_diagram, [c.name for c in spec.components])
+
+
+def test_design_review_applies_requests_then_asks_again(tmp_path):
+    from engineering_council.models import DesignVote
+
+    llm = FakeLLM()
+
+    def vote(prompt, stage):
+        agent = stage.split(":")[1]
+        if stage.startswith("design1") and agent == "DEV_5":
+            return DesignVote(agent_id=agent, directory_ok=False, directory_changes=["Add a docs/ folder"])
+        return DesignVote(agent_id=agent)
+
+    llm.overrides[DesignVote] = vote
+    result = run(make_input(tmp_path), llm)
+    review = json.loads((result.out_dir / "design_review.json").read_text())
+    assert len(review["rounds"]) == 2 and review["agreed"] is True
+    assert llm.calls["design1:revise"] == 1
+    assert result.report.passed
+    assert "Add a docs/ folder" in (result.out_dir / "minutes.md").read_text(encoding="utf-8")

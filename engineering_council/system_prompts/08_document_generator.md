@@ -62,3 +62,10 @@ Before returning, check:
 - The three documents do not contradict each other.
 
 Return only the exact requested format.
+
+
+## Diagrams and structure (every document)
+- PRD.md: a system-context Mermaid diagram and the agreed project structure (directory tree).
+- Technical_Approach.md: the architecture Mermaid diagram, the directory tree, and a diagram per important runtime flow.
+- Design.md: the directory tree, the architecture diagram and, if data is stored, an ER diagram.
+- Diagrams follow the Mermaid skill rules and must show exactly the components and files named in the text. Never draw something the text does not describe.

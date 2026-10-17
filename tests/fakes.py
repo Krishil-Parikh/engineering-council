@@ -12,6 +12,12 @@ from engineering_council.models import (
     AgentProposal,
     AgentReconsideration,
     AgentRebuttal,
+    AgentTurn,
+    BlindThoughts,
+    DesignVote,
+    ScrumNote,
+    SKILLS,
+    Utterance,
     PositionChange,
     AgentReview,
     ArchComponent,
@@ -118,15 +124,36 @@ def proposal(agent: str, with_question: bool = False) -> AgentProposal:
     )
 
 
-def review(agent: str) -> AgentReview:
-    if agent == "RED_TEAM_QA":
-        return AgentReview(agent_id=agent, summary="Atomic writes are missing.", disputes=[
-            Dispute(target_agent="PRAGMATIC_MVP", claim="Plain file writes", severity="MAJOR", category="DATA_INTEGRITY",
+def blind(agent: str) -> BlindThoughts:
+    n = int(agent.split("_")[1]) - 1
+    prefs = list(SKILLS[n:]) + list(SKILLS[:n])  # everyone wants a different skill first
+    return BlindThoughts(agent_id=agent, understanding=f"{agent} sees a small local task list.", ideas=["Keep it a single file"], worries=["Corruption"], skill_preferences=prefs)
+
+
+def scrum_note(stage: str) -> ScrumNote:
+    check = int(stage.split("check")[1]) if "check" in stage else 0
+    qs = [HumanQuestion(question="Should tasks sync across devices?", why_it_matters="Changes scope", options=["Yes", "No"], recommended_default="No")]
+    return ScrumNote(
+        summary="The pod mostly agrees on a local JSON store.", agreements=["Local storage"], open_threads=["Atomic writes"],
+        focus_next=["Settle write safety"], message_to_team="DEV_3 and DEV_4, please settle write safety this round.",
+        product_questions=qs if stage == "scrum:wrapup" else [], ready_to_wrap=check >= 3,
+    )
+
+
+def turn(agent: str, stage: str, prompt: str = "") -> AgentTurn:
+    rnd = int(stage.split(":")[0].replace("talk", ""))
+    utter = [Utterance(to="DEV_3" if agent != "DEV_3" else "DEV_4", kind="CHALLENGE" if agent == "DEV_4" else "BUILD_ON", text=f"{agent} speaks in part {rnd}.")]
+    t = AgentTurn(agent_id=agent, utterances=utter, endorsements=["Atomic rename"] if agent == "DEV_1" else [])
+    if agent == "DEV_4" and "dispute DSP-" not in prompt and rnd == 1:
+        t.disputes = [
+            Dispute(target_agent="DEV_3", claim="Plain file writes", severity="MAJOR", category="DATA_INTEGRITY",
                     failure_mechanism="A crash mid-write truncates the file", counterproposal="Write temp then rename"),
-            Dispute(target_agent="PRODUCT_UX", claim="Colour output", severity="NITPICK", category="OTHER",
+            Dispute(target_agent="DEV_2", claim="Colour output", severity="NITPICK", category="OTHER",
                     failure_mechanism="Hard to read in some terminals", counterproposal="Allow disabling"),
-        ])
-    return AgentReview(agent_id=agent, no_material_objection=True, summary="No material objection.")
+        ]
+    if agent == "DEV_3" and "- DSP-001 [" in prompt:
+        t.responses = [RebuttalItem(dispute_id="DSP-001", stance="ACCEPT", response="Fair point.", revised_position="Use atomic rename")]
+    return t
 
 
 class FakeLLM:
@@ -172,11 +199,15 @@ class FakeLLM:
             return self.overrides[schema](prompt, stage)
         agent = stage.split(":", 1)[1] if ":" in stage else ""
         if schema is AgentProposal:
-            return proposal(agent, with_question=agent == "PRODUCT_UX")
-        if schema is AgentReview:
-            return review(agent)
-        if schema is AgentRebuttal:
-            return AgentRebuttal(agent_id=agent, responses=[RebuttalItem(dispute_id="DSP-001", stance="ACCEPT", response="Fair point.", revised_position="Use atomic rename")])
+            return proposal(agent, with_question=agent == "DEV_2")
+        if schema is DesignVote:
+            return DesignVote(agent_id=agent)
+        if schema is BlindThoughts:
+            return blind(agent)
+        if schema is ScrumNote:
+            return scrum_note(stage)
+        if schema is AgentTurn:
+            return turn(agent, stage, prompt)
         if schema is AgentReconsideration:
             return AgentReconsideration(agent_id=agent, answer_impact="The answers keep the scope small.", position_changes=[PositionChange(topic="Sync", change="Drop cloud sync", reason="Human said no")])
         if schema is QuestionCuration:

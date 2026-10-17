@@ -7,7 +7,10 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-AGENT_IDS = ("SYSTEMS_ARCHITECT", "PRODUCT_UX", "PRAGMATIC_MVP", "RED_TEAM_QA")
+# Six generic developers. Each picks a skill when the meeting starts (see conversation.assign_skills); a scrum master leads.
+AGENT_IDS = ("DEV_1", "DEV_2", "DEV_3", "DEV_4", "DEV_5", "DEV_6")
+SCRUM_MASTER = "SCRUM_MASTER"
+SKILLS = ("FRONTEND", "BACKEND", "AIML", "MLOPS", "DEVOPS", "DATABASE")
 
 Severity = Literal["CRITICAL", "MAJOR", "NITPICK"]
 DecisionStatus = Literal["DECIDED", "PROVISIONAL", "UNRESOLVED"]
@@ -100,6 +103,7 @@ class AgentProposal(BaseModel):
     evidence: list[str] = Field(default_factory=list)
     alternatives_considered: list[str] = Field(default_factory=list)
     product_questions: list[HumanQuestion] = Field(default_factory=list)
+    layout_sketch: str = ""  # the project folder layout this developer would propose, as a short tree
 
 
 # --------------------------------------------------------------------------- review
@@ -137,6 +141,62 @@ class RebuttalItem(BaseModel):
 class AgentRebuttal(BaseModel):
     agent_id: str = ""
     responses: list[RebuttalItem] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------- the conversation
+
+
+class BlindThoughts(BaseModel):
+    """A developer's first, skill-free reaction to the problem. Written alone, before any specialism is chosen."""
+
+    agent_id: str = ""
+    understanding: str  # what the problem really is, in the developer's own words
+    ideas: list[str] = Field(default_factory=list)
+    worries: list[str] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    skill_preferences: list[str] = Field(default_factory=list)  # SKILLS, most wanted first
+
+
+class Utterance(BaseModel):
+    to: str = "ALL"  # a developer id, SCRUM_MASTER or ALL
+    kind: Literal["BUILD_ON", "CHALLENGE", "REBUT", "INNOVATE", "AGREE", "CONCEDE", "QUESTION"]
+    text: str
+
+
+class AgentTurn(BaseModel):
+    """One developer speaking once: said to colleagues, plus typed objections and answers to objections against them."""
+
+    agent_id: str = ""
+    utterances: list[Utterance] = Field(default_factory=list)
+    disputes: list[Dispute] = Field(default_factory=list)
+    responses: list[RebuttalItem] = Field(default_factory=list)  # answers to dispute ids raised against this developer
+    endorsements: list[str] = Field(default_factory=list)
+    product_questions: list[HumanQuestion] = Field(default_factory=list)
+    pass_turn: bool = False  # nothing to add right now: like a person who simply stays quiet
+
+
+class ScrumNote(BaseModel):
+    """The scrum master steering the room: where we are, what is settled, what to dig into next."""
+
+    summary: str
+    agreements: list[str] = Field(default_factory=list)
+    open_threads: list[str] = Field(default_factory=list)
+    focus_next: list[str] = Field(default_factory=list)
+    message_to_team: str = ""
+    product_questions: list[HumanQuestion] = Field(default_factory=list)
+    next_speakers: list[str] = Field(default_factory=list)  # developers the scrum master wants to hear next
+    ready_to_wrap: bool = False  # the room has converged; time to take questions to the human
+
+
+class RoundRecord(BaseModel):
+    round: int
+    note: ScrumNote
+    turns: list[AgentTurn] = Field(default_factory=list)
+    disputes: list[Dispute] = Field(default_factory=list)  # disputes first raised this round, with ids assigned
+
+
+class Roster(BaseModel):
+    skills: dict[str, str] = Field(default_factory=dict)  # DEV_1 -> BACKEND
 
 
 class PositionChange(BaseModel):
@@ -300,6 +360,7 @@ class ProductSpec(BaseModel):
     open_questions: list[str] = Field(default_factory=list)
     success_metrics: list[str]
     mvp_boundary: str
+    context_diagram: str = ""  # Mermaid flowchart: actors and external systems around the system
 
 
 class TechChoice(BaseModel):
@@ -324,6 +385,7 @@ class ArchComponent(BaseModel):
 class Flow(BaseModel):
     name: str
     steps: list[str]
+    diagram: str = ""  # Mermaid sequenceDiagram or flowchart of the same steps
 
 
 class DataEntity(BaseModel):
@@ -374,6 +436,8 @@ class TechnicalSpec(BaseModel):
     data_entities: list[DataEntity] = Field(default_factory=list)
     contracts: list[Contract] = Field(default_factory=list)
     directory_tree: str
+    architecture_diagram: str = ""  # Mermaid flowchart of the components
+    data_model_diagram: str = ""  # Mermaid erDiagram, only when there are data entities
     error_states: list[ErrorState]
     validation_rules: list[str] = Field(default_factory=list)
     config_vars: list[ConfigVar] = Field(default_factory=list)
@@ -423,6 +487,23 @@ class Revision(BaseModel):
     impacted_sections: list[str] = Field(default_factory=list)
     summary: str
     revised_spec: SpecDraft
+
+
+class DesignVote(BaseModel):
+    """One developer's opinion on the draft directory structure and architecture diagram."""
+
+    agent_id: str = ""
+    directory_ok: bool = True
+    directory_changes: list[str] = Field(default_factory=list)  # concrete: "move X to Y", "drop folder Z"
+    architecture_ok: bool = True
+    architecture_changes: list[str] = Field(default_factory=list)
+    discussion: list[Utterance] = Field(default_factory=list)  # replies to colleagues' earlier remarks
+
+
+class DesignReview(BaseModel):
+    rounds: list[list[DesignVote]] = Field(default_factory=list)
+    revisions: list[str] = Field(default_factory=list)  # what changed after each round
+    agreed: bool = True
 
 
 class MeetingState(BaseModel):

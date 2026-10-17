@@ -11,13 +11,16 @@ from typing import Callable
 
 from pydantic import BaseModel
 
-from engineering_council import documents, prompts, questions, repository, synthesis, verification
+from engineering_council import conversation, design_review, documents, prompts, questions, repository, synthesis, verification
 from engineering_council import questions as _questions
-from engineering_council.formatting import format_dispute, format_proposal, format_rebuttal, format_reconsideration, format_review
+from engineering_council.formatting import format_reconsideration
 from engineering_council.config import Settings
+from engineering_council.errors import MeetingError  # noqa: F401  (re-exported for the CLI and tests)
 from engineering_council.gemini_client import LLM, AuthError, LLMError, LLMEvent, ModelError
 from engineering_council.models import (
     AGENT_IDS,
+    SCRUM_MASTER,
+    Roster,
     Answer,
     AgentProposal,
     AgentReconsideration,
@@ -37,11 +40,7 @@ from engineering_council.models import (
 )
 from engineering_council.storage import MeetingStore, now_iso, write_text
 
-TOTAL_STAGES = 9
-
-
-class MeetingError(Exception):
-    """An expected, user-presentable meeting failure. Completed artifacts are preserved on disk."""
+TOTAL_STAGES = 10
 
 
 class DisputeLedger(BaseModel):
@@ -71,6 +70,11 @@ class Reporter:
     def publish(self, kind: str, who: str, title: str, body: str) -> None:
         """A finished contribution (proposal, objection, rebuttal, decision). Plain mode shows the headline only."""
         self.say(who, title)
+
+    def roster(self, skills: dict[str, str]) -> None:
+        """Announce who took which skill."""
+        for agent, skill in skills.items():
+            self.out(f"      {agent} takes {prompts.skill_label(skill)}")
 
     def note(self, text: str) -> None:
         self.out(f"      {text}")
@@ -178,44 +182,41 @@ async def _run(
     store.complete("inspect")
     ctx = prompts.context_block(inp, repository.snapshot_for_prompt(snap))
 
-    # 2 ---- independent proposals -----------------------------------------------------------
-    rep.stage(2, "Generating independent proposals (four members prepare alone)...")
+    # 2 ---- blind thinking, then every developer picks a skill ------------------------------------
+    rep.stage(2, "Developers think about the problem blind, then each picks a skill...")
+    store.begin("blind")
+    blinds = await conversation.run_blind(llm, settings, ctx, store, rep)
+    roster = conversation.load_roster(store)
+    if not roster:
+        roster = conversation.assign_skills(blinds, list(AGENT_IDS))
+        store.save("roster.json", Roster(skills=roster))
+    rep.roster(roster)
+    store.complete("blind")
+
+    # 3 ---- the same problem through each developer's skill, still alone -----------------------
+    rep.stage(3, "Each developer re-thinks the problem through their skill...")
     store.begin("proposals")
-    proposals, missing = await _proposals(llm, settings, ctx, store, rep)
+    proposals, missing = await conversation.run_proposals(llm, settings, ctx, roster, blinds, store, rep)
     store.complete("proposals")
 
-    # 3 ---- adversarial review --------------------------------------------------------------
-    rep.stage(3, "Reviewing proposals...")
-    store.begin("review")
-    reviews = await _reviews(llm, settings, ctx, proposals, store, rep)
-    ledger = store.load("disputes.json", DisputeLedger)
-    if ledger is None:
-        formal, nitpicks, warns = synthesis.collect_disputes(reviews, settings)
-        ledger = DisputeLedger(formal=formal, nitpicks=nitpicks, warnings=warns)
-        store.save("disputes.json", ledger)
-        for w in warns:
-            store.warn(w)
-    for d in ledger.formal:
-        rep.publish("dispute", d.source_agent, f"{d.severity} objection to {d.target_agent} ({d.dispute_id}): {d.claim}", format_dispute(d))
+    # 4 ---- the pod talks: several rounds led by the scrum master --------------------------------
+    rep.stage(4, "Pod conversation: everyone talks, challenges, rebuts and builds on each other...")
+    store.begin("conversation")
+    rounds, wrap, book = await conversation.run_conversation(llm, settings, ctx, proposals, roster, store, rep)
+    ledger = DisputeLedger(formal=book.formal, nitpicks=book.nitpicks, warnings=list(dict.fromkeys(book.warnings)))
+    store.save("disputes.json", ledger)
+    reviews = conversation.reviews_from(rounds)
+    rebuttals = conversation.rebuttals_from(rounds, book)
     if not ledger.formal:
         rep.note("No CRITICAL or MAJOR objections were raised.")
-    if ledger.nitpicks:
-        rep.debug(f"{len(ledger.nitpicks)} nitpick(s) retained in the record, not blocking.")
-    store.complete("review")
-
-    # 4 ---- rebuttals -----------------------------------------------------------------------
-    rep.stage(4, "Hearing rebuttals...")
-    store.begin("rebuttal")
-    rebuttals = await _rebuttals(llm, settings, proposals, ledger.formal, store, rep)
-    store.complete("rebuttal")
+    store.complete("conversation")
 
     # 5 ---- human question gate -------------------------------------------------------------
     rep.stage(5, "Preparing product questions...")
     store.begin("questions")
     qledger = store.load("questions.json", QuestionLedger)
     if qledger is None:
-        candidates = [(a, q) for a, p in proposals.items() for q in p.product_questions]
-        candidates += [(a, q) for a, r in reviews.items() for q in r.product_questions]
+        candidates = conversation.question_candidates(proposals, rounds, wrap)
         curation, note = await questions.curate(llm, candidates, settings, ctx)
         if note:
             store.warn(note)
@@ -230,9 +231,9 @@ async def _run(
     store.complete("questions")
 
     # 6 ---- re-discussion after the human's answers -----------------------------------------
-    rep.stage(6, "Council re-discusses in light of your answers...")
+    rep.stage(6, "Everyone rethinks now that the answers are in...")
     store.begin("rediscussion")
-    recon = await _reconsider(llm, settings, proposals, ledger.formal, rebuttals, qledger, store, rep)
+    recon = await _reconsider(llm, settings, proposals, roster, rounds, ledger.formal, qledger, store, rep)
     store.complete("rediscussion")
 
     # 7 ---- decisions -----------------------------------------------------------------------
@@ -242,7 +243,7 @@ async def _run(
     if dset is None:
         decisions, warns = await synthesis.decide(
             llm, ctx, proposals, reviews, ledger.formal, ledger.nitpicks, rebuttals,
-            qledger.answers, qledger.curation.resolved_internally, recon,
+            qledger.answers, qledger.curation.resolved_internally, recon, rounds, roster,
         )
         for w in warns:
             store.warn(w)
@@ -250,7 +251,7 @@ async def _run(
         dset = DecisionSet(decisions=decisions)
         store.save("decisions.json", dset)
     for d in dset.decisions:
-        rep.publish("decision", "ARBITER", f"{d.decision_id} [{d.status}] {d.statement} -> {d.chosen_option}", documents.render_decision(d))
+        rep.publish("decision", SCRUM_MASTER, f"{d.decision_id} [{d.status}] {d.statement} -> {d.chosen_option}", documents.render_decision(d))
     store.complete("decisions")
 
     # 7 ---- specification + documents -------------------------------------------------------
@@ -265,23 +266,29 @@ async def _run(
             store.warn(n)
             rep.warn(n)
         store.save("specification.json", spec)
+    store.complete("specification")
+
+    # 9 ---- design review: the pod signs off on the directory structure and the architecture ------
+    rep.stage(9, "Design review: is everyone OK with the directory structure and the architecture?")
+    store.begin("design_review")
+    spec, design = await design_review.run_design_review(llm, settings, ctx, spec, roster, store, rep)
     write_documents(store, spec)
     store.save_text(
         "minutes.md",
         documents.render_minutes(
-            inp, snap, proposals, missing, reviews, ledger.formal, ledger.nitpicks, rebuttals,
-            qledger.curation, qledger.answers, spec.decisions, list(store.state.warnings), recon,
+            inp, snap, proposals, missing, blinds, roster, rounds, wrap, ledger.formal, ledger.nitpicks, rebuttals,
+            qledger.curation, qledger.answers, spec.decisions, list(store.state.warnings), recon, design,
         ),
     )
-    store.complete("specification")
+    store.complete("design_review")
 
-    # 8 ---- verify (+ one bounded repair) ---------------------------------------------------
-    rep.stage(9, "Verifying cross-document consistency...")
+    # 10 ---- verify (+ one bounded repair) ---------------------------------------------------
+    rep.stage(10, "Verifying cross-document consistency...")
     store.begin("verify")
     spec, report = await verify_and_repair(store, spec, ledger, llm, settings, rep)
     store.complete("verify")
     store.finish("completed")
-    rep.stage(9, "Meeting complete." if report.passed else "Meeting finished with verification failures.")
+    rep.stage(10, "Meeting complete." if report.passed else "Meeting finished with verification failures.")
     return MeetingResult(store.root, report, list(store.state.warnings), spec.decisions)
 
 
@@ -310,138 +317,10 @@ def _inspect(inp: MeetingInput, settings: Settings, rep: Reporter, store: Meetin
     return snap
 
 
-async def _proposals(llm: LLM, settings: Settings, ctx: str, store: MeetingStore, rep: Reporter):
-    sem = asyncio.Semaphore(settings.max_concurrency)
-
-    async def one(agent: str) -> AgentProposal:
-        saved = store.load(f"proposals/{agent}.json", AgentProposal)
-        if saved:
-            return saved
-        async with sem:
-            prop = await llm.generate(
-                prompts.proposal_prompt(agent, ctx), AgentProposal,
-                stage=f"proposal:{agent}", system=prompts.system_for(agent),
-            )
-        prop = prop.model_copy(update={"agent_id": agent})
-        store.save(f"proposals/{agent}.json", prop)  # saved the moment it finishes, even if siblings fail
-        return prop
-
-    results = await asyncio.gather(*(one(a) for a in AGENT_IDS), return_exceptions=True)
-    outcome = dict(zip(AGENT_IDS, results))
-    failed = [a for a, r in outcome.items() if isinstance(r, BaseException) and not isinstance(r, (AuthError, ModelError, KeyboardInterrupt, asyncio.CancelledError))]
-    if failed and len(failed) < len(AGENT_IDS):
-        # One bounded second chance: a transient overload often clears while the other members were working.
-        rep.note(f"Giving {', '.join(failed)} one more try...")
-        again = await asyncio.gather(*(one(a) for a in failed), return_exceptions=True)
-        outcome.update(zip(failed, again))
-    proposals: dict[str, AgentProposal] = {}
-    missing: list[str] = []
-    for agent in AGENT_IDS:
-        res = outcome[agent]
-        if isinstance(res, (AuthError, ModelError)):
-            raise MeetingError(str(res))
-        if isinstance(res, BaseException):
-            if isinstance(res, (KeyboardInterrupt, asyncio.CancelledError)):
-                raise res
-            missing.append(agent)
-            msg = f"{agent} did not contribute a proposal: {res}"
-            store.warn(msg)
-            rep.warn(msg)
-        else:
-            proposals[agent] = res
-            rep.publish("proposal", agent, res.thesis, format_proposal(res))
-    if len(proposals) < settings.min_quorum:
-        raise MeetingError(
-            f"Only {len(proposals)} of {len(AGENT_IDS)} proposals succeeded (quorum is {settings.min_quorum}). "
-            f"Completed proposals are saved in {store.root / 'proposals'}; fix the cause and `resume`."
-        )
-    if missing:
-        store.warn(f"Council ran without: {', '.join(missing)}.")
-    return proposals, missing
-
-
-async def _reviews(llm: LLM, settings: Settings, ctx: str, proposals: dict[str, AgentProposal], store: MeetingStore, rep: Reporter):
-    sem = asyncio.Semaphore(settings.max_concurrency)
-
-    async def one(agent: str) -> AgentReview:
-        saved = store.load(f"reviews/{agent}.json", AgentReview)
-        if saved:
-            return saved
-        others = {a: p for a, p in proposals.items() if a != agent}
-        prompt = prompts.review_prompt(agent, ctx, proposals[agent], others).replace("{max_disputes}", str(settings.max_disputes_per_reviewer))
-        async with sem:
-            rev = await llm.generate(prompt, AgentReview, stage=f"review:{agent}", system=prompts.system_for(agent, "review"))
-        rev = rev.model_copy(update={"agent_id": agent})
-        store.save(f"reviews/{agent}.json", rev)
-        return rev
-
-    results = await asyncio.gather(*(one(a) for a in proposals), return_exceptions=True)
-    reviews: dict[str, AgentReview] = {}
-    for agent, res in zip(proposals, results):
-        if isinstance(res, (AuthError, ModelError)):
-            raise MeetingError(str(res))
-        if isinstance(res, BaseException):
-            if isinstance(res, (KeyboardInterrupt, asyncio.CancelledError)):
-                raise res
-            msg = f"{agent} did not complete a review: {res}"
-            store.warn(msg)
-            rep.warn(msg)
-        else:
-            reviews[agent] = res
-            rep.publish("review", agent, res.summary or "Review complete.", format_review(res))
-    if not reviews:
-        raise MeetingError("No reviews completed; refusing to synthesize without any adversarial review.")
-    return reviews
-
-
-async def _rebuttals(llm: LLM, settings: Settings, proposals: dict[str, AgentProposal], formal: list[Dispute], store: MeetingStore, rep: Reporter):
-    sem = asyncio.Semaphore(settings.max_concurrency)
-    targets = {a: [d for d in formal if d.target_agent == a] for a in proposals}
-    targets = {a: ds for a, ds in targets.items() if ds}
-
-    async def one(agent: str) -> AgentRebuttal:
-        saved = store.load(f"rebuttals/{agent}.json", AgentRebuttal)
-        if saved:
-            return saved
-        async with sem:
-            reb = await llm.generate(
-                prompts.rebuttal_prompt(agent, proposals[agent], targets[agent]), AgentRebuttal,
-                stage=f"rebuttal:{agent}", system=prompts.system_for(agent),
-            )
-        valid = {d.dispute_id for d in targets[agent]}
-        reb = reb.model_copy(update={"agent_id": agent, "responses": [r for r in reb.responses if r.dispute_id in valid]})
-        store.save(f"rebuttals/{agent}.json", reb)
-        return reb
-
-    if not targets:
-        rep.note("Nothing to rebut.")
-        return {}
-    results = await asyncio.gather(*(one(a) for a in targets), return_exceptions=True)
-    out: dict[str, AgentRebuttal] = {}
-    for agent, res in zip(targets, results):
-        if isinstance(res, (AuthError, ModelError)):
-            raise MeetingError(str(res))
-        if isinstance(res, BaseException):
-            if isinstance(res, (KeyboardInterrupt, asyncio.CancelledError)):
-                raise res
-            msg = f"{agent} did not answer the objections against them: {res}"
-            store.warn(msg)
-            rep.warn(msg)
-            continue
-        out[agent] = res
-        for r in res.responses:
-            rep.publish("rebuttal", agent, f"{r.stance} {r.dispute_id}: {r.response}", format_rebuttal(r))
-        answered = {r.dispute_id for r in res.responses}
-        for d in targets[agent]:
-            if d.dispute_id not in answered:
-                store.warn(f"{agent} left {d.dispute_id} unanswered.")
-    return out
-
-
-async def _reconsider(llm: LLM, settings: Settings, proposals: dict[str, AgentProposal], formal: list[Dispute], rebuttals: dict[str, AgentRebuttal], qledger, store: MeetingStore, rep: Reporter):
-    """Every member who contributed reconsiders in light of the human's answers, the objections and the rebuttals."""
+async def _reconsider(llm: LLM, settings: Settings, proposals: dict[str, AgentProposal], roster: dict[str, str], rounds, formal: list[Dispute], qledger, store: MeetingStore, rep: Reporter):
+    """Every developer rethinks after the human's answers, with the whole conversation in front of them."""
     if not qledger.answers and not formal:
-        rep.note("No answers or objections to re-discuss; moving on.")
+        rep.note("No answers or objections to rethink; moving on.")
         return {}
     sem = asyncio.Semaphore(settings.max_concurrency)
 
@@ -451,8 +330,11 @@ async def _reconsider(llm: LLM, settings: Settings, proposals: dict[str, AgentPr
             return saved
         async with sem:
             res = await llm.generate(
-                prompts.reconsideration_prompt(agent, proposals[agent], proposals, formal, rebuttals, qledger.answers, qledger.curation.resolved_internally),
-                AgentReconsideration, stage=f"rediscuss:{agent}", system=prompts.system_for(agent),
+                prompts.reconsideration_prompt(
+                    agent, roster[agent], proposals[agent], proposals, roster, rounds, formal, qledger.answers,
+                    qledger.curation.resolved_internally,
+                ),
+                AgentReconsideration, stage=f"rediscuss:{agent}", system=prompts.system_for("developer"),
             )
         others = set(proposals) - {agent}
         res = res.model_copy(update={"agent_id": agent, "new_conflicts": [n for n in res.new_conflicts if n.with_agent in others]})
@@ -467,12 +349,12 @@ async def _reconsider(llm: LLM, settings: Settings, proposals: dict[str, AgentPr
         if isinstance(res, BaseException):
             if isinstance(res, (KeyboardInterrupt, asyncio.CancelledError)):
                 raise res
-            msg = f"{agent} did not take part in the re-discussion: {res}"
+            msg = f"{agent} did not take part in the rethink: {res}"
             store.warn(msg)
             rep.warn(msg)
             continue
         out[agent] = res
-        rep.publish("rediscuss", agent, f"reconsidered: {res.answer_impact}", format_reconsideration(res))
+        rep.publish("rediscuss", agent, f"rethought: {res.answer_impact}", format_reconsideration(res))
     return out
 
 
@@ -506,7 +388,7 @@ async def verify_and_repair(
             try:
                 draft = await llm.generate(
                     prompts.repair_prompt(synthesis.spec_to_draft(spec), problems), SpecDraft,
-                    stage="repair", system=prompts.system_for("patch"),
+                    stage="repair", system=prompts.system_for("patch", "mermaid"),
                 )
                 spec = synthesis.finalize_spec(
                     Spec(**draft.model_dump(), project_name=spec.project_name, decisions=[]), spec.decisions
@@ -545,7 +427,7 @@ async def revise_meeting(out_dir: Path, feedback: str, settings: Settings, llm: 
         rep.stage(1, "Interpreting your feedback...")
         revision = await llm.generate(
             prompts.revision_prompt(synthesis.spec_to_draft(spec), spec.decisions, feedback), Revision,
-            stage="revision", system=prompts.system_for("patch"),
+            stage="revision", system=prompts.system_for("patch", "mermaid"),
         )
         rep.note(revision.summary)
         rep.note(f"Impacted requirements: {', '.join(revision.impacted_requirements) or 'none'}; sections: {', '.join(revision.impacted_sections) or 'none'}")

@@ -107,6 +107,10 @@ def _rejects(exc: Exception, word: str) -> bool:
     return word in low and (isinstance(exc, (ValueError, TypeError)) or getattr(exc, "code", None) == 400)
 
 
+# Stages whose output is legitimately large (whole specifications); every other stage gets the smaller token cap.
+BIG_STAGES = ("spec", "repair", "revision", "design1:revise", "design2:revise", "decisions")
+
+
 class GeminiClient:
     def __init__(
         self,
@@ -222,7 +226,7 @@ class GeminiClient:
                 self._emit("retry", stage, attempt, info=f"output failed validation: {_short(exc, 160)}")
                 feedback = (
                     "\n\nYour previous reply was rejected by the validator:\n"
-                    f"{_short(exc, 1500)}\nReturn a corrected JSON object only."
+                    f"{_short(exc, 1500)}\nReturn a corrected JSON object only. Keep it SHORT: lists of at most 8 items, no enumerating of file or component names, no repeated entries."
                 )
                 continue
             seconds = round(time.monotonic() - started, 2)
@@ -244,7 +248,7 @@ class GeminiClient:
             response_mime_type="application/json" if self._json_mode else None,
             response_schema=schema if self._use_schema else None,
             temperature=0.5,
-            max_output_tokens=self._settings.max_output_tokens,
+            max_output_tokens=self._settings.max_output_tokens if stage.startswith(BIG_STAGES) else self._settings.max_turn_tokens,
         )
         if self._use_thoughts:
             kwargs["thinking_config"] = t.ThinkingConfig(include_thoughts=True)

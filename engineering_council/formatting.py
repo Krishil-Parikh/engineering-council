@@ -55,3 +55,16 @@ def format_reconsideration(r) -> str:
     for a in r.advice_to_arbiter:
         lines.append(f"ADVICE {a}")
     return "\n".join(lines)
+
+
+def format_blind(b) -> str:
+    out = f"UNDERSTANDING\n{b.understanding}\n\n" + _lines("IDEAS", b.ideas) + _lines("WORRIES", b.worries)
+    out += _lines("WOULD ASK THE USER", b.open_questions) + _lines("SKILL PREFERENCE (most wanted first)", b.skill_preferences)
+    return out.strip()
+
+
+def format_scrum(n) -> str:
+    out = f"{n.message_to_team}\n\n" if n.message_to_team else ""
+    out += f"SUMMARY\n{n.summary}\n\n" + _lines("SETTLED", n.agreements) + _lines("STILL OPEN", n.open_threads)
+    out += _lines("FOCUS NEXT", n.focus_next) + _lines("QUESTIONS FOR THE HUMAN", [q.question for q in n.product_questions])
+    return out.strip()

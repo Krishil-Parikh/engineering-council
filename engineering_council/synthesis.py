@@ -6,7 +6,7 @@ from typing import Callable, TypeVar
 
 from pydantic import BaseModel
 
-from engineering_council import prompts
+from engineering_council import mermaid, prompts
 from engineering_council.config import Settings
 from engineering_council.gemini_client import LLM
 from engineering_council.models import (
@@ -72,13 +72,15 @@ async def decide(
     answers: list[Answer],
     internal_notes: list[str],
     reconsiderations: dict[str, AgentReconsideration] | None = None,
+    rounds=None,
+    roster: dict[str, str] | None = None,
 ) -> tuple[list[Decision], list[str]]:
     missing = [a for a in AGENT_IDS if a not in proposals]
     result = await llm.generate(
-        prompts.decision_prompt(ctx, proposals, reviews, formal, rebuttals, answers, internal_notes, missing, nitpicks, reconsiderations),
+        prompts.decision_prompt(ctx, proposals, reviews, formal, rebuttals, answers, internal_notes, missing, nitpicks, reconsiderations, rounds, roster),
         DecisionSet,
         stage="decisions",
-        system=prompts.system_for("arbiter"),
+        system=prompts.system_for("scrum", "arbiter"),
     )
     return ensure_dispute_coverage(result.decisions, {d.dispute_id for d in formal})
 
@@ -221,7 +223,7 @@ async def build_spec(
     llm: LLM, ctx: str, project_name: str, decisions: list[Decision], answers: list[Answer], warnings: list[str]
 ) -> tuple[Spec, list[str]]:
     notes: list[str] = []
-    system = prompts.system_for("arbiter")
+    system = prompts.system_for("arbiter", "mermaid")
     product, errs = await _generate_checked(
         llm, prompts.product_spec_prompt(ctx, decisions, answers, warnings), ProductSpec,
         lambda p: validate_product(p, decisions), "spec_product", system,
@@ -246,8 +248,30 @@ def assemble(product: ProductSpec, tech: TechnicalSpec, project_name: str, decis
     return finalize_spec(spec, decisions)
 
 
+def ensure_diagrams(spec: SpecDraft | Spec) -> SpecDraft | Spec:
+    """Keep the model's Mermaid diagrams when they are valid and agree with the spec; otherwise build them in Python."""
+    names = [c.name for c in spec.components]
+    arch = mermaid.clean(spec.architecture_diagram)
+    if mermaid.lint(arch) or mermaid.mentions(arch, names):
+        arch = mermaid.architecture_fallback(spec.components)
+    ctx = mermaid.clean(spec.context_diagram)
+    if mermaid.lint(ctx):
+        ctx = mermaid.context_fallback(getattr(spec, "project_name", ""), [p.name for p in spec.personas], spec.dependencies)
+    flows = []
+    for f in spec.runtime_flows:
+        d = mermaid.clean(f.diagram)
+        flows.append(f.model_copy(update={"diagram": d if not mermaid.lint(d) else mermaid.flow_fallback(f.steps)}))
+    er = mermaid.clean(spec.data_model_diagram)
+    if spec.data_entities and (mermaid.lint(er) or mermaid.mentions(er, [e.name for e in spec.data_entities])):
+        er = mermaid.er_fallback(spec.data_entities)
+    elif not spec.data_entities:
+        er = ""
+    return spec.model_copy(update={"architecture_diagram": arch, "context_diagram": ctx, "runtime_flows": flows, "data_model_diagram": er})
+
+
 def finalize_spec(spec: SpecDraft | Spec, decisions: list[Decision]) -> Spec:
     """Python-owned fixes: back-fill requirement ids onto decisions, surface UNRESOLVED ones as open questions."""
+    spec = ensure_diagrams(spec)
     reqs_by_dec: dict[str, list[str]] = {}
     for r in spec.requirements:
         for d in r.decision_ids:
@@ -264,6 +288,14 @@ def finalize_spec(spec: SpecDraft | Spec, decisions: list[Decision]) -> Spec:
         project_name=getattr(spec, "project_name", "") or "",
     )
     return Spec(**data)
+
+
+def product_of(spec: SpecDraft | Spec) -> ProductSpec:
+    return ProductSpec(**spec.model_dump(include=set(ProductSpec.model_fields)))
+
+
+def technical_of(spec: SpecDraft | Spec) -> TechnicalSpec:
+    return TechnicalSpec(**spec.model_dump(include=set(TechnicalSpec.model_fields)))
 
 
 def spec_to_draft(spec: Spec) -> SpecDraft:

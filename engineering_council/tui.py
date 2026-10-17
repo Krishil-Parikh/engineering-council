@@ -41,34 +41,31 @@ from engineering_council.meeting import (
     meeting_dir,
     run_meeting,
 )
-from engineering_council.models import AGENT_IDS, Answer, HumanQuestion, MeetingInput
+from engineering_council.models import AGENT_IDS, SCRUM_MASTER, Answer, HumanQuestion, MeetingInput
 
-STAGE_NAMES = ["Inspect", "Proposals", "Review", "Rebuttals", "Questions", "Re-discussion", "Decisions", "Specification", "Verify"]
-ACTORS = (*AGENT_IDS, "ARBITER")
+STAGE_NAMES = ["Inspect", "Blind thinking", "Skill lens", "Conversation", "Questions", "Rethink", "Decisions", "Specification", "Design review", "Verify"]
+ACTORS = (*AGENT_IDS, SCRUM_MASTER)
 COLORS = {
-    "SYSTEMS_ARCHITECT": "cyan",
-    "PRODUCT_UX": "magenta",
-    "PRAGMATIC_MVP": "green",
-    "RED_TEAM_QA": "red",
-    "ARBITER": "yellow",
+    "DEV_1": "cyan",
+    "DEV_2": "magenta",
+    "DEV_3": "green",
+    "DEV_4": "red",
+    "DEV_5": "blue",
+    "DEV_6": "bright_cyan",
+    SCRUM_MASTER: "yellow",
     "COUNCIL": "white",
 }
-TAB_TITLES = {
-    "SYSTEMS_ARCHITECT": "Architect",
-    "PRODUCT_UX": "Product/UX",
-    "PRAGMATIC_MVP": "MVP",
-    "RED_TEAM_QA": "Red Team",
-    "ARBITER": "Arbiter",
-}
+TAB_TITLES = {**{a: a.replace("_", " ").title() for a in AGENT_IDS}, SCRUM_MASTER: "Scrum Master"}
 STREAM_CAP = 60_000
 DOC_KEYS = {"p": "PRD.md", "t": "Technical_Approach.md", "d": "Design.md", "m": "minutes.md", "v": "verification_report.md"}
 
 
 def actor_of(stage: str) -> str:
-    """Which member a model call belongs to (stage names look like 'review:RED_TEAM_QA' or 'decisions')."""
+    """Which member a model call belongs to (stage names look like 'talk2:DEV_3', 'blind:DEV_1' or 'scrum:check1')."""
     if ":" in stage:
-        return stage.split(":", 1)[1]
-    return "ARBITER"
+        who = stage.split(":", 1)[1]
+        return who if who in ACTORS else SCRUM_MASTER
+    return SCRUM_MASTER
 
 
 def _color(who: str) -> str:
@@ -92,7 +89,14 @@ class TuiReporter(Reporter):
         self.app.feed_line(Text.assemble((f"{who}: ", f"bold {_color(who)}"), text))
 
     def publish(self, kind: str, who: str, title: str, body: str) -> None:
-        self.app.feed_panel(kind, who, title, body)
+        if kind == "talk":
+            head, _, text = body.partition("\n")
+            self.app.feed_line(Text.assemble((head + "\n", f"bold {_color(who)}"), text + "\n"))
+        else:
+            self.app.feed_panel(kind, who, title, body)
+
+    def roster(self, skills: dict[str, str]) -> None:
+        self.app.set_roster(skills)
 
     def note(self, text: str) -> None:
         self.app.feed_line(Text(text, style="dim"))
@@ -256,11 +260,13 @@ class CouncilApp(App):
     BINDINGS = [
         Binding("q", "quit_app", "Quit"),
         Binding("f", "tab('feed')", "Feed"),
-        Binding("1", "tab('SYSTEMS_ARCHITECT')", "Architect"),
-        Binding("2", "tab('PRODUCT_UX')", "Product"),
-        Binding("3", "tab('PRAGMATIC_MVP')", "MVP"),
-        Binding("4", "tab('RED_TEAM_QA')", "Red Team"),
-        Binding("5", "tab('ARBITER')", "Arbiter"),
+        Binding("1", "tab('DEV_1')", "Dev 1"),
+        Binding("2", "tab('DEV_2')", "Dev 2"),
+        Binding("3", "tab('DEV_3')", "Dev 3"),
+        Binding("4", "tab('DEV_4')", "Dev 4"),
+        Binding("5", "tab('DEV_5')", "Dev 5"),
+        Binding("6", "tab('DEV_6')", "Dev 6"),
+        Binding("7", "tab('SCRUM_MASTER')", "Scrum"),
         Binding("l", "tab('activity')", "Activity"),
         Binding("p", "doc('p')", "PRD"),
         Binding("t", "doc('t')", "Tech"),
@@ -320,7 +326,7 @@ class CouncilApp(App):
 
     def on_mount(self) -> None:
         table = self.query_one("#agents", DataTable)
-        table.add_column("Member", key="who", width=12)
+        table.add_column("Member", key="who", width=20)
         table.add_column("State", key="state", width=14)
         table.add_column("Out", key="chars", width=6)
         for a in ACTORS:
@@ -397,6 +403,23 @@ class CouncilApp(App):
         stamp = time.strftime("%H:%M:%S")
         self._log("#activity-log").write(Text.assemble((stamp + " ", "dim"), renderable))
 
+    def set_roster(self, skills: dict[str, str]) -> None:
+        """Developers have picked their skills: show them on the tabs and in the council table."""
+        from engineering_council.prompts import skill_label
+
+        for agent, skill in skills.items():
+            label = f"{agent.replace('_', ' ').title()} · {skill_label(skill)}"
+            TAB_TITLES[agent] = label
+            try:
+                self.query_one(TabbedContent).get_tab(agent).label = label
+            except Exception:
+                pass
+            try:
+                self.query_one("#agents", DataTable).update_cell(agent, "who", Text(label, style=f"bold {_color(agent)}"))
+            except Exception:
+                pass
+            self.feed_line(Text(f"{agent} takes the {skill_label(skill)} skill", style=f"bold {_color(agent)}"))
+
     def set_status(self, text: str) -> None:
         self.query_one("#status", Static).update(text)
 
@@ -421,7 +444,7 @@ class CouncilApp(App):
     def on_llm(self, ev: LLMEvent) -> None:
         who = actor_of(ev.stage)
         if who not in self.actors:
-            who = "ARBITER"
+            who = SCRUM_MASTER
         a = self.actors[who]
         stream = self.streams[who]
         if ev.kind == "start":

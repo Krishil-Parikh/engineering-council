@@ -27,9 +27,11 @@ async def drive(app, answer_keys=("enter",), timeout=30.0):
 
 
 def test_actor_mapping():
-    assert actor_of("review:RED_TEAM_QA") == "RED_TEAM_QA"
-    assert actor_of("decisions") == "ARBITER"
-    assert actor_of("spec_product_retry") == "ARBITER"
+    assert actor_of("talk2:DEV_4") == "DEV_4"
+    assert actor_of("blind:DEV_1") == "DEV_1"
+    assert actor_of("scrum:round1") == "SCRUM_MASTER"
+    assert actor_of("decisions") == "SCRUM_MASTER"
+    assert actor_of("spec_product_retry") == "SCRUM_MASTER"
 
 
 def test_tui_runs_a_full_meeting_and_shows_everything(tmp_path):
@@ -37,10 +39,10 @@ def test_tui_runs_a_full_meeting_and_shows_everything(tmp_path):
     asyncio.run(drive(app))
     assert app.result is not None and app.result.report.passed, app.error
     # every member streamed something into their own tab and ended 'done'
-    for who in ("SYSTEMS_ARCHITECT", "PRODUCT_UX", "PRAGMATIC_MVP", "RED_TEAM_QA", "ARBITER"):
+    for who in ("DEV_1", "DEV_2", "DEV_3", "DEV_4", "DEV_5", "DEV_6", "SCRUM_MASTER"):
         assert len(app.streams[who]) > 0, who
         assert app.actors[who]["state"] in ("done", "stopped"), (who, app.actors[who]["state"])
-    assert app.stage_n == 9
+    assert app.stage_n == 10
 
 
 def test_tui_question_modal_records_the_answer(tmp_path):

@@ -20,9 +20,15 @@ class Settings:
     request_timeout_s: float = 600.0  # large structured outputs on big models can be slow
     max_attempts: int = 6  # per call: transient errors and malformed output share this budget
     max_quota_waits: int = 8  # separate budget for 429s, which are waited out rather than failed
-    max_output_tokens: int = 32768
+    max_output_tokens: int = 32768  # spec, repair and revision calls
+    max_turn_tokens: int = 8192  # every other call: a developer or scrum-master answer is never this long, so a runaway ends early
     max_concurrency: int = 2  # free-tier quotas are per minute; two calls at a time is gentler
-    min_quorum: int = 3  # proposals required to continue the meeting
+    min_quorum: int = 4  # proposals required to continue the meeting (of six developers)
+    conversation_max_turns: int = 60  # safety cap on speaking turns; the conversation normally ends earlier by itself
+    conversation_min_turns_each: int = 2  # everyone speaks at least this often before wrapping up is allowed
+    design_review_rounds: int = 2  # sign-off rounds on directory structure and architecture
+    scrum_every: int = 6  # the scrum master checks in after this many turns
+    max_disputes_per_turn: int = 3
     max_questions: int = 5
     max_disputes_per_reviewer: int = 6
     # repository reconnaissance limits

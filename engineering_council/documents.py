@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from datetime import date
 
+from engineering_council import mermaid
 from engineering_council.models import (
+    DesignReview,
     AgentProposal,
     AgentReconsideration,
+    BlindThoughts,
+    RoundRecord,
+    ScrumNote,
     AgentRebuttal,
     AgentReview,
     Answer,
@@ -73,6 +78,8 @@ def render_prd(spec: Spec) -> str:
     s += "\n### Out of scope\n\n" + bullets(spec.scope_out) + "\n"
     for j in spec.journeys:
         s += f"### Journey: {j.name}\n\n_Persona: {j.persona}_\n\n{numbered(j.steps)}\n"
+    s += "### System context\n\n" + mermaid.fence(spec.context_diagram) + "\n"
+    s += "### Project structure\n\nThe agreed repository layout (details in Design.md):\n\n" + f"```text\n{spec.directory_tree.strip()}\n```\n\n"
     s += "## 5. Requirements\n\n### Functional requirements\n\n"
     s += table(["ID", "Title", "Description", "Priority", "Decisions"], [[r.id, r.title, r.description, r.priority, _dec_refs(r.decision_ids)] for r in fr])
     s += "\n### Non-functional requirements\n\n"
@@ -121,7 +128,8 @@ def render_decision(d: Decision) -> str:
 
 def render_technical(spec: Spec) -> str:
     s = header("Technical Approach", spec, "How the system is organised and built.")
-    s += "## 1. Recommended Architecture and Rationale\n\n" + spec.summary + "\n\n"
+    s += "## 1. Recommended Architecture and Rationale\n\n" + spec.summary + "\n\n" + mermaid.fence(spec.architecture_diagram) + "\n"
+    s += "### Directory structure\n\n" + f"```text\n{spec.directory_tree.strip()}\n```\n\n"
     s += "## 2. Technology Choices and Constraints\n\n"
     s += table(["Concern", "Choice", "Rationale"], [[t.concern, t.choice, t.rationale] for t in spec.tech_choices]) + "\n"
     s += "## 3. Module Responsibilities and Dependency Direction\n\n"
@@ -130,7 +138,7 @@ def render_technical(spec: Spec) -> str:
     s += "\nDependency direction (no cycles):\n" + bullets(edges, "_Components have no inter-dependencies._") + "\n"
     s += "## 4. Data Flow and Runtime Flows\n\n"
     for f in spec.runtime_flows:
-        s += f"### {f.name}\n\n{numbered(f.steps)}\n"
+        s += f"### {f.name}\n\n{numbered(f.steps)}\n" + (mermaid.fence(f.diagram) + "\n" if f.diagram.strip() else "")
     s += "## 5. Error Handling, Retries, Timeouts and Observability\n\n### Failure handling\n\n" + bullets(spec.failure_handling)
     s += "\n### Observability\n\n" + bullets(spec.observability) + "\n"
     s += "## 6. Security and Privacy\n\n" + bullets(spec.security) + "\n"
@@ -154,12 +162,15 @@ def render_technical(spec: Spec) -> str:
 def render_design(spec: Spec) -> str:
     s = header("Design", spec, "Concrete contracts, interfaces, data structures and project layout.")
     s += f"## 1. Canonical Directory Tree\n\n```text\n{spec.directory_tree.strip()}\n```\n\n"
+    s += "### Architecture diagram\n\n" + mermaid.fence(spec.architecture_diagram) + "\n"
     s += "## 2. Components and Interfaces\n\n"
     s += table(["Component", "Path", "Responsibility", "Depends on"], [[c.name, c.path, c.responsibility, ", ".join(c.depends_on) or "—"] for c in spec.components]) + "\n"
     if spec.data_entities:
         s += "## 3. Data Model\n\n"
         for e in spec.data_entities:
             s += f"### {e.name}\n\n{e.description}\n\n{bullets(e.fields)}\n"
+        if spec.data_model_diagram.strip():
+            s += "### Data model diagram\n\n" + mermaid.fence(spec.data_model_diagram) + "\n"
     if spec.contracts:
         s += "## 4. Contracts\n\n"
         for k in spec.contracts:
@@ -197,7 +208,10 @@ def render_minutes(
     snap: RepoSnapshot,
     proposals: dict[str, AgentProposal],
     missing: list[str],
-    reviews: dict[str, AgentReview],
+    blinds: dict[str, BlindThoughts],
+    roster: dict[str, str],
+    rounds: list[RoundRecord],
+    wrap: ScrumNote,
     formal: list[Dispute],
     nitpicks: list[Dispute],
     rebuttals: dict[str, AgentRebuttal],
@@ -206,39 +220,53 @@ def render_minutes(
     decisions: list[Decision],
     warnings: list[str],
     reconsiderations: dict[str, AgentReconsideration] | None = None,
+    design: DesignReview | None = None,
 ) -> str:
+    def name(a: str) -> str:
+        return f"{a} ({roster[a].title()})" if roster.get(a) else a
+
     s = f"# Meeting Minutes — {inp.project_name}\n\n**Date:** {date.today().isoformat()}\n\n"
-    s += f"**Attendees:** {', '.join(proposals)}" + (f"  \n**Absent (failed to contribute):** {', '.join(missing)}" if missing else "") + "\n\n"
+    s += "**Pod lead:** SCRUM_MASTER  \n"
+    s += f"**Attendees:** {', '.join(name(a) for a in roster) or ', '.join(proposals)}" + (f"  \n**Absent (failed to contribute):** {', '.join(missing)}" if missing else "") + "\n\n"
     s += f"## Agenda input\n\n{inp.problem}\n\n**Constraints:**\n{bullets(inp.constraints)}\n"
     s += f"**Context:** {snap.mode}" + (f" — {snap.source}; technologies: {', '.join(snap.technologies) or 'none detected'}" if snap.mode == "existing" else " project (no repository)") + "\n\n"
-    s += "## Round 1 — Independent proposals\n\n_Each member prepared alone and had not seen the others' work._\n\n"
+    s += "## Part 1 — Blind thinking (no skill yet)\n\n_Each developer read the problem alone as a generalist._\n\n"
+    for a, b in blinds.items():
+        s += f"### {a}\n\n{b.understanding}\n\n**Ideas:**\n{bullets(b.ideas)}\n**Worries:**\n{bullets(b.worries)}\n"
+    s += "## Part 2 — Skills picked\n\n" + table(["Developer", "Skill"], [[a, sk.title()] for a, sk in roster.items()]) + "\n"
+    s += "## Part 3 — Proposals through each skill\n\n_Written alone, before the pod talked._\n\n"
     for a, p in proposals.items():
-        s += f"### {a}\n\n**Thesis:** {p.thesis}\n\n**Components:**\n" + bullets([f"{c.name}: {c.approach}" for c in p.components])
+        s += f"### {name(a)}\n\n**Thesis:** {p.thesis}\n\n**Components:**\n" + bullets([f"{c.name}: {c.approach}" for c in p.components])
         if p.trade_offs:
             s += "\n**Trade-offs:**\n" + bullets([f"{t.choice} — gains: {t.gain}; costs: {t.cost}" for t in p.trade_offs])
         s += "\n**Risks:**\n" + bullets(p.risks) + "\n"
-    s += "## Round 2 — Adversarial review\n\n"
-    for a, r in reviews.items():
-        s += f"### {a}\n\n{r.summary or '_No summary._'}\n\n"
-        if r.endorsements:
-            s += "**Wants adopted from others:**\n" + bullets(r.endorsements) + "\n"
-        if r.no_material_objection and not r.disputes:
-            s += "_NO_MATERIAL_OBJECTION._\n\n"
+    s += "## Part 4 — The conversation\n\n"
+    for rec in rounds:
+        s += f"### Part {rec.round} of the conversation\n\n**SCRUM_MASTER:** {rec.note.message_to_team or rec.note.summary}\n\n"
+        if rec.note.open_threads:
+            s += "_Open threads:_\n" + bullets(rec.note.open_threads) + "\n"
+        for t in rec.turns:
+            for u in t.utterances:
+                s += f"- **{name(t.agent_id)}** → {u.to} _[{u.kind}]_: {u.text}\n"
+            for r in t.responses:
+                s += f"- **{name(t.agent_id)}** {r.stance} {r.dispute_id}: {r.response}" + (f" _(now: {r.revised_position})_" if r.revised_position else "") + "\n"
+        s += "\n"
+    s += "### Scrum master wrap-up\n\n" + f"{wrap.summary}\n\n" + ("**Settled:**\n" + bullets(wrap.agreements) + "\n" if wrap.agreements else "")
     s += "### Formal disputes (CRITICAL / MAJOR)\n\n"
     s += table(["ID", "Severity", "From → To", "Category", "Claim", "Failure mechanism", "Counterproposal"], [[d.dispute_id, d.severity, f"{d.source_agent} → {d.target_agent}", d.category, d.claim, d.failure_mechanism, d.counterproposal] for d in formal])
     if nitpicks:
         s += "\n### Retained nitpicks (non-blocking)\n\n" + bullets([f"{d.dispute_id} ({d.source_agent} → {d.target_agent}): {d.claim}" for d in nitpicks])
-    s += "\n## Round 3 — Rebuttals\n\n"
+    s += "\n### Answers to the objections\n\n"
     rows = [[r.dispute_id, a, r.stance, r.response, r.revised_position or "—"] for a, rb in rebuttals.items() for r in rb.responses]
     s += table(["Dispute", "Responder", "Stance", "Response", "Revised position"], rows) + "\n"
     s += "## Human decision gate\n\n"
     if curation.resolved_internally:
-        s += "Resolved internally by the council:\n" + bullets(curation.resolved_internally) + "\n"
+        s += "Resolved internally by the pod:\n" + bullets(curation.resolved_internally) + "\n"
     s += (table(["Question", "Answer", "How"], [[a.question, a.answer, a.source] for a in answers]) if answers else "_No material questions were needed._\n") + "\n"
     if reconsiderations:
-        s += "## Round 4 — Re-discussion after the human's answers\n\n"
+        s += "## Part 5 — Rethink after the human's answers\n\n"
         for a, r in reconsiderations.items():
-            s += f"### {a}\n\n**Impact of the answers:** {r.answer_impact or '—'}\n\n"
+            s += f"### {name(a)}\n\n**Impact of the answers:** {r.answer_impact or '—'}\n\n"
             if r.position_changes:
                 s += "**Changed:**\n" + bullets([f"{c.topic}: {c.change} (because {c.reason})" for c in r.position_changes])
             if r.unchanged:
@@ -246,8 +274,21 @@ def render_minutes(
             if r.new_conflicts:
                 s += "**New conflicts:**\n" + bullets([f"with {n.with_agent}: {n.issue} (position: {n.my_position})" for n in r.new_conflicts])
             if r.advice_to_arbiter:
-                s += "**Advice to the arbiter:**\n" + bullets(r.advice_to_arbiter)
+                s += "**Advice to the scrum master:**\n" + bullets(r.advice_to_arbiter)
             s += "\n"
+    if design and design.rounds:
+        s += "## Part 6 — Design review (directory structure and architecture)\n\n"
+        for n, votes in enumerate(design.rounds, 1):
+            s += f"### Round {n}\n\n"
+            for v in votes:
+                ok = "happy with both" if v.directory_ok and v.architecture_ok else "asked for changes"
+                s += f"- **{name(v.agent_id)}**: {ok}\n"
+                s += "".join(f"  - directory: {c}\n" for c in v.directory_changes) + "".join(f"  - architecture: {c}\n" for c in v.architecture_changes)
+                s += "".join(f"  - to {u.to} _[{u.kind}]_: {u.text}\n" for u in v.discussion)
+            if n <= len(design.revisions) and design.revisions[n - 1]:
+                s += f"\n_Revision after round {n}:_ {design.revisions[n - 1]}\n"
+            s += "\n"
+        s += "**Outcome:** " + ("the pod agreed on the directory structure and architecture." if design.agreed else "some requests stayed open (see warnings).") + "\n\n"
     s += "## Decisions\n\n" + table(["ID", "Status", "Decision", "Chosen", "Rejected"], [[d.decision_id, d.status, d.statement, d.chosen_option, "; ".join(r.option for r in d.rejected_alternatives) or "—"] for d in decisions])
     if warnings:
         s += "\n## Warnings\n\n" + bullets(warnings)

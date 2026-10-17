@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from engineering_council import mermaid
 from engineering_council.models import ID_IN_TEXT, Check, Spec, VerificationReport, normalize_id
 from engineering_council.storage import DOC_NAMES
 from engineering_council.synthesis import find_cycles, path_in_tree
@@ -117,6 +118,21 @@ def verify(spec: Spec, formal_dispute_ids: list[str], all_dispute_ids: list[str]
 
     # 11. PRD actually lists every in-scope requirement
     add("PRD lists every in-scope requirement", [f"{r.id} missing from PRD.md" for r in spec.requirements if r.in_scope and r.id not in prd_doc])
+
+    # 12. diagrams and directory structure are present in every document and the Mermaid is well formed
+    probs = []
+    first = next((ln.strip() for ln in spec.directory_tree.splitlines() if ln.strip()), "")
+    for name in ("PRD.md", "Technical_Approach.md", "Design.md"):
+        text = docs.get(name, "")
+        blocks = mermaid.BLOCK.findall(text)
+        if text.strip() and not blocks:
+            probs.append(f"{name} has no Mermaid diagram")
+        for i, b in enumerate(blocks, 1):
+            probs += [f"{name} diagram {i}: {p}" for p in mermaid.lint(b)]
+        if text.strip() and first and first not in text:
+            probs.append(f"{name} does not show the directory structure")
+    probs += [f"architecture diagram does not mention component {n}" for n in mermaid.mentions(spec.architecture_diagram, [c.name for c in spec.components])]
+    add("Diagrams render-ready and directory structure shown in every document", probs)
 
     return VerificationReport(checks=checks)
 
