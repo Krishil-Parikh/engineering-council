@@ -13,13 +13,14 @@ from pydantic import BaseModel
 
 from engineering_council import documents, prompts, questions, repository, synthesis, verification
 from engineering_council import questions as _questions
-from engineering_council.formatting import format_dispute, format_proposal, format_rebuttal, format_review
+from engineering_council.formatting import format_dispute, format_proposal, format_rebuttal, format_reconsideration, format_review
 from engineering_council.config import Settings
 from engineering_council.gemini_client import LLM, AuthError, LLMError, LLMEvent, ModelError
 from engineering_council.models import (
     AGENT_IDS,
     Answer,
     AgentProposal,
+    AgentReconsideration,
     AgentRebuttal,
     AgentReview,
     Decision,
@@ -36,7 +37,7 @@ from engineering_council.models import (
 )
 from engineering_council.storage import MeetingStore, now_iso, write_text
 
-TOTAL_STAGES = 8
+TOTAL_STAGES = 9
 
 
 class MeetingError(Exception):
@@ -228,14 +229,20 @@ async def _run(
         store.save("questions.json", qledger)
     store.complete("questions")
 
-    # 6 ---- decisions -----------------------------------------------------------------------
-    rep.stage(6, "Resolving decisions...")
+    # 6 ---- re-discussion after the human's answers -----------------------------------------
+    rep.stage(6, "Council re-discusses in light of your answers...")
+    store.begin("rediscussion")
+    recon = await _reconsider(llm, settings, proposals, ledger.formal, rebuttals, qledger, store, rep)
+    store.complete("rediscussion")
+
+    # 7 ---- decisions -----------------------------------------------------------------------
+    rep.stage(7, "Resolving decisions...")
     store.begin("decisions")
     dset = store.load("decisions.json", DecisionSet)
     if dset is None:
         decisions, warns = await synthesis.decide(
             llm, ctx, proposals, reviews, ledger.formal, ledger.nitpicks, rebuttals,
-            qledger.answers, qledger.curation.resolved_internally,
+            qledger.answers, qledger.curation.resolved_internally, recon,
         )
         for w in warns:
             store.warn(w)
@@ -247,7 +254,7 @@ async def _run(
     store.complete("decisions")
 
     # 7 ---- specification + documents -------------------------------------------------------
-    rep.stage(7, "Generating specifications...")
+    rep.stage(8, "Generating specifications...")
     store.begin("specification")
     spec = store.load("specification.json", Spec)
     if spec is None:
@@ -263,18 +270,18 @@ async def _run(
         "minutes.md",
         documents.render_minutes(
             inp, snap, proposals, missing, reviews, ledger.formal, ledger.nitpicks, rebuttals,
-            qledger.curation, qledger.answers, spec.decisions, list(store.state.warnings),
+            qledger.curation, qledger.answers, spec.decisions, list(store.state.warnings), recon,
         ),
     )
     store.complete("specification")
 
     # 8 ---- verify (+ one bounded repair) ---------------------------------------------------
-    rep.stage(8, "Verifying cross-document consistency...")
+    rep.stage(9, "Verifying cross-document consistency...")
     store.begin("verify")
     spec, report = await verify_and_repair(store, spec, ledger, llm, settings, rep)
     store.complete("verify")
     store.finish("completed")
-    rep.stage(8, "Meeting complete." if report.passed else "Meeting finished with verification failures.")
+    rep.stage(9, "Meeting complete." if report.passed else "Meeting finished with verification failures.")
     return MeetingResult(store.root, report, list(store.state.warnings), spec.decisions)
 
 
@@ -428,6 +435,44 @@ async def _rebuttals(llm: LLM, settings: Settings, proposals: dict[str, AgentPro
         for d in targets[agent]:
             if d.dispute_id not in answered:
                 store.warn(f"{agent} left {d.dispute_id} unanswered.")
+    return out
+
+
+async def _reconsider(llm: LLM, settings: Settings, proposals: dict[str, AgentProposal], formal: list[Dispute], rebuttals: dict[str, AgentRebuttal], qledger, store: MeetingStore, rep: Reporter):
+    """Every member who contributed reconsiders in light of the human's answers, the objections and the rebuttals."""
+    if not qledger.answers and not formal:
+        rep.note("No answers or objections to re-discuss; moving on.")
+        return {}
+    sem = asyncio.Semaphore(settings.max_concurrency)
+
+    async def one(agent: str) -> AgentReconsideration:
+        saved = store.load(f"reconsiderations/{agent}.json", AgentReconsideration)
+        if saved:
+            return saved
+        async with sem:
+            res = await llm.generate(
+                prompts.reconsideration_prompt(agent, proposals[agent], proposals, formal, rebuttals, qledger.answers, qledger.curation.resolved_internally),
+                AgentReconsideration, stage=f"rediscuss:{agent}", system=prompts.system_for(agent),
+            )
+        others = set(proposals) - {agent}
+        res = res.model_copy(update={"agent_id": agent, "new_conflicts": [n for n in res.new_conflicts if n.with_agent in others]})
+        store.save(f"reconsiderations/{agent}.json", res)
+        return res
+
+    results = await asyncio.gather(*(one(a) for a in proposals), return_exceptions=True)
+    out: dict[str, AgentReconsideration] = {}
+    for agent, res in zip(proposals, results):
+        if isinstance(res, (AuthError, ModelError)):
+            raise MeetingError(str(res))
+        if isinstance(res, BaseException):
+            if isinstance(res, (KeyboardInterrupt, asyncio.CancelledError)):
+                raise res
+            msg = f"{agent} did not take part in the re-discussion: {res}"
+            store.warn(msg)
+            rep.warn(msg)
+            continue
+        out[agent] = res
+        rep.publish("rediscuss", agent, f"reconsidered: {res.answer_impact}", format_reconsideration(res))
     return out
 
 

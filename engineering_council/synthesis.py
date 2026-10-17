@@ -13,6 +13,7 @@ from engineering_council.models import (
     AGENT_IDS,
     Answer,
     AgentProposal,
+    AgentReconsideration,
     AgentRebuttal,
     AgentReview,
     Decision,
@@ -70,10 +71,11 @@ async def decide(
     rebuttals: dict[str, AgentRebuttal],
     answers: list[Answer],
     internal_notes: list[str],
+    reconsiderations: dict[str, AgentReconsideration] | None = None,
 ) -> tuple[list[Decision], list[str]]:
     missing = [a for a in AGENT_IDS if a not in proposals]
     result = await llm.generate(
-        prompts.decision_prompt(ctx, proposals, reviews, formal, rebuttals, answers, internal_notes, missing, nitpicks),
+        prompts.decision_prompt(ctx, proposals, reviews, formal, rebuttals, answers, internal_notes, missing, nitpicks, reconsiderations),
         DecisionSet,
         stage="decisions",
         system=prompts.system_for("arbiter"),

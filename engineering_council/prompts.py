@@ -7,6 +7,7 @@ from pathlib import Path
 
 from engineering_council.models import (
     AgentProposal,
+    AgentReconsideration,
     AgentRebuttal,
     AgentReview,
     Answer,
@@ -206,6 +207,52 @@ statement already answers. List each dropped technical item in resolved_internal
 - Each question needs why_it_matters, 2-4 distinct options, and a recommended_default that is exactly one of the options."""
 
 
+def reconsideration_prompt(
+    agent_id: str,
+    own: AgentProposal,
+    others: dict[str, AgentProposal],
+    disputes: list[Dispute],
+    rebuttals: dict[str, AgentRebuttal],
+    answers: list[Answer],
+    internal_notes: list[str],
+) -> str:
+    p = PERSONAS[agent_id]
+    peers = "\n".join(f"- {a}: {q.thesis}" for a, q in others.items() if a != agent_id) or "- (none)"
+    disp = "\n".join(f"- {d.dispute_id} [{d.severity}] {d.source_agent} -> {d.target_agent}: {d.claim}" for d in disputes) or "- (none)"
+    rebs = "\n".join(
+        f"- {r.dispute_id} ({a}): {r.stance}: {r.response} | revised: {r.revised_position or 'n/a'}"
+        for a, rb in rebuttals.items() for r in rb.responses
+    ) or "- (none)"
+    ans = "\n".join(f"- Q: {a.question}\n  A: {a.answer} ({a.source})" for a in answers) or "- (no questions were asked)"
+    return f"""You are the {p['title']} ({agent_id}). The human has now answered the council's questions. The council reconvenes to re-discuss before the arbiter decides.
+
+YOUR OWN PROPOSAL:
+{own.model_dump_json(indent=1)}
+
+THE OTHER MEMBERS' THESES:
+{peers}
+
+OBJECTIONS RAISED:
+{disp}
+
+REBUTTALS HEARD:
+{rebs}
+
+THE HUMAN'S ANSWERS (authoritative):
+{ans}
+
+ASSUMPTIONS ALREADY MADE ON THE HUMAN'S BEHALF:
+{_bullets(internal_notes)}
+
+Reconsider honestly, as a professional would after learning the real constraints:
+- answer_impact: 2-4 sentences on what each answer changes for your recommendations. If an answer invalidates something you proposed (for example scope, scale, audience), say exactly what.
+- position_changes: every concrete thing you now propose differently, with the reason. Include concessions to colleagues whose rebuttals or objections were right.
+- unchanged: positions you still hold despite the answers, each with a reason.
+- new_conflicts: disagreements with a specific colleague that the answers created or exposed (with_agent must be one of the other member ids). Do not invent conflict; leave empty if there is none.
+- advice_to_arbiter: up to 4 short, specific recommendations for the final decisions.
+Never contradict the human's answers. Set agent_id to "{agent_id}"."""
+
+
 # --------------------------------------------------------------------------- stage 6
 
 
@@ -219,7 +266,14 @@ def decision_prompt(
     internal_notes: list[str],
     missing_agents: list[str],
     nitpicks: list[Dispute],
+    reconsiderations: "dict[str, AgentReconsideration] | None" = None,
 ) -> str:
+    recon = "\n".join(
+        f"=== {a} ===\nimpact: {r.answer_impact}\nchanged: {[f'{c.topic}: {c.change}' for c in r.position_changes]}\n"
+        f"held: {r.unchanged}\nnew conflicts: {[f'with {n.with_agent}: {n.issue} (they say: {n.my_position})' for n in r.new_conflicts]}\n"
+        f"advice: {r.advice_to_arbiter}"
+        for a, r in (reconsiderations or {}).items()
+    ) or "- (the council did not re-discuss)"
     props = "\n".join(f"=== {a} ===\n{p.model_dump_json()}" for a, p in proposals.items())
     endorse = "\n".join(f"- {a}: {r.endorsements}" for a, r in reviews.items() if r.endorsements) or "- (none)"
     rebs = "\n".join(
@@ -256,6 +310,9 @@ NITPICKS (retained for the record, need no decision):
 
 ANSWERS FROM THE HUMAN (authoritative; never contradict or invent these):
 {ans}
+
+RE-DISCUSSION AFTER THE ANSWERS (each member's updated position; prefer these over their earlier proposals where they differ, and settle every new conflict explicitly):
+{recon}
 
 TECHNICAL ASSUMPTIONS ALREADY MADE ON THE HUMAN'S BEHALF:
 {_bullets(internal_notes)}

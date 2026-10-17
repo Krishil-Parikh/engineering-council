@@ -42,3 +42,16 @@ def format_review(r: AgentReview) -> str:
 
 def format_rebuttal(r: RebuttalItem) -> str:
     return f"{r.stance} {r.dispute_id}\n{r.response}\nRevised position: {r.revised_position or '(none)'}"
+
+
+def format_reconsideration(r) -> str:
+    lines = [f"Impact of the answers: {r.answer_impact or '(none stated)'}"]
+    for c in r.position_changes:
+        lines.append(f"CHANGED {c.topic}: {c.change} (because {c.reason})")
+    for u in r.unchanged:
+        lines.append(f"HELD {u}")
+    for n in r.new_conflicts:
+        lines.append(f"CONFLICT with {n.with_agent}: {n.issue} (my position: {n.my_position})")
+    for a in r.advice_to_arbiter:
+        lines.append(f"ADVICE {a}")
+    return "\n".join(lines)

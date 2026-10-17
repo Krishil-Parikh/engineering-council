@@ -157,3 +157,13 @@ def test_atomic_write_leaves_no_temp_file(tmp_path):
 def test_corrupt_checkpoint_counts_as_not_done(tmp_path):
     (tmp_path / "meeting.json").write_text("{not json")
     assert storage.MeetingStore(tmp_path).state.stage == "created"
+
+
+def test_council_rediscusses_after_human_answers(tmp_path):
+    llm = FakeLLM()
+    result = run(make_input(tmp_path), llm)
+    out = result.out_dir
+    for agent in ("SYSTEMS_ARCHITECT", "PRODUCT_UX", "PRAGMATIC_MVP", "RED_TEAM_QA"):
+        assert llm.calls[f"rediscuss:{agent}"] == 1
+        assert (out / "reconsiderations" / f"{agent}.json").exists()
+    assert "Re-discussion after the human's answers" in (out / "minutes.md").read_text(encoding="utf-8")

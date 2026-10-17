@@ -6,6 +6,7 @@ from datetime import date
 
 from engineering_council.models import (
     AgentProposal,
+    AgentReconsideration,
     AgentRebuttal,
     AgentReview,
     Answer,
@@ -204,6 +205,7 @@ def render_minutes(
     answers: list[Answer],
     decisions: list[Decision],
     warnings: list[str],
+    reconsiderations: dict[str, AgentReconsideration] | None = None,
 ) -> str:
     s = f"# Meeting Minutes — {inp.project_name}\n\n**Date:** {date.today().isoformat()}\n\n"
     s += f"**Attendees:** {', '.join(proposals)}" + (f"  \n**Absent (failed to contribute):** {', '.join(missing)}" if missing else "") + "\n\n"
@@ -233,6 +235,19 @@ def render_minutes(
     if curation.resolved_internally:
         s += "Resolved internally by the council:\n" + bullets(curation.resolved_internally) + "\n"
     s += (table(["Question", "Answer", "How"], [[a.question, a.answer, a.source] for a in answers]) if answers else "_No material questions were needed._\n") + "\n"
+    if reconsiderations:
+        s += "## Round 4 — Re-discussion after the human's answers\n\n"
+        for a, r in reconsiderations.items():
+            s += f"### {a}\n\n**Impact of the answers:** {r.answer_impact or '—'}\n\n"
+            if r.position_changes:
+                s += "**Changed:**\n" + bullets([f"{c.topic}: {c.change} (because {c.reason})" for c in r.position_changes])
+            if r.unchanged:
+                s += "**Held:**\n" + bullets(r.unchanged)
+            if r.new_conflicts:
+                s += "**New conflicts:**\n" + bullets([f"with {n.with_agent}: {n.issue} (position: {n.my_position})" for n in r.new_conflicts])
+            if r.advice_to_arbiter:
+                s += "**Advice to the arbiter:**\n" + bullets(r.advice_to_arbiter)
+            s += "\n"
     s += "## Decisions\n\n" + table(["ID", "Status", "Decision", "Chosen", "Rejected"], [[d.decision_id, d.status, d.statement, d.chosen_option, "; ".join(r.option for r in d.rejected_alternatives) or "—"] for d in decisions])
     if warnings:
         s += "\n## Warnings\n\n" + bullets(warnings)

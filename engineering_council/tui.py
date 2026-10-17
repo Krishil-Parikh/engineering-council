@@ -43,7 +43,7 @@ from engineering_council.meeting import (
 )
 from engineering_council.models import AGENT_IDS, Answer, HumanQuestion, MeetingInput
 
-STAGE_NAMES = ["Inspect", "Proposals", "Review", "Rebuttals", "Questions", "Decisions", "Specification", "Verify"]
+STAGE_NAMES = ["Inspect", "Proposals", "Review", "Rebuttals", "Questions", "Re-discussion", "Decisions", "Specification", "Verify"]
 ACTORS = (*AGENT_IDS, "ARBITER")
 COLORS = {
     "SYSTEMS_ARCHITECT": "cyan",

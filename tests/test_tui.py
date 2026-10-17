@@ -40,7 +40,7 @@ def test_tui_runs_a_full_meeting_and_shows_everything(tmp_path):
     for who in ("SYSTEMS_ARCHITECT", "PRODUCT_UX", "PRAGMATIC_MVP", "RED_TEAM_QA", "ARBITER"):
         assert len(app.streams[who]) > 0, who
         assert app.actors[who]["state"] in ("done", "stopped"), (who, app.actors[who]["state"])
-    assert app.stage_n == 8
+    assert app.stage_n == 9
 
 
 def test_tui_question_modal_records_the_answer(tmp_path):

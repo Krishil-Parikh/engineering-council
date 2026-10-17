@@ -139,6 +139,29 @@ class AgentRebuttal(BaseModel):
     responses: list[RebuttalItem] = Field(default_factory=list)
 
 
+class PositionChange(BaseModel):
+    topic: str
+    change: str  # what the member now proposes differently
+    reason: str
+
+
+class NewConflict(BaseModel):
+    with_agent: str
+    issue: str
+    my_position: str
+
+
+class AgentReconsideration(BaseModel):
+    """A member's updated view after the human's answers and the rebuttals: the council's re-discussion round."""
+
+    agent_id: str = ""
+    answer_impact: str = ""  # how the human's answers change (or do not change) this member's view
+    position_changes: list[PositionChange] = Field(default_factory=list)
+    unchanged: list[str] = Field(default_factory=list)  # positions held, with the reason
+    new_conflicts: list[NewConflict] = Field(default_factory=list)  # disagreements that the answers created or exposed
+    advice_to_arbiter: list[str] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------- questions
 
 

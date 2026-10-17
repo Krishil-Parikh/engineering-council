@@ -10,7 +10,9 @@ from engineering_council.models import (
     AGENT_IDS,
     AcceptanceCriterion,
     AgentProposal,
+    AgentReconsideration,
     AgentRebuttal,
+    PositionChange,
     AgentReview,
     ArchComponent,
     ComponentProposal,
@@ -175,6 +177,8 @@ class FakeLLM:
             return review(agent)
         if schema is AgentRebuttal:
             return AgentRebuttal(agent_id=agent, responses=[RebuttalItem(dispute_id="DSP-001", stance="ACCEPT", response="Fair point.", revised_position="Use atomic rename")])
+        if schema is AgentReconsideration:
+            return AgentReconsideration(agent_id=agent, answer_impact="The answers keep the scope small.", position_changes=[PositionChange(topic="Sync", change="Drop cloud sync", reason="Human said no")])
         if schema is QuestionCuration:
             return QuestionCuration(questions=[HumanQuestion(question="Should tasks sync across devices?", why_it_matters="Changes scope", options=["Yes", "No"], recommended_default="No")] * 9, resolved_internally=["Storage format: JSON"])
         if schema is DecisionSet:
