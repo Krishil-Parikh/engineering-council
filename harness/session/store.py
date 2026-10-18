@@ -11,6 +11,7 @@ from typing import Any, Optional
 
 from harness.db.database import Database, jdump, jload
 from harness.schema import message as M
+from harness.schema.permission import Rule
 
 
 def new_session_id() -> str:
@@ -31,6 +32,14 @@ class SessionInfo:
     tokens: M.TokenUsage = field(default_factory=M.TokenUsage)
     time_created: int = 0
     time_updated: int = 0
+
+    def permission_rules(self) -> list[Rule]:
+        """Rules set on this session (they narrow the agent's rules)."""
+        return _rules(self.permission)
+
+
+def _rules(raw: Optional[list[dict[str, str]]]) -> list[Rule]:
+    return [Rule(r["action"], r["resource"], r["effect"]) for r in (raw or [])]  # type: ignore[arg-type]
 
 
 def _info(row: Any) -> SessionInfo:
