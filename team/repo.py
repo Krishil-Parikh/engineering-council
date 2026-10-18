@@ -239,6 +239,10 @@ class TeamRepo:
         out = self._git(self.sandbox(dev), "diff", "--name-only", f"origin/{base}...{head}").text
         return [l.strip() for l in out.splitlines() if l.strip()]
 
+    def files_between(self, dev: str, a: str, b: str = "HEAD") -> list[str]:
+        out = self._git(self.sandbox(dev), "diff", "--name-only", a, b).text
+        return [l.strip() for l in out.splitlines() if l.strip()]
+
     def log(self, dev: str, ref: str = "HEAD", limit: int = 20) -> list[str]:
         return self._git(self.sandbox(dev), "log", f"-{limit}", "--format=%h %s", ref).text.splitlines()
 

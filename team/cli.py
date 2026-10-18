@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 from pathlib import Path
 
 from meetings.config import load_settings
@@ -48,10 +49,13 @@ def build(argv: list[str]) -> int:
     p.add_argument("--max-parallel", type=int, default=6, help="most features worked on at the same time")
     p.add_argument("--run-id", help="name this run (default: a timestamp); reuse a run id to resume")
     p.add_argument("--repair-rounds", type=int, default=2, help="repair rounds when the verification commands fail")
+    p.add_argument("--memory-dir", help="where cross-project memory lives (default: $COUNCIL_MEMORY_DIR or ~/.council/memory)")
+    p.add_argument("--no-memory", action="store_true", help="neither use nor update cross-project memory")
     p.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args(argv[1:])
     settings = load_settings()
-    config = TeamConfig(max_parallel=args.max_parallel, repair_rounds=args.repair_rounds)
+    memory_dir = None if args.no_memory else Path(args.memory_dir or os.environ.get("COUNCIL_MEMORY_DIR") or Path.home() / ".council" / "memory")
+    config = TeamConfig(max_parallel=args.max_parallel, repair_rounds=args.repair_rounds, memory_dir=memory_dir)
     if args.run_id:
         config.run_id = args.run_id
     meeting = Path(args.directory)
@@ -62,6 +66,8 @@ def build(argv: list[str]) -> int:
     result = asyncio.run(engine.run())
     merged = sum(1 for f in result.features if f.status == "merged")
     print(f"\n{merged}/{len(result.features)} features merged. Verification: {'PASSED' if result.passed else 'not verified'}.")
+    if result.lessons_learned:
+        print(f"Learned {result.lessons_learned} lesson(s) for next time (memory: {memory_dir}).")
     print(f"Review branch {result.final_branch} in {engine.repo.origin} and merge it into main yourself. Report: {meeting / 'team_report.md'}")
     for w in result.warnings:
         print(f"  ! {w}")

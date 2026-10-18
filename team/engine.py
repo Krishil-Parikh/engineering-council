@@ -30,6 +30,7 @@ from harness.shell import select as ShellSelect
 from meetings.errors import MeetingError
 from meetings.models import Roster, Spec
 from meetings.storage import write_text
+from memory import CHECKPOINT_PROMPT, DISTILL_PROMPT, LessonStore, ProjectLog, RunFacts, describe_events, facts_to_lessons, parse_lessons, relevant, update_codemap
 from team.build import GITIGNORE, agents_md
 from team.channel import Channel, LocalChannel
 from team.design import Decision, DesignBoard, design_change_tool
@@ -54,6 +55,8 @@ class TeamConfig:
     snapshots: bool = False
     resume: bool = True
     transport: str = "a2a"  # "a2a" (gRPC between agents) or "local" (in-process)
+    memory_dir: Optional[Path] = None  # cross-project memory (lessons, profiles, learned skills); None turns it off
+    distill: bool = True  # also ask the scrum master to reflect on the run in its own words
 
 
 @dataclass
@@ -77,6 +80,7 @@ class TeamResult:
     passed: bool = False
     warnings: list[str] = field(default_factory=list)
     decisions: list[Decision] = field(default_factory=list)
+    lessons_learned: int = 0
 
 
 def run_command(command: str, cwd: Path, timeout: int) -> tuple[int, str]:
@@ -126,11 +130,16 @@ class TeamEngine:
         self.result = TeamResult(self.cfg.run_id, self.root, self.integration)
         self.conflict_counts: dict[str, int] = {}
         self.plan: Optional[Plan] = None
+        self.conflict_log: list[dict] = []
+        self.lessons = LessonStore(self.cfg.memory_dir) if self.cfg.memory_dir else None
+        self.project_log = ProjectLog(self.repo.sandbox_path(INTEGRATOR), self.spec.project_name)
 
     # ------------------------------------------------------------------ people
 
     def _default_harness(self, dev: str, sandbox: Path, agent: Any) -> Harness:
         data = self.root / "data" / slugify(dev)
+        if self.lessons is not None and self.lessons.skills_dir.is_dir():  # skills the team has learned on earlier projects
+            shutil.copytree(self.lessons.skills_dir, data / "skills", dirs_exist_ok=True)
         return Harness(
             sandbox, llm=self.llm, api_key=self.api_key, model=self.model, data_root=data, home=self.root / "home", db_path=data / "sessions.db",
             snapshots=self.cfg.snapshots, agents=[agent], rules=DEVELOPER_RULES, default_agent=agent.id,
@@ -142,7 +151,8 @@ class TeamEngine:
         if dev not in self.harnesses:
             sandbox = self.repo.sandbox(dev)
             skill = self.roster.get(dev, "INTEGRATOR")
-            agent = developer_agent(dev, skill) if dev != INTEGRATOR else _integrator_agent()
+            experience = self.lessons.describe(skill) if self.lessons is not None else ""
+            agent = developer_agent(dev, skill, experience) if dev != INTEGRATOR else _integrator_agent()
             h = self._factory(dev, sandbox, agent)
             h.registry.add(design_change_tool(h.deps, self.board, dev))
             self.harnesses[dev] = h
@@ -188,7 +198,7 @@ class TeamEngine:
         feedback = ""
         plan: Optional[Plan] = None
         for attempt in range(self.cfg.planning_attempts):
-            prompt = PLAN_PROMPT.format(roster=", ".join(f"{d} ({s.title()})" for d, s in self.roster.items()), spec=spec_brief(self.spec)) + feedback
+            prompt = PLAN_PROMPT.format(roster=", ".join(f"{d} ({s.title()})" for d, s in self.roster.items()), spec=spec_brief(self.spec)) + self.recalled("plan split work parallel merge conflict owner interface verification tests integration design " + self.spec.project_name, None, 6) + feedback
             reply = await self.channel.ask("system", INTEGRATOR, prompt, topic="work plan")
             try:
                 match = re.search(r"\{.*\}", reply, re.S)
@@ -225,7 +235,7 @@ class TeamEngine:
         other = [f"{f.owner}: {f.title}" for f in (self.plan.features if self.plan else []) if f.id != feature.id]
         for index, task in enumerate(feature.tasks, 1):
             self._emit("task", feature=feature.id, owner=dev, index=index, total=len(feature.tasks), title=task.title)
-            prompt = task_prompt(self.spec, feature, task, index, other)
+            prompt = task_prompt(self.spec, feature, task, index, other, self.memory_for(dev, feature, task))
             try:
                 result = await asyncio.wait_for(h.prompt(prompt, session_id=session.id), self.cfg.task_timeout)
             except asyncio.TimeoutError:
@@ -247,15 +257,92 @@ class TeamEngine:
         branch = source_branch or feature.branch
         async with self.merge_lock:
             await self._git(self.repo.checkout_branch, INTEGRATOR, self.integration)
+            before = await self._git(self.repo.head, INTEGRATOR)
             merge = await self._git(self.repo.merge, INTEGRATOR, branch, f"Merge {branch}")
             if merge.status == "conflict":
                 self.conflict_counts[feature.id] = self.conflict_counts.get(feature.id, 0) + 1
                 self._emit("conflict", feature=feature.id, files=merge.files)
+                self.conflict_log.append({"feature": feature.id, "files": list(merge.files), "with": [], "resolved": False})
                 if not await self.resolve_conflict(feature, branch):
                     await self._git(self.repo.abort_merge, INTEGRATOR)
                     return False, f"merge conflict in {', '.join(merge.files)} could not be resolved"
+                self.conflict_log[-1]["resolved"] = True
+            await self.remember_merge(feature, branch, before)
             await self._git(self.repo.push, INTEGRATOR, self.integration)
         return True, f"merged {branch}" + (" after resolving a conflict" if feature.id in self.conflict_counts else "")
+
+    # ------------------------------------------------------------------ memory
+
+    def recalled(self, query: str, skill: Optional[str], k: int = 5) -> str:
+        """Lessons from earlier projects that fit the query, ready to append to a prompt ('' when there are none)."""
+        if self.lessons is None:
+            return ""
+        text = self.lessons.render(self.lessons.recall(query, skill, k))
+        return f"\n\n{text}" if text else ""
+
+    def memory_for(self, dev: str, feature: Feature, task: Any) -> str:
+        """What the developer should know before starting: the parts of the code map and project log about this work, plus lessons."""
+        query = f"{feature.title} {feature.summary} {task.title} {task.details}"
+        sandbox = self.repo.sandbox_path(dev)
+        parts = []
+        for name, label in (("docs/CODEMAP.md", "Code map (what exists already)"), ("docs/MEMORY.md", "Project history and decisions")):
+            try:
+                text = relevant((sandbox / name).read_text(encoding="utf-8"), query, 2500)
+            except OSError:
+                continue
+            if text.strip():
+                parts.append(f"{label}:\n{text.strip()}")
+        parts.append(self.recalled(query, self.roster.get(dev), 4).strip())
+        return "\n\n".join(p for p in parts if p)
+
+    async def _summarize(self, previous: str, folded: str) -> str:
+        return await self.channel.ask("system", INTEGRATOR, CHECKPOINT_PROMPT.format(previous=previous or "(none)", entries=folded), topic="memory checkpoint")
+
+    async def remember_merge(self, feature: Feature, branch: str, before: str) -> None:
+        """After a merge, in the integrator's clone: refresh the code map and add the merge to the project log, then commit both."""
+        files = await self._git(self.repo.files_between, INTEGRATOR, before, "HEAD")
+        sandbox = self.repo.sandbox_path(INTEGRATOR)
+        await asyncio.to_thread(update_codemap, sandbox, self.spec.project_name)
+        lines = [f"owner {feature.owner}", f"branch {branch}", "files: " + (", ".join(files[:12]) + (" …" if len(files) > 12 else "") if files else "(none)")]
+        if feature.summary:
+            lines.append(feature.summary[:160])
+        if feature.id in self.conflict_counts:
+            lines.append("merged after a conflict that was resolved by conversation")
+        await self.project_log.add(f"Merged {feature.title}", lines, self._summarize)
+        await self._git(self.repo.commit_all, INTEGRATOR, f"memory: after {branch}")
+
+    async def learn(self) -> None:
+        """At the end of a run: turn what happened into lessons, update the developers' experience and promote lessons seen on several projects to skills."""
+        if self.lessons is None:
+            return
+        failed = [f for f in self.result.features if f.status != "merged"]
+        facts = RunFacts(
+            self.spec.project_name, features=len(self.result.features),
+            conflicts=self.conflict_log,
+            failed_features=[{"feature": f.id, "owner": f.owner, "skill": self.roster.get(f.owner, ""), "reason": f.summary} for f in failed],
+            verification_failures=[{"command": c, "tail": out} for c, code, out in self.result.verification if code != 0],
+            decisions=[{"title": d.title, "approved": d.approved, "proposer_skill": self.roster.get(d.proposer, "")} for d in self.board.decisions],
+            unresolved_merges=sum(1 for c in self.conflict_log if not c["resolved"]),
+        )
+        found = facts_to_lessons(facts)
+        if self.cfg.distill:
+            try:
+                reply = await self.channel.ask("system", INTEGRATOR, DISTILL_PROMPT.format(project=facts.project, features=facts.features, events=describe_events(facts)), topic="lessons")
+                found += parse_lessons(reply)
+            except Exception as exc:  # noqa: BLE001 - reflection is a bonus; the deterministic lessons are already in hand
+                self.result.warnings.append(f"could not ask the scrum master to reflect: {exc}")
+        for lesson in found:
+            self.lessons.add(lesson["text"], lesson["skill"], lesson["tags"], facts.project, lesson["source"])
+        by_skill: dict[str, list[FeatureReport]] = {}
+        for f in self.result.features:
+            by_skill.setdefault(self.roster.get(f.owner, ""), []).append(f)
+        for skill, items in by_skill.items():
+            if skill:
+                self.lessons.record_run(skill, features=sum(1 for i in items if i.status == "merged"), conversations=sum(i.conflicts for i in items), failures=sum(1 for i in items if i.status != "merged"))
+        self.lessons.prune()
+        self.lessons.save()
+        self.lessons.write_skills()
+        self.result.lessons_learned = len(found)
 
     async def authors_of(self, files: list[str], exclude: set[str]) -> list[str]:
         """Developers whose commits touched these files on the integration branch (the owners of what is being merged into)."""
@@ -340,6 +427,7 @@ class TeamEngine:
                     self.result.warnings.append(f"{f.id} ({f.owner}): {status}: {summary}")
             await self.verify_and_repair()
             await self.finish()
+            await self.learn()
         finally:
             self.result.decisions = list(self.board.decisions)
             for h in self.harnesses.values():

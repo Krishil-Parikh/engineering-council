@@ -1,6 +1,6 @@
 # Harness status (opencode port + team engine)
 
-IDs match the original analysis table. Tests: 408 passing, 1 skipped.
+IDs match the original analysis table. Tests: 427 passing, 1 skipped.
 
 ## Done
 
@@ -27,6 +27,8 @@ IDs match the original analysis table. Tests: 408 passing, 1 skipped.
 | X1 | A2A over gRPC on the official `a2a-sdk` (`council_a2a`): agent servers, clients, token auth, audit log, direct/broadcast/group conversations; the team's conversations use it |
 | X3, X4 | Team engine (`team/`): plan as a feature graph, scheduler, per-developer sandbox clones, feature branches, merge queue with conflict talks, protected main, final branch, resume; checked live against Gemini |
 | X5 | Design-change meetings with votes and ADRs |
+| X6 | Project memory (`memory/project.py`): code map regenerated after every merge, project log compacted into a checkpoint, both committed in the repo and shown to developers per task |
+| X7 | Cross-project memory (`memory/lessons.py`, `learn.py`): lessons learned from conflicts, failures, verification and design changes; recall into planning and tasks; developer experience profiles; lessons seen on two projects promoted to skills the harness loads |
 
 ## Partial
 
@@ -54,5 +56,5 @@ webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit 
 - X2 Only-needed-skills staffing
 - Planning as a pod meeting (today the plan is one scrum-master call)
 - The meeting's developer calls over A2A
-- X6 Project memory; X7 cross-project memory
+
 - README and docs update

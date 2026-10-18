@@ -19,7 +19,7 @@ def spec_brief(spec: Spec, limit: int = 12000) -> str:
     return "\n\n".join(parts)[:limit]
 
 
-def task_prompt(spec: Spec, feature: Feature, task: Task, index: int, others: list[str]) -> str:
+def task_prompt(spec: Spec, feature: Feature, task: Task, index: int, others: list[str], memory: str = "") -> str:
     text = f"{feature.title} {task.title} {task.details}".lower()
     comps = [c for c in spec.components if c.name.lower() in text or (c.path and c.path.lower() in text)] or spec.components
     req_ids = {r for c in comps for r in c.requirement_ids}
@@ -34,6 +34,8 @@ def task_prompt(spec: Spec, feature: Feature, task: Task, index: int, others: li
         p += "Acceptance criteria to satisfy:\n" + "\n".join(f"- {a.id} ({a.requirement_id}): given {a.given}, when {a.when}, then {a.then}" for a in acs[:20]) + "\n\n"
     if others:
         p += "Teammates are building these in parallel on their own branches (do not do their work):\n" + "\n".join(f"- {o}" for o in others[:20]) + "\n\n"
+    if memory:
+        p += f"What the team already knows:\n{memory}\n\n"
     p += (
         "How to work: read AGENTS.md and the relevant part of docs/ first, then do this task in the files the directory layout names, write or update tests "
         f"for it, run the project's test command and fix failures. When it passes, commit with the message `{feature.id}: {task.title}` (do not push). "

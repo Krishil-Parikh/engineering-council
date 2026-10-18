@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from memory import LessonStore
 from team.engine import TeamConfig, TeamEngine
 from team.repo import TeamRepo
 from tests.team.fake_llm import TeamLLM
@@ -243,3 +244,88 @@ def test_local_transport_still_works_without_a2a(tmp_path):
     eng, _, _ = engine(tmp_path, base_llm(), transport="local")
     result = asyncio.run(eng.run())
     assert result.passed and not (tmp_path / "team" / "a2a-audit.jsonl").exists()
+
+
+# ------------------------------------------------------------------ memory
+
+def conflict_llm(extra=None):
+    plan = {"features": [
+        {"id": "left", "title": "Left", "owner": "DEV_1", "tasks": [{"title": "write left"}]},
+        {"id": "right", "title": "Right", "owner": "DEV_2", "tasks": [{"title": "write right"}]},
+    ]}
+    llm = TeamLLM()
+    llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
+    llm.on(r"Task: write left", [write("shared.txt", "a = 'left'\n"), ("text", "ok")])
+    llm.on(r"Task: write right", [write("shared.txt", "a = 'right'\n"), ("text", "ok")])
+    llm.on(r"produced conflicts", [("text", "keep both")])
+    llm.on(r"You are merging", [write("shared.txt", "a_left = 'left'\na_right = 'right'\n"), ("text", "combined")])
+    if extra:
+        extra(llm)
+    return llm
+
+
+def renamed_meeting(tmp_path, name):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    meeting, spec = finished_meeting(tmp_path)
+    (meeting / "specification.json").write_text(spec.model_copy(update={"project_name": name}).model_dump_json(), encoding="utf-8")
+    return meeting
+
+
+def test_codemap_and_project_log_are_kept_on_the_integration_branch(tmp_path):
+    eng, _, _ = engine(tmp_path, base_llm())
+    asyncio.run(eng.run())
+    repo = TeamRepo(tmp_path / "team" / "remote")
+    codemap = repo.file_at("viewer", "origin/final/r1", "docs/CODEMAP.md")
+    memory = repo.file_at("viewer", "origin/final/r1", "docs/MEMORY.md")
+    assert "`db.py`" in codemap and "def connect" in codemap and "`api.py`" in codemap and "`ui.py`" in codemap
+    assert "Merged Database layer" in memory and "owner DEV_6" in memory and "files: " in memory and "db.py" in memory
+    assert memory.index("Merged Database layer") < memory.index("Merged API")  # the API depends on the database, so it merges later
+    assert "docs/CODEMAP.md" in repo.file_at("viewer", "origin/final/r1", "AGENTS.md")
+
+
+def test_a_developer_starting_a_dependent_feature_is_told_what_exists(tmp_path):
+    llm = base_llm()
+    eng, _, _ = engine(tmp_path, llm)
+    asyncio.run(eng.run())
+    api_prompt = next(str(r.messages) for r in llm.requests if "Task: write api module" in str(r.messages))
+    assert "What the team already knows" in api_prompt and "db.py" in api_prompt and "Merged Database layer" in api_prompt
+
+
+def test_lessons_carry_from_one_project_to_the_next_and_become_skills(tmp_path):
+    memory_dir = tmp_path / "memory"
+
+    def reflect(llm):
+        llm.on(r"Reflect on how the work went", [("text", json.dumps({"lessons": [{"text": "Agree the shared file layout before parallel work starts.", "skill": "", "tags": ["plan"]}]}))])
+
+    # first project: a conflict happens, the team learns from it
+    one = TeamEngine(renamed_meeting(tmp_path / "a", "Alpha"), tmp_path / "a" / "team", llm=conflict_llm(reflect), config=TeamConfig(run_id="r1", repair_rounds=0, memory_dir=memory_dir))
+    r1 = asyncio.run(one.run())
+    assert r1.lessons_learned >= 2
+    store = LessonStore(memory_dir)
+    texts = [l.text for l in store.lessons]
+    assert any("collided in shared.txt" in t for t in texts) and any("Agree the shared file layout" in t for t in texts)
+    assert store.profiles["FRONTEND"].projects == 1 and store.profiles["BACKEND"].conversations == 1
+    assert not list((memory_dir / "skills").glob("*"))  # seen on only one project: not yet a skill
+
+    # second project: the planner is shown the lesson, and the same conflict makes it a skill
+    llm2 = conflict_llm(reflect)
+    two = TeamEngine(renamed_meeting(tmp_path / "b", "Beta"), tmp_path / "b" / "team", llm=llm2, config=TeamConfig(run_id="r2", repair_rounds=0, memory_dir=memory_dir))
+    asyncio.run(two.run())
+    plan_prompt = next(str(r.messages) for r in llm2.requests if "Turn the agreed specification" in str(r.messages))
+    assert "Lessons from earlier projects" in plan_prompt and "collided in shared.txt" in plan_prompt
+    skill_files = list((memory_dir / "skills").glob("*/SKILL.md"))
+    assert skill_files and "collided in shared.txt" in skill_files[0].read_text(encoding="utf-8")
+
+    # third project: developers get the learned skill in their harness and their experience in their persona
+    llm3 = conflict_llm(reflect)
+    three = TeamEngine(renamed_meeting(tmp_path / "c", "Gamma"), tmp_path / "c" / "team", llm=llm3, config=TeamConfig(run_id="r3", repair_rounds=0, memory_dir=memory_dir))
+    asyncio.run(three.run())
+    assert (tmp_path / "c" / "team" / "data" / "dev-1" / "skills" / skill_files[0].parent.name / "SKILL.md").exists()
+    system = " ".join(p.text for r in llm3.requests for p in r.system)
+    assert "Experience: 2 earlier project(s)" in system
+
+
+def test_without_a_memory_directory_nothing_is_written_outside_the_project(tmp_path):
+    eng, _, _ = engine(tmp_path, base_llm())
+    result = asyncio.run(eng.run())
+    assert eng.lessons is None and result.lessons_learned == 0

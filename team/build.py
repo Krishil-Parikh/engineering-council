@@ -55,6 +55,7 @@ def agents_md(spec: Spec) -> str:
         s += "## Commands\n\n```text\n" + "\n".join(spec.verification_commands) + "\n```\n\n"
     if spec.config_vars:
         s += "## Configuration\n\n" + "\n".join(f"- `{v.name}`{' (required)' if v.required else ''}: {v.description}" for v in spec.config_vars) + "\n\n"
+    s += "## Project memory\n\n- `docs/CODEMAP.md`: a map of the code (files, purposes, top-level symbols), regenerated after every merge.\n- `docs/MEMORY.md`: what the team built and decided, newest last. Read it before changing something that looks deliberate.\n\n"
     s += "## Conventions\n\n- Reference requirement ids (FR-/NFR-) in test names or docstrings when a test covers one.\n- Every public contract in `docs/Design.md` must be implemented exactly as written; do not rename it.\n- Never commit secrets; read them from the environment.\n"
     return s
 

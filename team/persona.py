@@ -38,7 +38,7 @@ def agent_id(dev: str) -> str:
     return slugify(dev)
 
 
-def developer_agent(dev: str, skill: str) -> Agent:
+def developer_agent(dev: str, skill: str, experience: str = "") -> Agent:
     lens = SKILL_LENSES.get(skill, {"title": skill.title(), "sees": "", "asks": ""})
     system = f"""You are {dev}, a {lens['title']} developer on a small autonomous engineering team. You work alone in your own clone of the repository; teammates work in theirs, in parallel, on other branches.
 
@@ -51,7 +51,7 @@ How you work:
 - Write or update tests for what you build, run them, and fix failures before you finish.
 - Commit your work with a clear message when the task passes. Do not push, and do not touch git remotes: the team engine publishes your branch.
 - You cannot see outside your clone. If the design must change (a contract, a component boundary, the data model), do not improvise: call the design_change tool and wait for the team's decision.
-- Finish with a short report: what you built, how you verified it, anything unfinished."""
+- Finish with a short report: what you built, how you verified it, anything unfinished.""" + (f"\n\n{experience}" if experience else "")
     return Agent(id=agent_id(dev), name=dev, mode="primary", description=f"{lens['title']} developer", system=system, permissions=[Rule("question", "*", "deny")])
 
 
