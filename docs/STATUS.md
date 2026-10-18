@@ -1,0 +1,55 @@
+# Harness status (opencode port + team engine)
+
+IDs match the original analysis table. Everything in `harness/` is committed locally; nothing from the harness work is pushed yet.
+Tests: 311 passing, 1 skipped.
+
+## Done
+
+| # | Item |
+|---|---|
+| A1, A2 | SQLite session store; typed message model with tool state machine |
+| A3, A4, A5 | Step loop and outcomes; retry policy; max-steps wrap-up |
+| B1–B8 | Compaction: estimate, ceiling, split, summary prompts, nudge, 70/50/35% shrink loop, flatten and drop oldest, checkpoint rendering |
+| C1–C5 | Instruction discovery, instruction state, built-in context, nearby `AGENTS.md`, skill discovery |
+| D1 | Agent registry |
+| D3, D4 | Permission engine; external-directory approval |
+| D5 | Config discovery and loading |
+| E1 | `read` (paged text, directories, images, PDFs, alternate-name suggestions) |
+| E2 | `edit`, `write`, `patch` |
+| E3 | `glob`, `grep` |
+| E4 | `shell` (tree-sitter scanning, process service, jobs, background notifications) |
+| E5 | Output truncation to files |
+| G1 | Gemini provider (verified against the live model) |
+| — | Module boundaries enforced by `tests/test_architecture.py` |
+
+## Partial
+
+- A7: token and cost accounting only, no stats
+- B9, B10: failure events, plugin hook and per-agent compaction model not confirmed
+- D2: plan-mode reminders
+- E12: locking and diffs yes, stale-file guard no
+- E13: registry has add and snapshot, no namespaces or override/disable
+- H1: only the `context_hooks` hook exists
+- E4: PowerShell is scanned with a simple splitter, not a grammar
+
+## Left in the harness
+
+1. Tools: `subagent` (child sessions, jobs), `question`, `skill` tool
+2. VCS: git and worktree tools (F1, F3); snapshots and revert (F2, A9)
+3. Smaller: tool-input repair (A11), `/init` and custom commands (C6, D6), run coordinator and inbox (A6), title and summary (A8), session move/export (A10), reference/scout (C7)
+4. `Harness` facade and CLI; switch `team/` off `harness/legacy` (ask before deleting legacy)
+5. Model catalog (G2); rest of the plugin hook host (H1)
+
+## Dropped by decision
+
+webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit line, other providers, OAuth.
+
+## Not started (our additions)
+
+- X1 A2A over gRPC on `a2a-sdk`, with a channel layer for group chats
+- X2 Only-needed-skills staffing
+- X3 Planning mode with a task DAG
+- X4 Agent mode: per-developer sandbox clones, feature branches, merge queue and conflict talks with the branch owner, integration and final branches, main protected
+- X5 Design-change meetings
+- X6 Project memory; X7 cross-project memory
+- README and docs update; push

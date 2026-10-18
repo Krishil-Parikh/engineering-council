@@ -1,6 +1,6 @@
 # Engineering Council CLI
 
-A terminal tool that turns a problem statement into three reviewed, consistent specification documents — `PRD.md`, `Technical_Approach.md` and `Design.md` — by running a conversational pod meeting: six developers who each pick a skill, led by a scrum master. Python + Gemini API only. See [PRD.md](PRD.md) and [Technical_Approach.md](Technical_Approach.md) for the product spec this implements.
+A terminal tool that turns a problem statement into three reviewed, consistent specification documents — `PRD.md`, `Technical_Approach.md` and `Design.md` — by running a conversational pod meeting: six developers who each pick a skill, led by a scrum master. Python + Gemini API only. See [docs/PRD.md](docs/PRD.md) and [docs/Technical_Approach.md](docs/Technical_Approach.md) for the product spec this implements.
 
 ## How the meeting works
 
@@ -51,7 +51,7 @@ Gemma/Gemini models on the free tier return 429/503 under load. The client waits
 
 ```text
 python -m council                          # opens the TUI with a start form
-python -m council --name "My App" --problem-file problem.md --repo ./my-repo --constraint "Python" -y
+python -m council --name "My App" --problem-file examples/problem.md --repo ./my-repo --constraint "Python" -y
 python -m council resume output/my-app     # continue an interrupted meeting
 python -m council revise output/my-app --feedback "Add CSV export"
 ```
@@ -106,3 +106,9 @@ python -m harness.legacy -d some/project                     # or use the harnes
 the shell (`gh`); permission rules; `AGENTS.md` and skills as project memory; conversation compaction; undo through shadow-git snapshots.
 See `harness.legacy/README.md`. The build hands each step of the specification's implementation sequence to the developer whose skill fits,
 commits per step, then runs the spec's verification commands with repair rounds, and writes `build_report.md`.
+
+## Docs
+
+- [docs/PRD.md](docs/PRD.md), [docs/Technical_Approach.md](docs/Technical_Approach.md): the product spec
+- [docs/STATUS.md](docs/STATUS.md): what is built in the harness and what is left
+- [examples/](examples): sample problem statements to try the meeting on
