@@ -309,7 +309,7 @@ def test_lessons_carry_from_one_project_to_the_next_and_become_skills(tmp_path):
     store = LessonStore(memory_dir)
     texts = [l.text for l in store.lessons]
     assert any("collided in shared.txt" in t for t in texts) and any("Agree the shared file layout" in t for t in texts)
-    assert store.profiles["FRONTEND"].projects == 1 and store.profiles["BACKEND"].conversations == 1
+    assert store.profiles["FRONTEND"].projects == 1 and sum(p.conversations for p in store.profiles.values()) == 1  # the conflict lands on whichever feature merges second
     assert not list((memory_dir / "skills").glob("*"))  # seen on only one project: not yet a skill
 
     # second project: the planner is shown the lesson, and the same conflict makes it a skill

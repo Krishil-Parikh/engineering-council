@@ -48,6 +48,7 @@ class Decision:
     votes: list[Vote] = field(default_factory=list)
     amendments: list[str] = field(default_factory=list)
     adr: Optional[str] = None  # path relative to the proposer's sandbox, when approved
+    human_note: str = ""  # when the team approved but the human declined (or the human's remark)
 
     def summary(self) -> str:
         lines = [f"Design change '{self.title}': {'APPROVED' if self.approved else 'REJECTED'}"]
@@ -56,6 +57,8 @@ class Decision:
             lines += ["Amendments to apply:"] + [f"- {a}" for a in self.amendments]
         if self.approved and self.adr:
             lines.append(f"The decision is recorded in {self.adr}. Update docs/Design.md to match, then continue.")
+        if self.human_note:
+            lines.append(f"The human's decision: {self.human_note}")
         if not self.approved:
             lines.append("Do not make this change. Find a way to meet the task within the existing design, or finish and report what blocks you.")
         return "\n".join(lines)
@@ -113,6 +116,7 @@ class DesignBoard:
     def __init__(self, channel: Channel, team: list[str], sandbox_of, scrum_master: str, skill_of=lambda dev: "") -> None:
         self.channel, self.team, self.sandbox_of, self.scrum_master = channel, team, sandbox_of, scrum_master
         self.decisions: list[Decision] = []
+        self.human_gate = None  # async (proposer, title, reason, change, votes) -> (approved, note): the human's say on a change the team approved
         self._lock = asyncio.Lock()  # one meeting at a time: the design is one document
 
     async def meet(self, proposer: str, title: str, reason: str, change: str) -> Decision:
@@ -128,7 +132,11 @@ class DesignBoard:
                 if self.scrum_master in others:
                     tiebreak = parse_vote(self.scrum_master, await self.channel.ask(proposer, self.scrum_master, prompt2, topic=f"tie-break: {title}"))
             approved = decide(votes, tiebreak) if others else True
-            decision = Decision(title, proposer, approved, votes, [v.amendment for v in votes if v.vote == "amend" and v.amendment])
+            human_note = ""
+            if approved and self.human_gate is not None:
+                approved, human_note = await self.human_gate(proposer, title, reason, change, votes)
+                human_note = human_note or ("" if approved else "declined by the human")
+            decision = Decision(title, proposer, approved, votes, [v.amendment for v in votes if v.vote == "amend" and v.amendment], human_note=human_note)
             if approved:
                 decision.adr = write_adr(Path(self.sandbox_of(proposer)), decision, reason, change)
             self.decisions.append(decision)

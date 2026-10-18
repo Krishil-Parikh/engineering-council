@@ -49,6 +49,7 @@ class SessionRunner:
         snapshots: Optional[Snapshots] = None, observer: Optional[Callable[[str, dict[str, Any]], None]] = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep, context_hooks: Optional[list[Callable[[dict[str, Any]], None]]] = None,
         inbox: Optional[Any] = None, on_input: Optional[Callable[[str, int], None]] = None,
+        before_step: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> None:
         # `context` hooks see (and may edit) the model messages of every request: {"sessionID", "agent", "messages", "synthetic"}.
         self.context_hooks = context_hooks if context_hooks is not None else []
@@ -57,6 +58,9 @@ class SessionRunner:
         # With an inbox, input waits there until a step boundary lets it in (see harness/session/inbox.py). `on_input(session_id, count)` is told
         # whenever input became visible, which is when a session may need a title.
         self.inbox, self.on_input = inbox, on_input
+        # Awaited with the session id before every step. A host that needs the agent to stand still between steps (never in the middle of one)
+        # awaits here until it may go on.
+        self.before_step = before_step
 
     # ---- crash recovery
     def settle_stale_compactions(self, session_id: str) -> None:
@@ -175,6 +179,8 @@ class SessionRunner:
         return DrainResult("succeeded", step)
 
     async def _run_step(self, session_id: str, rec: Recorder, step: int) -> bool:
+        if self.before_step is not None:
+            await self.before_step(session_id)
         assistant_message_id = M.new_message_id()
         retry = RetryPolicy()
         recover_overflow = True

@@ -338,6 +338,13 @@ class TeamRepo:
                 done.append(name)
         return done
 
+    def discard_work(self, dev: str) -> None:
+        """Throws away uncommitted work and any half-finished git operation, leaving the clone clean (a feature was dropped mid-way)."""
+        self.abort_in_progress(dev)
+        path = self.sandbox(dev)
+        self._git(path, "reset", "-q", "--hard", check=False)
+        self._git(path, "clean", "-fdq", check=False)
+
     # ------------------------------------------------------------------ inspection
 
     def changed_files(self, dev: str, base: str, head: str = "HEAD") -> list[str]:

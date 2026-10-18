@@ -32,6 +32,7 @@ from meetings.errors import MeetingError
 from meetings.models import Roster, Spec
 from meetings.storage import write_text
 from memory import CHECKPOINT_PROMPT, DISTILL_PROMPT, LessonStore, ProjectLog, RunFacts, describe_events, facts_to_lessons, parse_lessons, relevant, update_codemap
+from team.agile.ceremonies import AgileConfig
 from team.build import GITIGNORE, agents_md
 from team.channel import Channel, LocalChannel
 from team.design import Decision, DesignBoard, design_change_tool
@@ -66,6 +67,7 @@ class TeamConfig:
     pull_request: bool = False  # open a pull request for the final branch (needs the GitHub CLI); the human still does the merging
     git_fix_rounds: int = 2  # how many times a failed git step is diagnosed and fixed before the feature gives up
     plan_discussion_rounds: int = 1  # rounds of group discussion among the developers before the scrum master writes the plan (0 = none)
+    agile: Optional[AgileConfig] = None  # run the build as sprints with standups, reviews and retrospectives (see team/agile); None = one flat run
 
 
 @dataclass
@@ -93,6 +95,7 @@ class TeamResult:
     usage: dict[str, dict[str, float]] = field(default_factory=dict)  # per developer: requests' tokens and cost
     published_to: Optional[str] = None
     pull_request_url: Optional[str] = None
+    sprints: list[tuple[int, str, int, int]] = field(default_factory=list)  # (number, goal, tasks planned, tasks completed)
 
 
 def _run_gh(args: list[str], cwd: Path) -> tuple[int, str]:
@@ -160,6 +163,16 @@ class TeamEngine:
         self.brain = GitBrain(self.repo, self.harness, agent_id, rounds=self.cfg.git_fix_rounds, timeout=self.cfg.task_timeout, emit=self._emit)
         self.lessons = LessonStore(self.cfg.memory_dir) if self.cfg.memory_dir else None
         self.project_log = ProjectLog(self.repo.sandbox_path(INTEGRATOR), self.spec.project_name)
+        self.current: dict[str, dict[str, Any]] = {}  # what each developer is doing right now (feature, task, session), for the standups
+        self.briefings: dict[str, list[str]] = {}  # messages waiting for a developer's next task
+        self.agile = None
+        self.gate = None
+        if self.cfg.agile is not None:
+            from team.agile.playbook import Playbook
+
+            self.agile = Playbook(self, self.cfg.agile)
+            self.gate = self.agile.gate
+            self.board.human_gate = self.agile.human_design_gate  # the team votes on a design change; the human decides it
 
     # ------------------------------------------------------------------ people
 
@@ -194,8 +207,44 @@ class TeamEngine:
             agent = developer_agent(dev, skill, experience) if dev != INTEGRATOR else _integrator_agent()
             h = self._factory(dev, sandbox, agent)
             h.registry.add(design_change_tool(h.deps, self.board, dev))
+            if self.gate is not None and dev != INTEGRATOR:
+                h.runner.before_step = self.gate.before_step
             self.harnesses[dev] = h
         return self.harnesses[dev]
+
+    def brief(self, dev: str, text: str) -> None:
+        """Tells a developer something. Mid-task it is steered into the running session (read at their next step); between tasks it waits for the next one."""
+        cur = self.current.get(dev)
+        h = self.harnesses.get(dev)
+        if cur and cur.get("in_task") and h is not None and cur.get("session"):
+            try:
+                h.sessions.send(cur["session"], text, delivery="steer", wake=False)
+                return
+            except Exception:  # noqa: BLE001 - fall back to the next task's briefing
+                pass
+        self.briefings.setdefault(dev, []).append(text)
+
+    async def _timed(self, dev: str, coro, timeout: float):
+        """`wait_for`, except that time spent resting at the work gate (a standup, a human interruption) does not count against the task."""
+        if self.gate is None:
+            return await asyncio.wait_for(coro, timeout)
+        task = asyncio.ensure_future(coro)
+        active, tick = 0.0, max(0.05, min(5.0, timeout / 4))
+        try:
+            while True:
+                done, _ = await asyncio.wait({task}, timeout=tick)
+                if done:
+                    return task.result()
+                if dev not in self.gate.resting():
+                    active += tick
+                if active >= timeout:
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                    raise asyncio.TimeoutError()
+        except asyncio.CancelledError:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            raise
 
     async def _git(self, fn, *args, **kw):
         return await asyncio.to_thread(fn, *args, **kw)
@@ -293,24 +342,42 @@ class TeamEngine:
         h = self.harness(dev)
         await self.git(dev, f"check out {feature.branch} (start it from {self.integration}, or resume it if it already exists on the remote)", self.repo.checkout_branch, dev, feature.branch, self.integration, branch=feature.branch)
         session = h.new_session(agent=agent_id(dev), title=feature.title)
-        other = [f"{f.owner}: {f.title}" for f in (self.plan.features if self.plan else []) if f.id != feature.id]
-        for index, task in enumerate(feature.tasks, 1):
-            self._emit("task", feature=feature.id, owner=dev, index=index, total=len(feature.tasks), title=task.title)
-            prompt = task_prompt(self.spec, feature, task, index, other, self.memory_for(dev, feature, task))
-            try:
-                result = await asyncio.wait_for(h.prompt(prompt, session_id=session.id), self.cfg.task_timeout)
-            except asyncio.TimeoutError:
-                await h.sessions.interrupt(session.id)
-                return FeatureOutcome(False, f"task '{task.title}' timed out after {self.cfg.task_timeout:.0f}s")
-            await self.git(dev, "commit whatever the developer left uncommitted", self.repo.commit_all, dev, f"{feature.id}: {task.title}")
-            if result.outcome != "succeeded":
-                return FeatureOutcome(False, f"task '{task.title}' did not finish ({result.outcome}): {result.error or result.text[:200]}")
-        await self.design_followthrough(dev, feature, h, session.id)
-        if not await self._git(self.repo.changed_files, dev, self.integration):
-            self.result.warnings.append(f"{feature.id}: {dev} made no changes")
-        await self.git(dev, f"publish {feature.branch} to the team remote so it can be merged (it must end up on origin with all of your commits)", self.repo.push, dev, feature.branch, branch=feature.branch)
-        merged, note = await self.merge_feature(feature)
-        return FeatureOutcome(merged, note)
+        if self.gate is not None:
+            self.gate.watch(dev, session.id)  # between steps, this session stops whenever the gate is closed
+        try:
+            other = [f"{f.owner}: {f.title}" for f in (self.plan.features if self.plan else []) if f.id != feature.id]
+            for index, task in enumerate(feature.tasks, 1):
+                self._emit("task", feature=feature.id, owner=dev, index=index, total=len(feature.tasks), title=task.title)
+                self.current[dev] = {"feature": feature.id, "index": index, "total": len(feature.tasks), "title": task.title, "session": session.id, "in_task": True}
+                prompt = task_prompt(self.spec, feature, task, index, other, self.memory_for(dev, feature, task))
+                try:
+                    result = await self._timed(dev, h.prompt(prompt, session_id=session.id), self.cfg.task_timeout)
+                except asyncio.TimeoutError:
+                    await h.sessions.interrupt(session.id)
+                    return FeatureOutcome(False, f"task '{task.title}' timed out after {self.cfg.task_timeout:.0f}s")
+                except asyncio.CancelledError:  # the feature was dropped (or the run is ending): stop the developer's session too
+                    await h.sessions.interrupt(session.id)
+                    raise
+                self.current[dev]["in_task"] = False
+                await self.git(dev, "commit whatever the developer left uncommitted", self.repo.commit_all, dev, f"{feature.id}: {task.title}")
+                if result.outcome != "succeeded":
+                    return FeatureOutcome(False, f"task '{task.title}' did not finish ({result.outcome}): {result.error or result.text[:200]}")
+                if self.agile is not None:
+                    self.agile.task_finished(dev, feature, index, task)
+                if self.gate is not None and index < len(feature.tasks):
+                    await self.gate.finish_task(dev)  # a task ends the developer's day
+            await self.design_followthrough(dev, feature, h, session.id)
+            if not await self._git(self.repo.changed_files, dev, self.integration):
+                self.result.warnings.append(f"{feature.id}: {dev} made no changes")
+            await self.git(dev, f"publish {feature.branch} to the team remote so it can be merged (it must end up on origin with all of your commits)", self.repo.push, dev, feature.branch, branch=feature.branch)
+            if self.gate is not None:
+                await self.gate.checkpoint(dev)  # a merge does not start in the middle of a ceremony
+            merged, note = await self.merge_feature(feature)
+            return FeatureOutcome(merged, note)
+        finally:
+            if self.gate is not None:
+                self.gate.forget(session.id)
+            self.current.pop(dev, None)
 
     async def design_followthrough(self, dev: str, feature: Feature, h: Harness, session_id: str) -> None:
         """An approved design change leaves an ADR in the branch. If docs/Design.md was not updated to match, the developer is asked to do it."""
@@ -361,7 +428,7 @@ class TeamEngine:
         """What the developer should know before starting: the parts of the code map and project log about this work, plus lessons."""
         query = f"{feature.title} {feature.summary} {task.title} {task.details}"
         sandbox = self.repo.sandbox_path(dev)
-        parts = []
+        parts = self.agile_context(dev)
         for name, label in (("docs/CODEMAP.md", "Code map (what exists already)"), ("docs/MEMORY.md", "Project history and decisions")):
             try:
                 text = relevant((sandbox / name).read_text(encoding="utf-8"), query, 2500)
@@ -371,6 +438,23 @@ class TeamEngine:
                 parts.append(f"{label}:\n{text.strip()}")
         parts.append(self.recalled(query, self.roster.get(dev), 4).strip())
         return "\n\n".join(p for p in parts if p)
+
+    def agile_context(self, dev: str) -> list[str]:
+        """What the sprint process has added for this developer: the human's standing instructions, the retrospectives' working agreements, and
+        messages from the scrum master and the human since their last task."""
+        if self.agile is None:
+            return []
+        state = self.agile.store.state
+        parts = []
+        standing = [d.text for d in state.directives if d.handled and d.kind in ("note", "rethink")]
+        if standing:
+            parts.append("Standing instructions from the human (they outrank everything else):\n" + "\n".join(f"- {t}" for t in standing))
+        if state.agreements:
+            parts.append("Working agreements from the team's retrospectives (follow them):\n" + "\n".join(f"- {a}" for a in state.agreements))
+        waiting = self.briefings.pop(dev, [])
+        if waiting:
+            parts.append("Messages for you since your last task:\n" + "\n".join(f"- {m}" for m in waiting))
+        return parts
 
     async def _summarize(self, previous: str, folded: str) -> str:
         return await self.channel.ask("system", INTEGRATOR, CHECKPOINT_PROMPT.format(previous=previous or "(none)", entries=folded), topic="memory checkpoint")
@@ -392,7 +476,7 @@ class TeamEngine:
         """At the end of a run: turn what happened into lessons, update the developers' experience and promote lessons seen on several projects to skills."""
         if self.lessons is None:
             return
-        failed = [f for f in self.result.features if f.status != "merged"]
+        failed = [f for f in self.result.features if f.status not in ("merged", "dropped")]
         facts = RunFacts(
             self.spec.project_name, features=len(self.result.features),
             conflicts=self.conflict_log,
@@ -481,26 +565,37 @@ class TeamEngine:
                 self._network = None
 
     async def _run(self) -> TeamResult:
-        await self.setup()
-        self.plan = await self.make_plan()
-        self._emit("plan", plan=json.loads(self.plan.to_json()))
-        merged_so_far = set(self._merged_at_start)
-        self._save_state(merged_so_far)
-
-        def listener(event: str, feature: Feature, detail: str) -> None:
-            if event == "done":
-                merged_so_far.add(feature.id)
-                self._save_state(merged_so_far)
-            self._emit(f"feature-{event}", feature=feature.id, owner=feature.owner, detail=detail)
-
-        scheduler = Scheduler(self.plan, self.run_feature, self.cfg.max_parallel, listener, done=set(self._merged_at_start))
         try:
-            outcomes = await scheduler.run()
+            await self.setup()
+            if self.agile is not None:
+                await self.agile.approve_first_documents()  # the first set of documents is always reviewed and accepted by the human
+            self.plan = await self.make_plan()
+            self._emit("plan", plan=json.loads(self.plan.to_json()))
+            merged_so_far = set(self._merged_at_start)
+            self._save_state(merged_so_far)
+
+            def listener(event: str, feature: Feature, detail: str) -> None:
+                if event == "done":
+                    merged_so_far.add(feature.id)
+                    self._save_state(merged_so_far)
+                self._emit(f"feature-{event}", feature=feature.id, owner=feature.owner, detail=detail)
+
+            if self.agile is not None:
+                self.agile.bind(set(self._merged_at_start), listener)
+                await self.agile.run()
+                pool = self.agile.pool
+                done, blocked, dropped, outcomes = pool.done, pool.blocked, pool.dropped, pool.outcomes
+                state = self.agile.store.state
+                self.result.sprints = [(s.number, s.goal, s.planned_tasks, len(state.sprint_tasks(s.number))) for s in state.sprints]
+            else:
+                scheduler = Scheduler(self.plan, self.run_feature, self.cfg.max_parallel, listener, done=set(self._merged_at_start))
+                outcomes = await scheduler.run()
+                done, blocked, dropped = scheduler.done, scheduler.blocked, set()
             for f in self.plan.features:
-                status = "merged" if f.id in scheduler.done else "blocked" if f.id in scheduler.blocked else "failed"
-                summary = scheduler.blocked.get(f.id) or (outcomes[f.id].summary if f.id in outcomes else "already merged in an earlier run")
+                status = "merged" if f.id in done else "dropped" if f.id in dropped else "blocked" if f.id in blocked else "failed"
+                summary = blocked.get(f.id) or (outcomes[f.id].summary if f.id in outcomes else "already merged in an earlier run" if self._merged_at_start and f.id in self._merged_at_start else "removed from scope" if status == "dropped" else "not reached")
                 self.result.features.append(FeatureReport(f.id, f.owner or "", f.branch, status, summary, self.conflict_counts.get(f.id, 0)))
-                if status != "merged":
+                if status not in ("merged", "dropped"):
                     self.result.warnings.append(f"{f.id} ({f.owner}): {status}: {summary}")
             await self.verify_and_repair()
             await self.finish()
@@ -523,7 +618,7 @@ class TeamEngine:
             failing = [(c, code, out) for c, code, out in self.result.verification if code != 0]
             self._emit("verification", failing=len(failing), attempt=attempt)
             if not failing:
-                self.result.passed = bool(commands) and all(f.status == "merged" for f in self.result.features)
+                self.result.passed = bool(commands) and all(f.status in ("merged", "dropped") for f in self.result.features)
                 return
             if attempt == self.cfg.repair_rounds:
                 self.result.warnings.append("Verification still failing after the repair rounds: " + ", ".join(c for c, _, _ in failing))
@@ -633,6 +728,12 @@ def render_report(spec: Spec, res: TeamResult, roster: dict[str, str]) -> str:
     for f in res.features:
         note = re.sub(r"[|\n]+", " ", f.summary)[:200]
         s += f"| {f.id} | {f.owner} ({roster.get(f.owner, '').title()}) | `{f.branch}` | {f.status} | {f.conflicts} | {note} |\n"
+    if res.sprints:
+        s += "\n## Sprints\n\n| Sprint | Goal | Planned | Completed |\n|---|---|---|---|\n"
+        for number, goal, planned, completed in res.sprints:
+            shown = re.sub(r"[|\n]+", " ", goal)[:120]
+            s += f"| {number} | {shown} | {planned} | {completed} |\n"
+        s += "\nThe sprint backlogs, standups, reviews, reports and retrospectives are in `docs/agile/` on the final branch.\n"
     if res.verification:
         s += "\n## Verification\n\n| Command | Exit |\n|---|---|\n" + "".join(f"| `{c}` | {code} |\n" for c, code, _ in res.verification)
     if res.decisions:

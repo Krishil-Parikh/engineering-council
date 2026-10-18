@@ -93,7 +93,7 @@ class Harness:
         approve: Optional[Approver] = None, snapshots: bool = True, catalog: Optional[ModelCatalog] = None,
         on_event: Optional[Callable[[str, dict[str, Any]], None]] = None, compaction: Optional[C.Settings] = None,
         agents: Optional[list[Agent]] = None, rules: Optional[Ruleset] = None, default_agent: Optional[str] = None,
-        auto_title: bool = False,
+        auto_title: bool = False, before_step: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> None:
         self.on_event = on_event or (lambda kind, data: None)
         self.input_hooks: list[Callable[[str, int], None]] = []
@@ -135,6 +135,7 @@ class Harness:
                 resolve_agent=self._resolve_agent, resolve_model=self._resolve_model, tools_for=self.registry.snapshot,
             ),
             snapshots=self.snapshots, observer=self.on_event, inbox=self.inbox, on_input=self._input_became_visible,
+            before_step=before_step,
         )
         self.sessions = SessionService(self.store, self.runner, str(self.location.directory), self.inbox)
         self.titles = SessionTitle(self.store, self.llm, self.agents, self._resolve_model, lambda kind, data: self.on_event(kind, data))
