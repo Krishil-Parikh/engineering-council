@@ -1,0 +1,161 @@
+"""The team's git layout: protected main, per-developer sandboxes, branches, merges and conflicts (real git)."""
+
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from team.repo import MergeResult, RepoError, TeamRepo, slugify
+
+
+def put(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text.encode("utf-8"))
+
+
+@pytest.fixture
+def repo(tmp_path):
+    r = TeamRepo(tmp_path / "team")
+    r.init()
+    return r
+
+
+def test_new_project_gets_a_protected_main(repo):
+    assert repo.branches("ana") == ["main"]
+    assert (repo.sandbox("ana") / "README.md").exists()
+
+
+def test_existing_repository_seeds_main_from_its_current_commit(tmp_path):
+    src = tmp_path / "existing"
+    src.mkdir()
+    env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    import os
+
+    for args in (["init", "-q", "-b", "trunk"], ["add", "-A"]):
+        if args[0] == "add":
+            put(src / "app.py", "print(1)\n")
+        subprocess.run(["git", *args], cwd=src, check=True, env={**os.environ, **env})
+    subprocess.run(["git", "commit", "-q", "-m", "first"], cwd=src, check=True, env={**os.environ, **env})
+    r = TeamRepo(tmp_path / "team")
+    r.init(src)
+    assert r.branches("ana") == ["main"] and (r.sandbox("ana") / "app.py").read_text() == "print(1)\n"
+
+
+def test_plain_folder_becomes_the_first_commit(tmp_path):
+    src = tmp_path / "plain"
+    put(src / "docs" / "a.md", "hello")
+    r = TeamRepo(tmp_path / "team")
+    r.init(src)
+    assert (r.sandbox("ana") / "docs" / "a.md").read_text() == "hello"
+
+
+def test_init_is_idempotent(repo):
+    repo.init()
+    assert repo.branches("ana") == ["main"]
+
+
+def test_nobody_but_the_human_can_update_main(repo):
+    ana = repo.sandbox("ana")
+    repo.checkout_branch("ana", "feature/x")
+    put(ana / "x.txt", "x")
+    assert repo.commit_all("ana", "add x")
+    repo.push("ana")  # a feature branch is fine
+    assert "feature/x" in repo.branches("ana")
+
+    subprocess.run(["git", "checkout", "-q", "-B", "main", "origin/main"], cwd=ana, check=True)
+    put(ana / "y.txt", "y")
+    repo.commit_all("ana", "straight to main")
+    with pytest.raises(RepoError, match="protected"):  # the developer's own clone refuses first
+        repo.push("ana", "main")
+    bypass = subprocess.run(["git", "push", "--no-verify", "origin", "HEAD:refs/heads/main"], cwd=ana, capture_output=True)
+    assert bypass.returncode != 0 and b"protected" in bypass.stderr  # and the remote refuses even when that hook is skipped
+    repo.human_push("ana", "main", "main")  # the human can
+    repo.fetch("bob")
+    assert repo.file_at("bob", "origin/main", "y.txt") == "y"
+
+
+def test_sandboxes_are_separate_working_trees(repo):
+    a, b = repo.sandbox("ana"), repo.sandbox("bob")
+    assert a != b
+    repo.checkout_branch("ana", "feature/a")
+    put(a / "only_ana.txt", "a")
+    assert not (b / "only_ana.txt").exists()
+    assert subprocess.run(["git", "config", "user.name"], cwd=b, capture_output=True, text=True).stdout.strip() == "bob (Council)"
+
+
+def test_new_branch_starts_from_the_requested_base_and_existing_ones_resume(repo):
+    repo.checkout_branch("ana", "integration/run1")
+    put(repo.sandbox("ana") / "base.txt", "base")
+    repo.commit_all("ana", "base work")
+    repo.push("ana")
+    repo.checkout_branch("bob", "feature/b", base="integration/run1")
+    assert (repo.sandbox("bob") / "base.txt").exists()
+    put(repo.sandbox("bob") / "b.txt", "b")
+    repo.commit_all("bob", "b work")
+    repo.push("bob")
+    repo.checkout_branch("ana", "feature/b")  # someone else resumes the pushed branch
+    assert (repo.sandbox("ana") / "b.txt").exists() and repo.current_branch("ana") == "feature/b"
+
+
+def test_commit_all_reports_nothing_to_commit(repo):
+    repo.checkout_branch("ana", "feature/n")
+    assert repo.commit_all("ana", "nothing") is False
+
+
+def test_clean_merge_and_up_to_date(repo):
+    repo.checkout_branch("ana", "integration/r")
+    repo.push("ana")
+    repo.checkout_branch("bob", "feature/b", base="integration/r")
+    put(repo.sandbox("bob") / "b.txt", "b")
+    repo.commit_all("bob", "b")
+    repo.push("bob")
+    repo.checkout_branch("ana", "integration/r")
+    result = repo.merge("ana", "feature/b", "Merge feature/b")
+    assert result.status == "merged" and (repo.sandbox("ana") / "b.txt").exists()
+    assert repo.merge("ana", "feature/b", "again").status == "up-to-date"
+    assert repo.changed_files("ana", "main") == ["b.txt"]
+    assert repo.log("ana")[0].endswith("Merge feature/b")
+
+
+def test_conflict_is_reported_resolved_and_finished(repo):
+    ana, bob = repo.sandbox("ana"), repo.sandbox("bob")
+    repo.checkout_branch("ana", "integration/r")
+    put(ana / "app.py", "x = 0\n")
+    repo.commit_all("ana", "base")
+    repo.push("ana")
+    repo.checkout_branch("bob", "feature/b", base="integration/r")
+    put(bob / "app.py", "x = 'bob'\n")
+    repo.commit_all("bob", "bob edit")
+    repo.push("bob")
+    put(ana / "app.py", "x = 'ana'\n")
+    repo.commit_all("ana", "ana edit")
+    result = repo.merge("ana", "feature/b", "Merge feature/b")
+    assert result.status == "conflict" and result.files == ["app.py"] and repo.merging("ana")
+    text = repo.conflict_text("ana")["app.py"]
+    assert "<<<<<<<" in text and "'bob'" in text and "'ana'" in text
+    with pytest.raises(RepoError, match="conflict markers remain in: app.py"):
+        repo.finish_merge("ana", "resolve")
+    put(ana / "app.py", "x = 'both'\n")
+    repo.finish_merge("ana", "Merge feature/b (resolved with bob)")
+    assert not repo.merging("ana") and repo.file_at("ana", "HEAD", "app.py") == "x = 'both'\n"
+
+
+def test_abort_merge_restores_the_branch(repo):
+    ana, bob = repo.sandbox("ana"), repo.sandbox("bob")
+    repo.checkout_branch("ana", "integration/r")
+    put(ana / "f.txt", "0\n")
+    repo.commit_all("ana", "base")
+    repo.push("ana")
+    repo.checkout_branch("bob", "feature/b", base="integration/r")
+    put(bob / "f.txt", "bob\n")
+    repo.commit_all("bob", "b")
+    repo.push("bob")
+    put(ana / "f.txt", "ana\n")
+    repo.commit_all("ana", "a")
+    assert repo.merge("ana", "feature/b", "m").status == "conflict"
+    repo.abort_merge("ana")
+    assert not repo.merging("ana") and (ana / "f.txt").read_text() == "ana\n"
+
+
+def test_slugify():
+    assert slugify("Add Login / OAuth2!") == "add-login-oauth2" and slugify("???") == "work" and len(slugify("x" * 100)) <= 48

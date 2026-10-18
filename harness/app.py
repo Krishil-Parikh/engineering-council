@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional, Union
 
-from harness.agent import AgentRegistry, default_registry
+from harness.agent import Agent, AgentRegistry, default_registry
 from harness.ai.catalog import ModelCatalog
 from harness.ai.gemini import GeminiClient
 from harness.ai.model import ResolvedModel
@@ -76,12 +76,18 @@ def last_text(messages: list[M.Info]) -> str:
     return ""
 
 
+def _copy_agent(src: Agent, dst: Agent) -> None:
+    dst.name, dst.mode, dst.hidden, dst.system, dst.description = src.name, src.mode, src.hidden, src.system, src.description
+    dst.model, dst.steps, dst.permissions = src.model, src.steps, [*dst.permissions, *src.permissions]
+
+
 class Harness:
     def __init__(
         self, directory: str | Path, *, llm: Any = None, api_key: Optional[str] = None, model: Optional[str] = None,
         data_root: Optional[Path] = None, home: Optional[Path] = None, db_path: Optional[str | Path] = None,
         approve: Optional[Approver] = None, snapshots: bool = True, catalog: Optional[ModelCatalog] = None,
         on_event: Optional[Callable[[str, dict[str, Any]], None]] = None, compaction: Optional[C.Settings] = None,
+        agents: Optional[list[Agent]] = None, rules: Optional[Ruleset] = None, default_agent: Optional[str] = None,
     ) -> None:
         self.on_event = on_event or (lambda kind, data: None)
         self.approve = approve
@@ -95,6 +101,11 @@ class Harness:
         self.llm = llm if llm is not None else GeminiClient(api_key or os.environ["GEMINI_API_KEY"], self.model_id)
         plan_directory = str(self.location.project_directory / ".harness" / "plans")
         self.agents: AgentRegistry = default_registry(self.config, self.paths.home, plan_directory)
+        self.extra_rules: Ruleset = list(rules or [])  # appended after every agent's own rules, so they win (the last matching rule decides)
+        for extra in agents or []:
+            self.agents.transform(lambda editor, a=extra: editor.update(a.id, lambda cur, a=a: _copy_agent(a, cur)))
+        if default_agent:
+            self.agents.transform(lambda editor: editor.default(default_agent))
         self.skills = SkillCatalog()
         self.skills.add_provider(SkillLoader(self.config, self.paths, self.location.directory).load)
         self._pending_tasks: set = set()
@@ -147,10 +158,11 @@ class Harness:
     def _rules_for(self, session_id: str, agent: Optional[str]) -> Ruleset:
         info = self.agents.resolve(agent) if agent else None
         session = self.store.get(session_id)
-        return [*(info.permissions if info else []), *(session.permission_rules() if session else [])]
+        return [*(info.permissions if info else []), *self.extra_rules, *(session.permission_rules() if session else [])]
 
     def _resolve_agent(self, name: Optional[str]):
-        return self.agents.resolver()(name)
+        resolved = self.agents.resolver()(name)
+        return None if resolved is None else (resolved[0], [*resolved[1], *self.extra_rules])
 
     def _resolve_model(self, session: SessionInfo) -> ResolvedModel:
         ref = M.ModelRef(**session.model) if session.model else None
