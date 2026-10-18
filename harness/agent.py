@@ -211,6 +211,10 @@ Your output must be:
 "@App.tsx add dark mode toggle" -> Dark mode toggle in App
 </examples>"""
 
+PROMPT_SCOUT = """You are a scout for reference repositories: codebases outside the project that the team may learn from. You are read-only and you never write, edit or run anything that changes files.
+
+Start with the `reference` tool (no name) to see which references exist, open the one that matters, then read, glob and grep its directory. Answer the question you were given: where the relevant code is (file paths and line numbers), how it works, and which parts are worth copying. Quote short excerpts, not whole files. Say plainly when the reference does not contain the answer."""
+
 PROMPT_SUMMARY = """Summarize what was done in this conversation. Write like a pull request description.
 
 Rules:
@@ -227,7 +231,7 @@ Rules:
 def builtin_agents(editor: Editor) -> None:
     def build(a: Agent) -> None:
         a.name, a.description, a.mode = "Build", "The default agent. Executes tools based on configured permissions.", "primary"
-        a.permissions.append(Rule("question", "*", "allow"))
+        a.permissions += [Rule("question", "*", "allow"), Rule("reference", "*", "allow")]
 
     def general(a: Agent) -> None:
         a.name, a.mode = "General", "subagent"
@@ -248,6 +252,18 @@ def builtin_agents(editor: Editor) -> None:
             Rule("subagent", "*", "deny"), Rule("external_directory", "*", "allow"),
         ]
 
+    def scout(a: Agent) -> None:
+        a.name, a.mode, a.system = "Scout", "subagent", PROMPT_SCOUT
+        a.description = (
+            "Explores the configured reference repositories (other codebases kept for guidance) and reports what they contain. Use it to answer questions such as "
+            '"how does the reference implement X?" without reading the reference yourself. Say which reference and what you want to know.'
+        )
+        a.permissions += [
+            Rule("*", "*", "deny"), Rule("reference", "*", "allow"), Rule("grep", "*", "allow"), Rule("glob", "*", "allow"), Rule("read", "*", "allow"),
+            Rule("read", "*.env", "ask"), Rule("read", "*.env.*", "ask"), Rule("read", "*.env.example", "allow"),
+            Rule("subagent", "*", "deny"), Rule("external_directory", "*", "allow"),
+        ]
+
     def compaction(a: Agent) -> None:
         a.name, a.mode, a.hidden = "Compaction", "primary", True
 
@@ -259,7 +275,7 @@ def builtin_agents(editor: Editor) -> None:
         a.name, a.mode, a.hidden, a.system = "Summary", "primary", True, PROMPT_SUMMARY
         a.permissions.append(Rule("*", "*", "deny"))
 
-    for agent_id, fn in (("build", build), ("general", general), ("explore", explore), ("compaction", compaction), ("title", title), ("summary", summary)):
+    for agent_id, fn in (("build", build), ("general", general), ("explore", explore), ("scout", scout), ("compaction", compaction), ("title", title), ("summary", summary)):
         editor.update(agent_id, fn)
 
 

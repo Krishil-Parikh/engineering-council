@@ -7,6 +7,8 @@ A *hook* is a function the harness calls at a fixed point, so extra behaviour ca
   tool.after    after a tool ran (may replace its result or its error)        {"tool", "status", "result"|"error", ...}
   input         a session has new input to talk about                         (session_id, count)
   event         everything the harness reports                                (kind, data)
+  compaction.request  the request that asks the model for a summary (return a new one to replace it)
+  compaction.summary  return {"summary": text} to write the summary yourself; the first plugin that does wins and no model is asked
 
 A *plugin* is a Python file with a `plugin(api)` function. `api.hooks.add("tool.after", fn)` registers hooks, `api.add_tool(tool)` adds a tool,
 `api.harness` is the running Harness. Plugins are read from `plugins/*.py` in every configuration directory and from the `plugins` list in
@@ -24,7 +26,7 @@ from typing import Any, Callable, Optional
 from harness.config import service as cfg
 
 log = logging.getLogger("harness.plugin")
-HOOK_NAMES = ("context", "tool.before", "tool.after", "input", "event")
+HOOK_NAMES = ("context", "tool.before", "tool.after", "input", "event", "compaction.request", "compaction.summary")
 
 
 class Hooks:
@@ -53,6 +55,40 @@ class Hooks:
 
         return call
 
+    def pipeline(self, name: str) -> Callable[[Any], Any]:
+        """A function that passes a value through the hooks in turn; a hook that returns something replaces the value, one that returns None leaves it."""
+
+        def run(value: Any) -> Any:
+            for fn in list(self._hooks[name]):
+                try:
+                    replaced = fn(value)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("hook %s failed: %s", name, exc)
+                    self.on_error(name, f"{type(exc).__name__}: {exc}")
+                    continue
+                if replaced is not None:
+                    value = replaced
+            return value
+
+        return run
+
+    def first(self, name: str) -> Callable[..., Any]:
+        """A function that returns the first non-None answer from the hooks, or None."""
+
+        def run(*args: Any) -> Any:
+            for fn in list(self._hooks[name]):
+                try:
+                    answer = fn(*args)
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("hook %s failed: %s", name, exc)
+                    self.on_error(name, f"{type(exc).__name__}: {exc}")
+                    continue
+                if answer is not None:
+                    return answer
+            return None
+
+        return run
+
 
 class PluginApi:
     def __init__(self, harness: Any, hooks: Hooks, path: Path) -> None:
@@ -60,6 +96,12 @@ class PluginApi:
 
     def add_tool(self, tool: Any) -> None:
         self.harness.registry.add(tool)
+
+    def override_tool(self, tool: Any) -> bool:
+        return self.harness.registry.override(tool)
+
+    def disable_tool(self, name: str) -> None:
+        self.harness.registry.disable(name)
 
 
 class PluginHost:

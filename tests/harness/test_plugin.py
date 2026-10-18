@@ -151,3 +151,178 @@ def test_the_plan_agent_gets_its_reminder_through_the_hook_host(tmp_path):
 def test_the_team_engine_does_not_load_project_plugins(tmp_path):
     h, proj = with_plugin(tmp_path, ScriptedLLM(), plugins=False)
     assert h.plugins.loaded == [] and h.plugins.errors == []
+
+
+# ---------------------------------------------------------------------------------------------- overriding and disabling tools
+
+
+def test_a_plugin_can_override_a_built_in_tool(tmp_path):
+    plugin = '''
+from pydantic import BaseModel
+from harness.tool.info import ToolInfo, ToolResult
+
+class In(BaseModel):
+    path: str
+
+async def run(inp, ctx):
+    return ToolResult(content="OVERRIDDEN read of " + inp.path)
+
+def plugin(api):
+    assert api.override_tool(ToolInfo("read", "A better read", In, run))
+    assert not api.override_tool(ToolInfo("nothing_like_it", "x", In, run))
+'''
+    llm = ScriptedLLM(tool_reply(("read", {"path": "x.txt"})), text_reply("ok"))
+    h, _ = with_plugin(tmp_path, llm, plugin)
+
+    async def main():
+        await h.prompt("read x")
+        assert "OVERRIDDEN read of x.txt" in str(llm.requests[1].messages)
+        assert [t.name for t in llm.requests[0].tools].count("read") == 1
+        assert h.registry.errors and "does not exist" in h.registry.errors[-1]
+        await h.close()
+
+    asyncio.run(main())
+
+
+def test_a_disabled_tool_is_hidden_from_the_model_and_can_be_brought_back(tmp_path):
+    llm = ScriptedLLM(text_reply("one"), text_reply("two"))
+    h, _ = make(tmp_path, llm)
+    h.registry.disable("shell")
+
+    async def main():
+        await h.prompt("first")
+        assert "shell" not in [t.name for t in llm.requests[0].tools] and "read" in [t.name for t in llm.requests[0].tools]
+        h.registry.enable("shell")
+        await h.prompt("second")
+        assert "shell" in [t.name for t in llm.requests[1].tools]
+        await h.close()
+
+    asyncio.run(main())
+
+
+def test_configuration_can_switch_tools_off(tmp_path):
+    home = tmp_path / "home"
+    proj = home / "proj"
+    proj.mkdir(parents=True)
+    (proj / "harness.json").write_text(json.dumps({"disabled_tools": ["shell", "write"]}), encoding="utf-8")
+    from harness.app import Harness
+
+    llm = ScriptedLLM(text_reply("ok"))
+    h = Harness(proj, llm=llm, data_root=tmp_path / "d", home=home, db_path=":memory:", snapshots=False)
+
+    async def main():
+        await h.prompt("hi")
+        names = [t.name for t in llm.requests[0].tools]
+        assert "shell" not in names and "write" not in names and "edit" in names
+        await h.close()
+
+    asyncio.run(main())
+
+
+# ---------------------------------------------------------------------------------------------- compaction
+
+
+def a_long_session(h):
+    from harness.schema import message as M
+
+    sid = h.new_session().id
+    for i in range(3):
+        h.store.add(sid, M.User(text=f"question {i} " + "padding " * 50))
+        a = M.Assistant(agent="build", model=M.ModelRef(provider_id="google", id=h.model_id), content=[M.AssistantText(text=f"answer {i} " + "padding " * 50)], finish="stop")
+        a.time.completed = M.now_ms()
+        h.store.add(sid, a)
+    return sid
+
+
+def test_compaction_reports_what_it_does_as_events(tmp_path):
+    from harness.session import compaction as C
+    from tests.harness.conftest import SUMMARY
+
+    seen = []
+    h, _ = make(tmp_path, ScriptedLLM(SUMMARY), compaction=C.Settings(keep=1), on_event=lambda k, d: seen.append(k))
+    sid = a_long_session(h)
+
+    async def main():
+        await h.sessions.compact(sid)
+        assert [k for k in seen if k in ("compaction.started", "compaction.ended", "compaction.failed")] == ["compaction.started", "compaction.ended"]
+        assert "compaction.delta" in seen  # and the summary is reported as it streams in
+        await h.close()
+
+    asyncio.run(main())
+
+
+def test_a_failed_compaction_is_reported_too(tmp_path):
+    from harness.session import compaction as C
+
+    seen = []
+    h, _ = make(tmp_path, ScriptedLLM("not a summary at all", "still not a summary"), compaction=C.Settings(keep=1), on_event=lambda k, d: seen.append((k, d)))
+    sid = a_long_session(h)
+
+    async def main():
+        await h.sessions.compact(sid)
+        failed = [d for k, d in seen if k == "compaction.failed"]
+        assert failed and "template" in failed[0]["error"]
+        await h.close()
+
+    asyncio.run(main())
+
+
+def test_a_plugin_can_write_the_summary_itself_and_no_model_is_asked(tmp_path):
+    from harness.session import compaction as C
+
+    llm = ScriptedLLM()
+    h, _ = make(tmp_path, llm, compaction=C.Settings(keep=1))
+    h.hooks.add("compaction.summary", lambda context, request: {"summary": "## Objective\n- written by a plugin\n\n## Next Move\n1. go on"})
+    sid = a_long_session(h)
+
+    async def main():
+        await h.sessions.compact(sid)
+        assert llm.requests == []
+        from harness.schema import message as M
+
+        done = [m for m in h.sessions.messages(sid) if getattr(m, "type", "") == "compaction"]
+        assert done and "written by a plugin" in done[-1].summary
+        await h.close()
+
+    asyncio.run(main())
+
+
+def test_the_request_hook_sees_the_summary_request_and_may_change_it(tmp_path):
+    from harness.session import compaction as C
+    from tests.harness.conftest import SUMMARY
+
+    llm = ScriptedLLM(SUMMARY)
+    h, _ = make(tmp_path, llm, compaction=C.Settings(keep=1))
+    seen = []
+
+    def hook(request):
+        seen.append(len(request.messages))
+        from harness.ai import types as T
+
+        return request.update(messages=[*request.messages, T.Message.user("PLEASE BE BRIEF")])
+
+    h.hooks.add("compaction.request", hook)
+    sid = a_long_session(h)
+
+    async def main():
+        await h.sessions.compact(sid)
+        assert seen and "PLEASE BE BRIEF" in str(llm.requests[0].messages)
+        await h.close()
+
+    asyncio.run(main())
+
+
+def test_a_separate_model_can_write_the_summaries(tmp_path):
+    from harness.session import compaction as C
+    from tests.harness.conftest import SUMMARY
+
+    main_llm, small_llm = ScriptedLLM(text_reply("unused")), ScriptedLLM(SUMMARY)
+    h, _ = make(tmp_path, main_llm, compaction=C.Settings(keep=1), compaction_llm=small_llm)
+    sid = a_long_session(h)
+
+    async def main():
+        await h.sessions.compact(sid)
+        assert len(small_llm.requests) == 1 and main_llm.requests == []
+        await h.close()
+
+    asyncio.run(main())

@@ -60,6 +60,31 @@ def test_powershell_fallback_splits_statements():
     assert [c["resource"] for c in r.commands] == ["git status", "Select-Object -First 1"]
 
 
+def test_powershell_is_parsed_with_its_grammar():
+    from harness.shell import parse as P
+
+    assert P.scan_powershell_tree("git status", "pwsh", "C:\\") is not None  # the grammar is installed and the line parses
+    r = SP.scan("Set-Location C:\\x; git status | Select-Object -First 1", "pwsh", "C:\\")
+    assert r.directories == ["C:\\x"] and [c["resource"] for c in r.commands] == ["git status", "Select-Object -First 1"]
+
+
+def test_powershell_commands_inside_blocks_and_parentheses_are_found():
+    r = SP.scan("foreach ($f in 1..3) { Remove-Item $f }; Get-Content (Get-Item a.txt) > out.txt", "pwsh", "C:\\")
+    resources = [c["resource"] for c in r.commands]
+    assert "Remove-Item $f" in resources and "Get-Item a.txt" in resources and any(x.startswith("Get-Content") and "> out.txt" in x for x in resources)
+
+
+def test_powershell_chains_and_quoted_paths_with_spaces():
+    r = SP.scan('git status && rm -rf foo; cd "C:\\my dir" ; Set-Location -Path D:\\work', "pwsh", "C:\\")
+    assert [c["save"] for c in r.commands] == ["git status *", "rm *"]
+    assert r.directories == ["C:\\my dir", "D:\\work"]
+
+
+def test_a_line_that_does_not_parse_falls_back_to_the_safe_splitter():
+    r = SP.scan("Get-Item ( unclosed; git status", "pwsh", "C:\\")
+    assert "git status" in [c["resource"] for c in r.commands]  # over-approximated, but still examined
+
+
 # ------------------------------------------------------------------ results
 
 def test_result_notices():

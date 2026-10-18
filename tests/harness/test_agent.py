@@ -36,7 +36,7 @@ def registry(env, with_config=True):
 
 def test_builtin_agents_and_their_modes(env):
     reg = registry(env, with_config=False)
-    assert {a.id for a in reg.list()} == {"build", "plan", "general", "explore", "compaction", "title", "summary"}
+    assert {a.id for a in reg.list()} == {"build", "plan", "general", "explore", "scout", "compaction", "title", "summary"}
     assert reg.get("general").mode == "subagent" and reg.get("explore").mode == "subagent" and reg.get("build").mode == "primary"
     assert reg.get("title").hidden and reg.get("summary").hidden and reg.get("compaction").hidden
     assert "file search specialist" in reg.get("explore").system and reg.get("build").system is None

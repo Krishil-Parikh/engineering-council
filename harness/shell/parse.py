@@ -4,9 +4,9 @@ Every simple command the line runs (including those inside substitutions, pipeli
 source text, with any redirections) plus a `save` pattern ("<prefix> *", the prefix length coming from the arity table). `cd`-like
 commands do not become commands: their arguments become `directories` that the caller checks against the project boundary.
 
-Deviation: opencode also ships a PowerShell grammar and a hand-written "portable" scanner. We parse bash with tree-sitter-bash and
-handle PowerShell with a conservative splitter (statement separators and whitespace outside quotes), which over-approximates the
-commands that will run."""
+Both bash and PowerShell are parsed with tree-sitter grammars. When a PowerShell line does not parse cleanly (or the grammar is not
+installed), a conservative splitter (statement separators and whitespace outside quotes) takes over; it over-approximates the commands
+that will run, which is the safe direction for permissions. Deviation: opencode also has a hand-written "portable" scanner; we have none."""
 
 from __future__ import annotations
 
@@ -41,6 +41,14 @@ def _bash_parser():
     import tree_sitter
 
     return tree_sitter.Parser(tree_sitter.Language(tree_sitter_bash.language()))
+
+
+@lru_cache(maxsize=1)
+def _powershell_parser():
+    import tree_sitter
+    import tree_sitter_powershell
+
+    return tree_sitter.Parser(tree_sitter.Language(tree_sitter_powershell.language()))
 
 
 def prefix(tokens: list[str]) -> list[str]:
@@ -171,7 +179,45 @@ def _tokens(statement: str) -> list[tuple[str, str]]:
     return out
 
 
+def _ps_parts(node) -> list[tuple[str, str]]:
+    """A PowerShell `command` node as (kind, text) tokens: its name, then each argument (parameters named as such)."""
+    parts: list[tuple[str, str]] = []
+    for child in node.children:
+        if child.type == "command_name":
+            parts.append(("word", _text(child)))
+        elif child.type == "command_elements":
+            for element in child.children:
+                if element.type in ("command_argument_sep", "redirection"):
+                    continue
+                parts.append(("command_parameter" if element.type == "command_parameter" else "word", _text(element)))
+    return parts
+
+
+def scan_powershell_tree(command: str, shell: str, cwd: str) -> Optional[Result]:
+    """Every command PowerShell would run, found in the syntax tree (pipelines, chains, script blocks, loops, parentheses). None when the line
+    does not parse cleanly."""
+    try:
+        tree = _powershell_parser().parse(command.encode("utf-8"))
+    except Exception:  # noqa: BLE001 - the grammar is optional
+        return None
+    if tree.root_node.has_error:
+        return None
+    result = Result()
+    for node in _walk_commands(tree.root_node):
+        parts = _ps_parts(node)
+        if not parts:
+            continue
+        if parts[0][1].lower() in CWD:
+            result.directories.extend(_directory_args(parts, True, cwd, shell))
+            continue
+        result.commands.append({"resource": _text(node).strip(), "save": f"{' '.join(prefix([t for _, t in parts][:PREFIX_LENGTH]))} *"})
+    return result
+
+
 def scan_powershell(command: str, shell: str, cwd: str) -> Result:
+    parsed = scan_powershell_tree(command, shell, cwd)
+    if parsed is not None:
+        return parsed
     result = Result()
     for statement in _split_powershell(command):
         parts = _tokens(statement)

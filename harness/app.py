@@ -42,6 +42,7 @@ from harness.session.instructions import SessionInstructions
 from harness.session.runner.runner import SessionRunner
 from harness.session.service import SessionService
 from harness.plugin import Hooks, PluginHost
+from harness.reference import ReferenceCache, ReferenceService
 from harness.session.revert import SessionRevert
 from harness.session.store import SessionInfo, SessionStore
 from harness.session.title import SessionTitle
@@ -50,7 +51,7 @@ from harness.skill import SkillCatalog
 from harness.skill_loader import SkillLoader
 from harness.snapshot import Snapshots
 from harness.tool import input_repair
-from harness.tool.builtin import edit, harness_tools, question, read, search, shell, skill, subagent, write
+from harness.tool.builtin import edit, harness_tools, question, read, reference, search, shell, skill, subagent, write
 from harness.tool.builtin.deps import ToolDeps
 from harness.tool.builtin.subagent import SubagentJobs
 from harness.tool.output import ToolOutput
@@ -96,6 +97,7 @@ class Harness:
         on_event: Optional[Callable[[str, dict[str, Any]], None]] = None, compaction: Optional[C.Settings] = None,
         agents: Optional[list[Agent]] = None, rules: Optional[Ruleset] = None, default_agent: Optional[str] = None,
         auto_title: bool = False, before_step: Optional[Callable[[str], Awaitable[None]]] = None, plugins: bool = True,
+        compaction_llm: Any = None, compaction_model: Optional[str] = None,
     ) -> None:
         self._user_event = on_event or (lambda kind, data: None)
         self.hooks = Hooks(lambda name, message: self._user_event("plugin.error", {"hook": name, "message": message}))
@@ -118,6 +120,7 @@ class Harness:
         if default_agent:
             self.agents.transform(lambda editor: editor.default(default_agent))
         self.skills = SkillCatalog()
+        self.references = ReferenceService(self.config, ReferenceCache(self.paths.data / "references"), self.location.directory)
         self.skills.add_provider(SkillLoader(self.config, self.paths, self.location.directory).load)
         self._pending_tasks: set = set()
 
@@ -133,7 +136,11 @@ class Harness:
         self.tool_output = ToolOutput(self.paths.data / "tool-output")
         self.inbox = SessionInbox(self.db, lambda kind, data: self.on_event(kind, data))
         self.runner = SessionRunner(
-            store=self.store, llm=self.llm, compaction=C.Compaction(self.store, self.llm, settings=compaction or C.Settings()), tool_output=self.tool_output,
+            store=self.store, llm=self.llm, tool_output=self.tool_output,
+            compaction=C.Compaction(
+                self.store, self._compaction_client(compaction_llm, compaction_model, llm, api_key), settings=compaction or C.Settings(),
+                observer=lambda kind, data: self.on_event(kind, data), request_hook=self.hooks.pipeline("compaction.request"), summary_hook=self.hooks.first("compaction.summary"),
+            ),
             context=SessionContext(
                 self.store, self.location, self.paths, InstructionDiscovery(self.location, self.paths, self.config), self.skills,
                 resolve_agent=self._resolve_agent, resolve_model=self._resolve_model, tools_for=self.registry.snapshot,
@@ -153,7 +160,7 @@ class Harness:
             extras={
                 "shell": self.shell, "jobs": self.jobs, "sessions": self.sessions, "agents": self.agents, "forms": self.forms, "skills": self.skills,
                 "worktrees": self.worktrees, "model_catalog": self.catalog, "models_available": self.catalog.available,
-                "subagent_jobs": self.subagent_jobs,
+                "subagent_jobs": self.subagent_jobs, "references": self.references,
                 "synthetic": lambda sid, text, description, metadata: self.sessions.synthetic(sid, text, description, metadata),
             },
         )
@@ -165,9 +172,21 @@ class Harness:
         self.registry.before.append(self.hooks.dispatcher("tool.before"))
         self.registry.after.append(self.hooks.dispatcher("tool.after"))
         self.input_hooks.append(self.hooks.dispatcher("input"))
+        for name in cfg.latest(self.config.entries(), "disabled_tools") or []:  # tools the person or project switched off in configuration
+            self.registry.disable(str(name))
         self.plugins = PluginHost(self, self.hooks)
         if plugins:  # project plugins are code: a host that builds in untrusted repositories turns this off
             self.plugins.load_all(self.config)
+
+    def _compaction_client(self, given: Any, model: Optional[str], injected: Any, api_key: Optional[str]) -> Any:
+        """The model that writes compaction summaries: one passed in, or a cheaper model named in the arguments or configuration, else the session's own.
+        (A client someone injected is used as is: there is no way to ask it for a different model.)"""
+        if given is not None:
+            return given
+        model = model or cfg.latest(self.config.entries(), "compaction_model")
+        if model and injected is None and model != self.model_id:
+            return GeminiClient(api_key or os.environ["GEMINI_API_KEY"], str(model))
+        return self.llm
 
     def _report(self, kind: str, data: dict[str, Any]) -> None:
         self._user_event(kind, data)
@@ -176,7 +195,7 @@ class Harness:
     # ------------------------------------------------------------------ wiring
 
     def _register_tools(self) -> None:
-        for make in (read.make, edit.make, write.make, search.make_glob, search.make_grep, shell.make, subagent.make, question.make, skill.make):
+        for make in (read.make, edit.make, write.make, search.make_glob, search.make_grep, shell.make, subagent.make, question.make, skill.make, reference.make):
             self.registry.add(make(self.deps))
         if self.worktrees is not None:
             for tool in harness_tools.make_all(self.deps):

@@ -141,6 +141,7 @@ class ToolRegistry:
         self.before: list[Hook] = []
         self.after: list[Hook] = []
         self.errors: list[str] = []
+        self._disabled: set[str] = set()
 
     # ---- editing
     def add(self, tool: ToolInfo) -> None:
@@ -164,6 +165,26 @@ class ToolRegistry:
     def remove(self, tool_id: str) -> None:
         self._tools.pop(tool_id, None)
 
+    def override(self, tool: ToolInfo) -> bool:
+        """Replaces the tool of the same name with this one (a plugin's better `read`). False, with an error recorded, when there is nothing to override."""
+        name = effective_name(tool)
+        if name not in self._tools:
+            self.errors.append(f"Cannot override a tool that does not exist: {name}")
+            return False
+        self._tools.pop(name)
+        self.add(tool)
+        return True
+
+    def disable(self, tool_id: str) -> None:
+        """Keeps the tool registered but hides it from every request (until `enable`)."""
+        self._disabled.add(tool_id)
+
+    def enable(self, tool_id: str) -> None:
+        self._disabled.discard(tool_id)
+
+    def disabled(self) -> set[str]:
+        return set(self._disabled)
+
     def get(self, tool_id: str) -> Optional[ToolInfo]:
         return self._tools.get(tool_id)
 
@@ -173,6 +194,6 @@ class ToolRegistry:
     # ---- per request
     def snapshot(self, permissions: Optional[Ruleset] = None) -> Snapshot:
         rules = permissions or []
-        active = {name: t for name, t in self._tools.items() if not whollly_disabled(t.options.permission or name, rules)}
+        active = {name: t for name, t in self._tools.items() if name not in self._disabled and not whollly_disabled(t.options.permission or name, rules)}
         defs = [definition(t) for _, t in sorted(active.items())]
         return Snapshot(defs, active, list(self.before), list(self.after))
