@@ -1,6 +1,6 @@
 # Harness status (opencode port + team engine)
 
-IDs match the original analysis table. Tests: 348 passing, 1 skipped.
+IDs match the original analysis table. Tests: 357 passing, 1 skipped.
 
 ## Done
 
@@ -22,7 +22,7 @@ IDs match the original analysis table. Tests: 348 passing, 1 skipped.
 | F1, F2, F3 | Git service (clone, fetch, worktrees, snapshot store), snapshots (capture, files, diff, restore), worktree manager |
 | — | `harness_*` tools: session rename/move, worktree create/list/remove, models |
 | G1, G2 | Gemini provider (verified live); model catalog |
-| — | Session service (create, prompt, run, wake, interrupt) |
+| — | Session service (create, prompt, run, wake, interrupt); `Harness` facade (`harness/app.py`) wiring everything per working directory; checked live against Gemini (write, shell, subagent, grep, edit) |
 | — | Module boundaries enforced by `tests/test_architecture.py` |
 
 ## Partial
@@ -38,7 +38,7 @@ IDs match the original analysis table. Tests: 348 passing, 1 skipped.
 
 ## Left in the harness
 
-1. `Harness` facade and CLI (wire store, runner, tools, permissions, agents, snapshots, worktrees); switch `team/` off `harness/legacy` (ask before deleting legacy)
+1. `python -m harness` CLI; switch `team/` off `harness/legacy` (ask before deleting legacy)
 2. Smaller: tool-input repair (A11), `/init` and custom commands (C6, D6), run coordinator and inbox (A6), title and summary (A8), session export (A10), reference/scout (C7)
 3. Rest of the plugin hook host (H1)
 

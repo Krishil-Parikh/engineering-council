@@ -367,3 +367,22 @@ def test_settled_forms_expire():
             s.get(form["id"])
 
     asyncio.run(main())
+
+
+def test_a_property_named_title_survives_schema_cleanup():
+    from pydantic import BaseModel
+
+    from harness.tool.schema import to_json_schema
+
+    class WithTitle(BaseModel):
+        title: str
+        nested: list["Inner"] = []
+
+    class Inner(BaseModel):
+        title: str
+
+    WithTitle.model_rebuild()
+    schema = to_json_schema(WithTitle)
+    assert "title" in schema["properties"] and schema["required"] == ["title"]
+    assert "title" in schema["properties"]["nested"]["items"]["properties"]
+    assert "title" not in schema  # the annotation itself is still dropped

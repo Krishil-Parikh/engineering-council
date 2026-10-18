@@ -77,7 +77,14 @@ def _simplify_optionals(value: Any) -> Any:
         return [_simplify_optionals(v) for v in value]
     if not _is_record(value):
         return value
-    out = {k: _simplify_optionals(v) for k, v in value.items() if k != "title"}
+    out = {}
+    for k, v in value.items():
+        if k == "title":
+            continue  # an annotation here; a *property* named title lives under "properties" and is kept below
+        if k == "properties" and _is_record(v):
+            out[k] = {name: _simplify_optionals(sub) for name, sub in v.items()}
+        else:
+            out[k] = _simplify_optionals(v)
     any_of = out.get("anyOf")
     if isinstance(any_of, list):
         non_null = [a for a in any_of if not (_is_record(a) and a.get("type") == "null")]
