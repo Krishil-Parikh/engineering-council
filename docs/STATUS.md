@@ -1,60 +1,43 @@
-# Harness status (opencode port + team engine)
+# Status: harness (opencode port), team engine, agile playbook
 
-IDs match the original analysis table. Tests: 447 passing, 1 skipped.
+Everything below is built and covered by offline tests (no network, scripted model). The real-model proof of concept (a full run against
+Gemini covering conflicts, a design vote, memory recall and a git failure) is the one thing left to do.
 
-## Done
+## The pipeline
 
-| # | Item |
+`python -m council run` takes a prompt through: kickoff meeting and Q&A, the human accepting the documents, then sprints (planning, work
+days, standups, review, report, retrospective, document sync), leaving `final/<run>` for the human to merge. The human can interrupt at any
+time in the full-screen view; every major decision waits for them. All agent conversations travel over A2A.
+
+| Area | What exists |
 |---|---|
-| A1, A2 | SQLite session store; typed message model with tool state machine |
-| A3, A4, A5 | Step loop and outcomes; retry policy; max-steps wrap-up |
-| B1–B8 | Compaction: estimate, ceiling, split, summary prompts, nudge, 70/50/35% shrink loop, flatten and drop oldest, checkpoint rendering |
-| C1–C5 | Instruction discovery, instruction state, built-in context, nearby `AGENTS.md`, skill discovery |
-| D1 | Agent registry (build, general, explore, plan, compaction, title, summary; config agents) |
-| D3, D4 | Permission engine; external-directory approval |
-| D5 | Config discovery and loading |
-| E1–E3 | `read`, `edit`, `write`, `patch`, `glob`, `grep` |
-| E4 | `shell` (tree-sitter scanning, process service, jobs, background notifications) |
-| E5 | Output truncation to files |
-| E9 | `subagent` (child sessions, depth limit, background, completion notification, model override) |
-| E8 | `question` and the form service |
-| E10 | `skill` tool |
-| F1, F2, F3 | Git service (clone, fetch, worktrees, snapshot store), snapshots (capture, files, diff, restore), worktree manager |
-| — | `harness_*` tools: session rename/move, worktree create/list/remove, models |
-| G1, G2 | Gemini provider (verified live); model catalog |
-| — | Session service (create, prompt, run, wake, interrupt); `Harness` facade (`harness/app.py`) wiring everything per working directory; checked live against Gemini (write, shell, subagent, grep, edit) |
-| — | Module boundaries enforced by `tests/test_architecture.py` |
-| X1 | A2A over gRPC on the official `a2a-sdk` (`council_a2a`): agent servers, clients, token auth, audit log, direct/broadcast/group conversations; the team's conversations use it |
-| X3, X4 | Team engine (`team/`): plan as a feature graph, scheduler, per-developer sandbox clones, feature branches, merge queue with conflict talks, protected main, final branch, resume; checked live against Gemini |
-| X2 | Staffing by need: developers name the skills the problem needs, only those get seats, several developers can share a skill |
-| X3 | Planning is a team discussion (one group conversation over A2A) before the scrum master writes the plan |
-| X1 | The meeting's own developer calls also travel over A2A (`--no-a2a` to turn off) |
-| X5 | Design-change meetings with votes and ADRs |
-| X6 | Project memory (`memory/project.py`): code map regenerated after every merge, project log compacted into a checkpoint, both committed in the repo and shown to developers per task |
-| X7 | Cross-project memory (`memory/lessons.py`, `learn.py`): lessons learned from conflicts, failures, verification and design changes; recall into planning and tasks; developer experience profiles; lessons seen on two projects promoted to skills the harness loads |
+| Sprint playbook (`team/agile/`) | work gate that freezes coding between steps during every ceremony; day = a task or a step budget; sprint planning from the backlog by capacity and measured velocity; standups from real facts (task log, git) with impediments and resolutions; review (verification on the integration branch, demos); sprint report (planned vs delivered, burndown, velocity); retrospective (actions become working agreements and a long-term lesson); document sync (routine edits applied and logged, major ones need the human); failed features retried once, unfinished ones carried over; state saved so a stopped run resumes |
+| Documents written to `docs/agile/` | `product_backlog.md`, `velocity.md`, `impediments.md`, `human_directives.md`, `CHANGELOG.md`; per sprint: `sprint_backlog.md`, `standups/standup-NN.md`, `review.md`, `sprint_report.md`, `retrospective.md` |
+| The human's desk | the first documents are never accepted automatically (read in full, approve or send back with feedback; revised and asked again); design changes the team voted for, PRD amendments and course corrections wait for a yes; interrupt (`i`) to speak: notes, change of scope (emergency replanning: drop a running feature, add, reorder), stop-and-rethink; notes for the next standup (`n`); decisions waiting (`p`) |
+| Team engine | feature-graph plan, scheduler, per-developer sandbox clones, protected main, merge queue, conflict talks, design votes with ADRs, git brain that diagnoses and fixes failed git steps, publish and pull request, resume, project and cross-project memory, shared model throttle |
+| A2A | official `a2a-sdk` over gRPC: agent servers, clients, token auth, audit log, direct/broadcast/group conversations; planning, standups, votes, conflict talks and briefings to developers all use it |
+| Entry points | `python -m council run | build | resume | revise`, `python -m harness` |
 
-## Partial
+## The coding harness (port of opencode's logic)
 
-- A7: token and cost accounting only, no stats
-- B9, B10: failure events, plugin hook and per-agent compaction model not confirmed
-- D2: plan-mode reminders
-- E12: locking and diffs yes, stale-file guard no
-- E13: registry has add and snapshot, no override/disable
-- H1: only the `context_hooks` hook exists
-- E4: PowerShell is scanned with a simple splitter, not a grammar
-- A9: snapshots can restore files, but there is no revert/undo command on a session yet
-
-## Left in the harness
-
-1. `python -m harness` CLI; switch `team/` off `harness/legacy` (ask before deleting legacy)
-2. Smaller: tool-input repair (A11), `/init` and custom commands (C6, D6), run coordinator and inbox (A6), title and summary (A8), session export (A10), reference/scout (C7)
-3. Rest of the plugin hook host (H1)
+| Item | |
+|---|---|
+| Sessions | SQLite store, typed messages with a tool state machine, step loop, retry policy, max-steps wrap-up, run coordinator (one run per session), inbox (steer, queue, manual compaction), titles, revert (stage, undo, commit), stats, export and import |
+| Compaction | estimate, ceiling, split, summary prompts, nudge, shrink loop, checkpoint; events and hooks; optional separate model |
+| Memory | instruction discovery and state, nearby `AGENTS.md`, skills, project memory, cross-project lessons |
+| Agents | build, plan (read-only, reminder through the hook host), general, explore, scout (reference repositories), compaction, title, summary; configured agents |
+| Tools | read, edit, write, patch, glob, grep, shell (tree-sitter bash and PowerShell), subagent (child sessions, background), question, skill, reference, harness_* tools; input repair; output truncation; stale-file guard; override and disable |
+| Safety | permission engine (last matching rule wins), external-directory approval, snapshots and worktrees |
+| Extensibility | hook host (`context`, `tool.before`, `tool.after`, `input`, `event`, `compaction.request`, `compaction.summary`), plugins from `plugins/*.py` or configuration |
+| Commands | slash commands (`/init`, `/review`, config and markdown commands) |
+| Providers | Gemini (verified live), model catalog |
 
 ## Dropped by decision
 
-webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit line, other providers, OAuth.
+webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit line, other providers, OAuth. The first, smaller port of the
+harness (`harness/legacy`) and the old sequential build runner were removed once everything moved to the new harness.
 
-## Not started (our additions)
+## Not done
 
-
-- README and docs update
+- The real-model run described above.
+- A web front end (the desk, the gate and the playbook are plain objects with async methods, ready for one to call).

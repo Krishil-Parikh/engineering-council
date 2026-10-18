@@ -25,15 +25,14 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 engineering-council = "council.cli:main"
-coding-harness = "harness.legacy.cli:main"
+coding-harness = "harness.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["meetings*", "harness*", "council_a2a*", "team*", "memory*", "council*"]
 
 [tool.setuptools.package-data]
 meetings = ["system_prompts/*.md"]
-"harness.legacy" = ["prompts/*.txt"]
-harness = ["session/*.txt"]
+harness = ["session/*.txt", "commands/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
