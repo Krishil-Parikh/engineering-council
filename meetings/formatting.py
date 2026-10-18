@@ -59,7 +59,8 @@ def format_reconsideration(r) -> str:
 
 def format_blind(b) -> str:
     out = f"UNDERSTANDING\n{b.understanding}\n\n" + _lines("IDEAS", b.ideas) + _lines("WORRIES", b.worries)
-    out += _lines("WOULD ASK THE USER", b.open_questions) + _lines("SKILL PREFERENCE (most wanted first)", b.skill_preferences)
+    out += _lines("WOULD ASK THE USER", b.open_questions) + _lines("SKILLS THE PROBLEM NEEDS (most important first)", b.skills_needed)
+    out += _lines("SKILL PREFERENCE (most wanted first)", b.skill_preferences)
     return out.strip()
 
 

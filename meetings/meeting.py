@@ -151,12 +151,19 @@ async def run_meeting(
     interactive: bool = True,
     resume: bool = False,
     input_fn: Callable[[str], str] = input,
+    a2a: bool = False,
 ) -> MeetingResult:
+    """`a2a=True` carries every developer's model call over A2A (gRPC): each developer and the scrum master is an agent with its own server."""
     out_dir = meeting_dir(inp)
     if (out_dir / "meeting.json").exists() and not resume:
         raise MeetingError(f"{out_dir} already holds a meeting. Use `resume` to continue it or pick another project name.")
     store = MeetingStore(out_dir, settings.model)
     llm.observer = reporter.llm_event
+    inner = llm
+    if a2a:
+        from meetings.a2a_llm import serve_meeting
+
+        llm = await serve_meeting(inner, audit_path=out_dir / "a2a-audit.jsonl")
     try:
         return await _run(inp, settings, llm, reporter, store, interactive, input_fn)
     except (KeyboardInterrupt, asyncio.CancelledError):
@@ -166,7 +173,9 @@ async def run_meeting(
         store.finish("failed", f"{type(exc).__name__}: {settings.redact(str(exc))}")
         raise
     finally:
-        _save_usage(store, llm)
+        if a2a:
+            await llm.close()
+        _save_usage(store, inner)
 
 
 async def _run(

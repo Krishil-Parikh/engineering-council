@@ -128,8 +128,11 @@ Produce:
 - ideas: the approaches, features or tricks that come to mind first. Be creative; include at least one unconventional idea.
 - worries: what could go wrong or what looks underspecified.
 - open_questions: what you would ask the user if you could.
-- skill_preferences: rank ALL SIX of {', '.join(SKILL_LENSES)} by how much you would like to take that specialism for THIS problem, \
-most wanted first. Choose by where you could add the most value, not by habit.
+- skills_needed: which of {', '.join(SKILL_LENSES)} does THIS problem actually need? List only the ones it needs, most important first. \
+Leave out a skill if the project would not miss it (a small command-line tool needs no MLOps); do not list skills just to be complete. \
+Several developers can share a skill that the work leans on heavily.
+- skill_preferences: of the skills you listed, which would you most like to take yourself, most wanted first. Choose by where you could add \
+the most value, not by habit.
 
 Set agent_id to "{agent_id}"."""
 

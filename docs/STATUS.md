@@ -1,6 +1,6 @@
 # Harness status (opencode port + team engine)
 
-IDs match the original analysis table. Tests: 427 passing, 1 skipped.
+IDs match the original analysis table. Tests: 447 passing, 1 skipped.
 
 ## Done
 
@@ -26,6 +26,9 @@ IDs match the original analysis table. Tests: 427 passing, 1 skipped.
 | — | Module boundaries enforced by `tests/test_architecture.py` |
 | X1 | A2A over gRPC on the official `a2a-sdk` (`council_a2a`): agent servers, clients, token auth, audit log, direct/broadcast/group conversations; the team's conversations use it |
 | X3, X4 | Team engine (`team/`): plan as a feature graph, scheduler, per-developer sandbox clones, feature branches, merge queue with conflict talks, protected main, final branch, resume; checked live against Gemini |
+| X2 | Staffing by need: developers name the skills the problem needs, only those get seats, several developers can share a skill |
+| X3 | Planning is a team discussion (one group conversation over A2A) before the scrum master writes the plan |
+| X1 | The meeting's own developer calls also travel over A2A (`--no-a2a` to turn off) |
 | X5 | Design-change meetings with votes and ADRs |
 | X6 | Project memory (`memory/project.py`): code map regenerated after every merge, project log compacted into a checkpoint, both committed in the repo and shown to developers per task |
 | X7 | Cross-project memory (`memory/lessons.py`, `learn.py`): lessons learned from conflicts, failures, verification and design changes; recall into planning and tasks; developer experience profiles; lessons seen on two projects promoted to skills the harness loads |
@@ -53,8 +56,5 @@ webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit 
 
 ## Not started (our additions)
 
-- X2 Only-needed-skills staffing
-- Planning as a pod meeting (today the plan is one scrum-master call)
-- The meeting's developer calls over A2A
 
 - README and docs update

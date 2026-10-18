@@ -36,6 +36,7 @@ def base_llm():
 
 def engine(tmp_path, llm, meeting=None, **cfg):
     meeting = meeting or finished_meeting(tmp_path)[0]
+    cfg.setdefault("plan_discussion_rounds", 0)  # most tests are not about the planning talk; it adds one consultation per developer
     config = TeamConfig(run_id="r1", repair_rounds=0, **cfg)
     events = []
     eng = TeamEngine(meeting, tmp_path / "team", llm=llm, config=config, on_event=lambda k, d: events.append((k, d)))
@@ -298,7 +299,7 @@ def test_lessons_carry_from_one_project_to_the_next_and_become_skills(tmp_path):
         llm.on(r"Reflect on how the work went", [("text", json.dumps({"lessons": [{"text": "Agree the shared file layout before parallel work starts.", "skill": "", "tags": ["plan"]}]}))])
 
     # first project: a conflict happens, the team learns from it
-    one = TeamEngine(renamed_meeting(tmp_path / "a", "Alpha"), tmp_path / "a" / "team", llm=conflict_llm(reflect), config=TeamConfig(run_id="r1", repair_rounds=0, memory_dir=memory_dir))
+    one = TeamEngine(renamed_meeting(tmp_path / "a", "Alpha"), tmp_path / "a" / "team", llm=conflict_llm(reflect), config=TeamConfig(run_id="r1", repair_rounds=0, plan_discussion_rounds=0, memory_dir=memory_dir))
     r1 = asyncio.run(one.run())
     assert r1.lessons_learned >= 2
     store = LessonStore(memory_dir)
@@ -309,7 +310,7 @@ def test_lessons_carry_from_one_project_to_the_next_and_become_skills(tmp_path):
 
     # second project: the planner is shown the lesson, and the same conflict makes it a skill
     llm2 = conflict_llm(reflect)
-    two = TeamEngine(renamed_meeting(tmp_path / "b", "Beta"), tmp_path / "b" / "team", llm=llm2, config=TeamConfig(run_id="r2", repair_rounds=0, memory_dir=memory_dir))
+    two = TeamEngine(renamed_meeting(tmp_path / "b", "Beta"), tmp_path / "b" / "team", llm=llm2, config=TeamConfig(run_id="r2", repair_rounds=0, plan_discussion_rounds=0, memory_dir=memory_dir))
     asyncio.run(two.run())
     plan_prompt = next(str(r.messages) for r in llm2.requests if "Turn the agreed specification" in str(r.messages))
     assert "Lessons from earlier projects" in plan_prompt and "collided in shared.txt" in plan_prompt
@@ -318,7 +319,7 @@ def test_lessons_carry_from_one_project_to_the_next_and_become_skills(tmp_path):
 
     # third project: developers get the learned skill in their harness and their experience in their persona
     llm3 = conflict_llm(reflect)
-    three = TeamEngine(renamed_meeting(tmp_path / "c", "Gamma"), tmp_path / "c" / "team", llm=llm3, config=TeamConfig(run_id="r3", repair_rounds=0, memory_dir=memory_dir))
+    three = TeamEngine(renamed_meeting(tmp_path / "c", "Gamma"), tmp_path / "c" / "team", llm=llm3, config=TeamConfig(run_id="r3", repair_rounds=0, plan_discussion_rounds=0, memory_dir=memory_dir))
     asyncio.run(three.run())
     assert (tmp_path / "c" / "team" / "data" / "dev-1" / "skills" / skill_files[0].parent.name / "SKILL.md").exists()
     system = " ".join(p.text for r in llm3.requests for p in r.system)
@@ -329,3 +330,45 @@ def test_without_a_memory_directory_nothing_is_written_outside_the_project(tmp_p
     eng, _, _ = engine(tmp_path, base_llm())
     result = asyncio.run(eng.run())
     assert eng.lessons is None and result.lessons_learned == 0
+
+
+# ------------------------------------------------------------------ planning as a team discussion
+
+def test_the_plan_is_written_after_the_developers_talk_it_through(tmp_path):
+    llm = base_llm()
+
+    def talk(text):
+        speaker = text.split("It is your turn, ")[1].split(" ")[0]
+        return [("text", f"{speaker}: I will take my area, and the database must exist before the API.")]
+
+    llm.on(r"Group conversation about: work plan", talk)
+    eng, events, _ = engine(tmp_path, llm, plan_discussion_rounds=1)
+    result = asyncio.run(eng.run())
+    assert [f.status for f in result.features] == ["merged", "merged", "merged"]
+    plan_prompt = next(request_text(r) for r in llm.requests if "Turn the agreed specification" in request_text(r))
+    assert "THE TEAM'S DISCUSSION" in plan_prompt
+    for dev in ("DEV_1", "DEV_2", "DEV_3", "DEV_4", "DEV_5", "DEV_6"):
+        assert f"{dev}: {dev}: I will take my area" in plan_prompt
+    assert [k for k, _ in events].count("plan-discussion") == 1
+    log = audit(tmp_path)
+    turns = [e for e in log if e["topic"] == "work plan" and e["sender"] == "system" and e["recipient"].startswith("DEV_")]
+    assert [e["recipient"] for e in turns] == ["DEV_1", "DEV_2", "DEV_3", "DEV_4", "DEV_5", "DEV_6"]  # one after another
+    assert len({e["context_id"] for e in turns}) == 1  # one conversation
+    assert "DEV_1: DEV_1: I will take my area" in turns[-1]["text"]  # the last speaker saw the first speaker's turn
+
+
+def request_text(request):
+    """The text of a model request's messages, as the model reads it (repr() would escape the apostrophes)."""
+    return "\n".join(p.text for m in request.messages for p in m.content if hasattr(p, "text"))
+
+
+def test_a_failing_discussion_does_not_stop_the_plan(tmp_path):
+    eng, _, _ = engine(tmp_path, base_llm(), plan_discussion_rounds=1, transport="local")
+
+    async def broken(*a, **kw):
+        raise RuntimeError("network down")
+
+    eng.channel.converse = broken
+    result = asyncio.run(eng.run())
+    assert [f.status for f in result.features] == ["merged", "merged", "merged"]
+    assert any("planning discussion failed: network down" in w for w in result.warnings)

@@ -19,6 +19,8 @@ class Channel(Protocol):
 
     async def broadcast(self, sender: str, recipients: list[str], text: str, topic: str = "") -> dict[str, str]: ...
 
+    async def converse(self, topic: str, participants: list[str], opener: str, starter: str = "system", rounds: int = 1) -> list: ...
+
 
 @dataclass
 class Message:
@@ -58,6 +60,22 @@ class LocalChannel:
     async def broadcast(self, sender: str, recipients: list[str], text: str, topic: str = "") -> dict[str, str]:
         answers = await asyncio.gather(*(self.ask(sender, r, text, topic) for r in recipients), return_exceptions=True)
         return {r: (a if isinstance(a, str) else f"(no answer: {type(a).__name__})") for r, a in zip(recipients, answers)}
+
+
+    async def converse(self, topic: str, participants: list[str], opener: str, starter: str = "system", rounds: int = 1) -> list:
+        """A group conversation: everyone in turn sees the whole transcript so far. Returns [Turn(speaker, text)], the opener first."""
+        from council_a2a import Turn
+
+        transcript = [Turn(starter, opener)]
+        for round_no in range(1, rounds + 1):
+            for speaker in participants:
+                shown = "\n\n".join(f"{t.speaker}: {t.text}" for t in transcript)
+                prompt = (
+                    f"Group conversation about: {topic}\nParticipants: {', '.join(participants)}\n\n{shown}\n\n"
+                    f"It is your turn, {speaker} (round {round_no} of {rounds}). Add to the discussion; do not repeat what was said."
+                )
+                transcript.append(Turn(speaker, await self.ask(starter, speaker, prompt, topic)))
+        return transcript
 
 
 def _apply(cur, src) -> None:

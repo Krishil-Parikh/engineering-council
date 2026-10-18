@@ -188,4 +188,12 @@ Respond only with JSON, no prose, no markdown fences:
 
 SPECIFICATION
 {spec}
+{discussion}"""
+
+DISCUSS_PROMPT = """The team is planning how to build this project, in parallel, each of you in your own clone on your own branch. Before the scrum master writes the plan, talk it through.
+
+From your own skill's point of view: which pieces can be built independently, which must wait for another piece (and why), where two people would end up editing the same file, what must be agreed first (an interface, a schema, a file layout), and who should own what. Say what you would take. Be specific and brief; react to what others said.
+
+SPECIFICATION
+{spec}
 """

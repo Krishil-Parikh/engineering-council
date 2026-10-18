@@ -7,7 +7,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-# Six generic developers. Each picks a skill when the meeting starts (see conversation.assign_skills); a scrum master leads.
+# Six generic developers. The pod decides which skills the problem needs and each developer is staffed to one of them (see
+# conversation.assign_skills); skills are not exclusive, so a needed skill can have several developers. A scrum master leads.
 AGENT_IDS = ("DEV_1", "DEV_2", "DEV_3", "DEV_4", "DEV_5", "DEV_6")
 SCRUM_MASTER = "SCRUM_MASTER"
 SKILLS = ("FRONTEND", "BACKEND", "AIML", "MLOPS", "DEVOPS", "DATABASE")
@@ -154,7 +155,8 @@ class BlindThoughts(BaseModel):
     ideas: list[str] = Field(default_factory=list)
     worries: list[str] = Field(default_factory=list)
     open_questions: list[str] = Field(default_factory=list)
-    skill_preferences: list[str] = Field(default_factory=list)  # SKILLS, most wanted first
+    skills_needed: list[str] = Field(default_factory=list)  # the SKILLS this problem really needs, most important first
+    skill_preferences: list[str] = Field(default_factory=list)  # of those, which this developer would most like to take, most wanted first
 
 
 class Utterance(BaseModel):

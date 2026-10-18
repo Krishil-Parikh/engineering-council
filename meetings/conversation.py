@@ -55,20 +55,93 @@ def normalize_skill(value: str) -> str | None:
 # --------------------------------------------------------------------------- skill picking
 
 
-def assign_skills(blinds: dict[str, BlindThoughts], agents: list[str]) -> dict[str, str]:
-    """Each developer takes the highest-ranked skill nobody has taken yet. Developers who stated no preference take what is left."""
-    taken: set[str] = set()
-    roster: dict[str, str] = {}
+def _clean(skills: list[str]) -> list[str]:
+    out: list[str] = []
+    for raw in skills:
+        s = normalize_skill(raw)
+        if s and s not in out:
+            out.append(s)
+    return out
+
+
+def needed_skills(blinds: dict[str, BlindThoughts], agents: list[str]) -> list[str]:
+    """The skills the pod says this problem needs, most-named first.
+
+    Each developer names the skills the problem really needs. A skill is needed when at least a third of the developers who answered named
+    it; the two most-named are always kept, so there is never a one-skill meeting. If nobody answered, every skill is staffed."""
+    votes: Counter[str] = Counter()
+    answered = 0
     for agent in agents:
-        ranked = [s for s in (normalize_skill(x) for x in (blinds[agent].skill_preferences if agent in blinds else [])) if s]
-        pick = next((s for s in ranked if s not in taken), None)
-        if pick is None:
-            pick = next((s for s in SKILLS if s not in taken), None)
-        if pick is None:  # more developers than skills: share the first skill
-            pick = SKILLS[len(roster) % len(SKILLS)]
-        taken.add(pick)
+        named = _clean(blinds[agent].skills_needed) if agent in blinds else []
+        if named:
+            answered += 1
+            votes.update(named)
+    if not votes:
+        return list(SKILLS)
+    ranked = sorted(votes, key=lambda s: (-votes[s], SKILLS.index(s)))
+    threshold = max(1, -(-answered // 3))
+    needed = [s for s in ranked if votes[s] >= threshold]
+    for s in ranked:
+        if len(needed) >= 2:
+            break
+        if s not in needed:
+            needed.append(s)
+    return needed
+
+
+def _seats(needed: list[str], votes: Counter[str], total: int) -> dict[str, int]:
+    """How many developers each needed skill gets: one each, the rest in proportion to how often it was named (largest remainder)."""
+    seats = {s: 1 for s in needed}
+    extra = total - len(needed)
+    weight = sum(votes[s] for s in needed) or len(needed)
+    quotas = {s: extra * (votes[s] or 1) / weight for s in needed}
+    for s in needed:
+        seats[s] += int(quotas[s])
+    leftover = total - sum(seats.values())
+    for s in sorted(needed, key=lambda s: -(quotas[s] - int(quotas[s])))[:leftover]:
+        seats[s] += 1
+    return seats
+
+
+def assign_skills(blinds: dict[str, BlindThoughts], agents: list[str]) -> dict[str, str]:
+    """Staffs the pod with the skills the problem needs. Skills are not exclusive: a needed skill can have several developers, and a skill the
+    problem does not need gets nobody.
+
+    Every needed skill first gets the developer who wants it most; the remaining developers then take their favourite among the needed
+    skills that still have seats (seats follow how strongly the pod asked for each skill)."""
+    needed = needed_skills(blinds, agents)
+    votes: Counter[str] = Counter()
+    for agent in agents:
+        votes.update(_clean(blinds[agent].skills_needed) if agent in blinds else [])
+    if len(needed) > len(agents):
+        needed = needed[: len(agents)]
+    seats = _seats(needed, votes, len(agents))
+    prefs = {a: [s for s in _clean(blinds[a].skill_preferences) if s in needed] if a in blinds else [] for a in agents}
+
+    def rank(agent: str, skill: str) -> int:
+        return prefs[agent].index(skill) if skill in prefs[agent] else len(SKILLS)
+
+    roster: dict[str, str] = {}
+    uncovered = list(needed)
+    # first, every needed skill gets someone: the strongest wishes are granted first (ties go to the earlier developer)
+    wishes = sorted((rank(a, s), agents.index(a), needed.index(s), a, s) for a in agents for s in needed if rank(a, s) < len(SKILLS))
+    for _, _, _, agent, skill in wishes:
+        if agent not in roster and skill in uncovered:
+            roster[agent] = skill
+            uncovered.remove(skill)
+            seats[skill] -= 1
+    for skill in uncovered:  # nobody asked for it: the first free developer takes it
+        agent = next(a for a in agents if a not in roster)
+        roster[agent] = skill
+        seats[skill] -= 1
+    for agent in agents:
+        if agent in roster:
+            continue
+        open_skills = [s for s in needed if seats[s] > 0]
+        pick = next((s for s in prefs[agent] if seats[s] > 0), None) or max(open_skills, key=lambda s: (seats[s], -needed.index(s)))
         roster[agent] = pick
-    return roster
+        seats[pick] -= 1
+    return {a: roster[a] for a in agents}
 
 
 # --------------------------------------------------------------------------- phase 1: blind thinking

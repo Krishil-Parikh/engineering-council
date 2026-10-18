@@ -35,7 +35,7 @@ from team.build import GITIGNORE, agents_md
 from team.channel import Channel, LocalChannel
 from team.design import Decision, DesignBoard, design_change_tool
 from team.persona import DEVELOPER_RULES, agent_id, developer_agent
-from team.plan import PLAN_PROMPT, Feature, Plan, PlanError, fallback_plan
+from team.plan import DISCUSS_PROMPT, PLAN_PROMPT, Feature, Plan, PlanError, fallback_plan
 from team.prompts import conflict_ask, conflict_resolution, repair_prompt, spec_brief, task_prompt
 from team.repo import RepoError, TeamRepo, slugify
 from team.scheduler import FeatureOutcome, Scheduler
@@ -57,6 +57,7 @@ class TeamConfig:
     transport: str = "a2a"  # "a2a" (gRPC between agents) or "local" (in-process)
     memory_dir: Optional[Path] = None  # cross-project memory (lessons, profiles, learned skills); None turns it off
     distill: bool = True  # also ask the scrum master to reflect on the run in its own words
+    plan_discussion_rounds: int = 1  # rounds of group discussion among the developers before the scrum master writes the plan (0 = none)
 
 
 @dataclass
@@ -197,8 +198,9 @@ class TeamEngine:
                 return plan
         feedback = ""
         plan: Optional[Plan] = None
+        discussion = await self.plan_discussion()
         for attempt in range(self.cfg.planning_attempts):
-            prompt = PLAN_PROMPT.format(roster=", ".join(f"{d} ({s.title()})" for d, s in self.roster.items()), spec=spec_brief(self.spec)) + self.recalled("plan split work parallel merge conflict owner interface verification tests integration design " + self.spec.project_name, None, 6) + feedback
+            prompt = PLAN_PROMPT.format(roster=", ".join(f"{d} ({s.title()})" for d, s in self.roster.items()), spec=spec_brief(self.spec), discussion=discussion) + self.recalled("plan split work parallel merge conflict owner interface verification tests integration design " + self.spec.project_name, None, 6) + feedback
             reply = await self.channel.ask("system", INTEGRATOR, prompt, topic="work plan")
             try:
                 match = re.search(r"\{.*\}", reply, re.S)
@@ -218,6 +220,22 @@ class TeamEngine:
         plan.assign_owners(self.spec, self.roster)
         self._merged_at_start = set()
         return plan
+
+    async def plan_discussion(self) -> str:
+        """The team talks the split through (one group conversation, every developer speaking with the whole transcript in view) and the scrum
+        master writes the plan from it. Returns the discussion as text for the planning prompt, or '' if it is switched off or fails."""
+        if self.cfg.plan_discussion_rounds <= 0 or len(self.developers) < 2:
+            return ""
+        try:
+            turns = await self.channel.converse(
+                "work plan", self.developers, DISCUSS_PROMPT.format(spec=spec_brief(self.spec)), starter="system", rounds=self.cfg.plan_discussion_rounds
+            )
+        except Exception as exc:  # noqa: BLE001 - the plan can still be written without the discussion
+            self.result.warnings.append(f"the planning discussion failed: {exc}")
+            return ""
+        self._emit("plan-discussion", speakers=[t.speaker for t in turns[1:]])
+        talk = "\n\n".join(f"{t.speaker}: {t.text}" for t in turns[1:])
+        return f"\nTHE TEAM'S DISCUSSION (take it into account: split work the way they argued, keep their ownership wishes where sensible)\n{talk}\n"
 
     def _save_state(self, merged: set[str]) -> None:
         if self.plan is not None:

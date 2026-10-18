@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--yes", "-y", action="store_true", help="skip confirmation and accept default answers")
     p.add_argument("--verbose", "-v", action="store_true", help="show diagnostic details")
     p.add_argument("--plain", action="store_true", help="plain scrolling output instead of the full-screen TUI")
+    p.add_argument("--no-a2a", action="store_true", help="call the model in-process instead of through each developer's A2A agent (gRPC)")
     return p
 
 
@@ -193,12 +194,12 @@ def main(argv: list[str] | None = None, llm_factory=_make_llm) -> int:
         if not args.plain and _interactive_terminal():
             from meetings.tui import run_tui  # imported lazily: --plain and tests never need Textual
 
-            app = run_tui(settings, llm_factory(settings), input_from_args(args), base_output=args.output, auto_answers=args.yes)
+            app = run_tui(settings, llm_factory(settings), input_from_args(args), base_output=args.output, auto_answers=args.yes, a2a=not args.no_a2a)
             return finish_tui(app)
         inp = gather_input(args)
         confirm(inp, settings, args.yes)
         result = asyncio.run(
-            run_meeting(inp, settings, llm_factory(settings), Reporter(args.verbose), interactive=not args.yes)
+            run_meeting(inp, settings, llm_factory(settings), Reporter(args.verbose), interactive=not args.yes, a2a=not args.no_a2a)
         )
         print_summary(result)
         return 0 if result.report.passed else 2
@@ -217,6 +218,7 @@ def _sub(argv: list[str], llm_factory) -> int:
     p.add_argument("--yes", "-y", action="store_true")
     p.add_argument("--verbose", "-v", action="store_true")
     p.add_argument("--plain", action="store_true", help="plain scrolling output instead of the TUI")
+    p.add_argument("--no-a2a", action="store_true", help="call the model in-process instead of through A2A agents")
     if cmd == "revise":
         p.add_argument("--feedback", help="what to change")
     args = p.parse_args(argv[1:])
@@ -231,8 +233,8 @@ def _sub(argv: list[str], llm_factory) -> int:
         if not args.plain and _interactive_terminal():
             from meetings.tui import run_tui
 
-            return finish_tui(run_tui(settings, llm_factory(settings), inp, base_output=str(out_dir.parent), auto_answers=args.yes, resume=True))
-        result = asyncio.run(run_meeting(inp, settings, llm_factory(settings), rep, interactive=not args.yes, resume=True))
+            return finish_tui(run_tui(settings, llm_factory(settings), inp, base_output=str(out_dir.parent), auto_answers=args.yes, resume=True, a2a=not args.no_a2a))
+        result = asyncio.run(run_meeting(inp, settings, llm_factory(settings), rep, interactive=not args.yes, resume=True, a2a=not args.no_a2a))
     else:
         feedback = (args.feedback or _ask("What should change? ")).strip()
         if not feedback:
