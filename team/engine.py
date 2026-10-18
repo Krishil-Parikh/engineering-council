@@ -212,8 +212,19 @@ class TeamEngine:
             self.harnesses[dev] = h
         return self.harnesses[dev]
 
-    def brief(self, dev: str, text: str) -> None:
-        """Tells a developer something. Mid-task it is steered into the running session (read at their next step); between tasks it waits for the next one."""
+    async def brief(self, dev: str, text: str, sender: str = "scrum-master") -> None:
+        """Tells a developer something. The message travels to their agent over A2A like every other conversation; their agent then puts it where
+        they will read it (see `deliver_brief`)."""
+        if self._network is not None:
+            try:
+                await self.channel.ask(sender, dev, text, topic="briefing")
+                return
+            except Exception as exc:  # noqa: BLE001 - never lose the message: fall back to delivering it directly
+                self._emit("agile-warning", text=f"could not brief {dev} over A2A ({exc}); delivered directly")
+        self.deliver_brief(dev, text)
+
+    def deliver_brief(self, dev: str, text: str) -> None:
+        """What a developer's agent does with a briefing. Mid-task it is steered into the running session (read at their next step); between tasks it waits for the next one."""
         cur = self.current.get(dev)
         h = self.harnesses.get(dev)
         if cur and cur.get("in_task") and h is not None and cur.get("session"):

@@ -50,7 +50,8 @@ Gemma/Gemini models on the free tier return 429/503 under load. The client waits
 ## Use
 
 ```text
-python -m council                          # opens the TUI with a start form
+python -m council run ...                  # prompt -> meeting -> your approval -> sprints (see below)
+python -m council                          # the meeting alone: opens the TUI with a start form
 python -m council --name "My App" --problem-file examples/problem.md --repo ./my-repo --constraint "Python" -y
 python -m council resume output/my-app     # continue an interrupted meeting
 python -m council revise output/my-app --feedback "Add CSV export"
@@ -66,19 +67,19 @@ Each concern lives in one folder and may only import what the table allows (`tes
 
 | Folder | What it is | May import |
 |---|---|---|
-| `harness/` | The coding agent engine, modelled on opencode: sessions in SQLite, compaction, instruction memory, skills, agents, permissions, tools. `harness/legacy/` is the first, smaller port, kept until the new runner replaces it. | itself |
+| `harness/` | The coding agent engine, modelled on opencode: sessions in SQLite, compaction, instruction memory, skills, agents, permissions, tools. | itself |
 | `council_a2a/` | Agent2Agent protocol over gRPC, built on the official `a2a-sdk` | itself |
 | `memory/` | Project memory (whole-codebase context) and cross-project memory (what the team learned) | itself |
 | `meetings/` | Planning mode: blind thinking, skill picking, the pod conversation, questions, decisions, specification, design review, documents, verification, the TUI | `council_a2a` |
-| `team/` | Agent mode: developers that build, branch, test and merge a project | `harness`, `council_a2a`, `meetings`, `memory` |
+| `team/` | Agent mode: developers that build, branch, test and merge a project; `team/agile/` is the sprint playbook (work gate, ceremonies, reports, the human's desk) | `harness`, `council_a2a`, `meetings`, `memory` |
 | `council/` | The application entry point (`python -m council`) | everything |
 
 ```text
 meetings/   cli.py config.py models.py prompts.py gemini_client.py meeting.py conversation.py questions.py
             synthesis.py documents.py verification.py design_review.py repository.py storage.py tui.py system_prompts/
-harness/    schema/ ai/ db/ instructions/ session/ util/ legacy/
-team/       build.py cli.py
-council/    cli.py __main__.py
+harness/    schema/ ai/ db/ instructions/ session/ tool/ util/
+team/       engine.py plan.py scheduler.py repo.py channel.py design.py gitbrain.py tui.py cli.py agile/
+council/    cli.py pipeline.py __main__.py
 tests/      one folder per module: tests/meetings  tests/harness  tests/team  (run with: pytest; no network)
 ```
 
@@ -93,19 +94,50 @@ RUN_LIVE=1 pytest -k live   # opt-in real API smoke test
 
 Repository content is untrusted data and is delimited as such in prompts. `.env`, keys and credential-like files are never read; secret-looking lines are redacted. The Gemini key is never written to logs or artifacts. The problem statement and repository excerpts are sent to the Gemini API, so only point this at material you are happy to send.
 
-## Building the project: the coding harness
+## From a prompt to a built project, in sprints
 
-After a meeting, the pod can implement what it specified:
-
+```text
+python -m council run --name "My App" --problem-file examples/problem.md      # the whole thing
+python -m council run --from-meeting output/my-app                            # skip the meeting, build from finished documents
+python -m council build output/my-app --sprint-capacity 6 --max-days 3        # the build alone
 ```
-python -m council build output/<project>        # developers build in output/<project>/project
-python -m harness.legacy -d some/project                     # or use the harness on its own
-```
 
-`harness.legacy/` is a separate package modelled on opencode: file, search, edit/patch, shell, web and subagent tools; git and GitHub through
-the shell (`gh`); permission rules; `AGENTS.md` and skills as project memory; conversation compaction; undo through shadow-git snapshots.
-See `harness.legacy/README.md`. The build hands each step of the specification's implementation sequence to the developer whose skill fits,
-commits per step, then runs the spec's verification commands with repair rounds, and writes `build_report.md`.
+One command takes a prompt through everything:
+
+1. **Kickoff.** The pod meeting and its Q&A produce `PRD.md`, `Technical_Approach.md` and `Design.md`.
+2. **You accept the documents.** The first set is never accepted automatically. You read them in full, then approve, or decline with what should change (the integrator revises them and asks again). Nothing is coded before you say yes.
+3. **Sprints.** Each sprint is planned from the backlog, worked in days, and closed with ceremonies:
+
+| Ceremony | What happens | Document (in `docs/agile/` on the integration branch) |
+|---|---|---|
+| Sprint planning | The scrum master picks features to fit the team's capacity (later sprints follow the team's measured velocity); each developer commits or raises a concern | `sprint-NN/sprint_backlog.md`, `product_backlog.md` |
+| Work day | Every developer works until a task is done or their step budget is spent | |
+| Daily standup | After each day every developer reports done / next / blockers from real facts (the task log and git); blockers become impediments and the scrum master resolves what it can | `sprint-NN/standups/standup-NN.md`, `impediments.md` |
+| Sprint review | Verification runs on the integration branch; each developer demos; the scrum master judges the goal | `sprint-NN/review.md` |
+| Sprint report | Planned vs delivered, burndown, who delivered what, velocity trend, model use | `sprint-NN/sprint_report.md`, `velocity.md` |
+| Retrospective | Went well / badly; up to three actions become working agreements every developer sees in their next task, and a lesson goes to long-term memory | `sprint-NN/retrospective.md` |
+| Document sync | The PRD, technical approach and design are brought in line with what was built. Routine edits are applied and logged; a major one (scope, architecture, stack, contract, data model) waits for your yes | `CHANGELOG.md` |
+
+**Coding stops during every ceremony.** A work gate freezes the developers between steps (never mid-step); a standup, review or retrospective never overlaps with code being written, and merges wait too. Failed features go back into a later sprint once; unfinished ones are carried over.
+
+**You are in charge while it runs.** In the full-screen view:
+
+| Key | What it does |
+|---|---|
+| `i` | Interrupt. All coding pauses at the next step boundary and you can speak to the team. Write plainly (the scrum master works out whether it is guidance, a change of scope, or a stop-and-rethink) or prefix `/note`, `/scope` or `/rethink`. A scope change triggers emergency replanning: features are dropped (a running one is cancelled and its half-done work discarded), added or reordered, and the documents are updated. A rethink asks the developers what is wrong and brings you a course correction to approve. Press Resume when you are done. |
+| `n` | Leave a note for the next standup; the team keeps working. |
+| `p` | Open the decisions waiting for you. Major decisions (the first documents, a design change the team voted for, a PRD amendment, a course correction) always wait for you; the developer who proposed it counts as resting meanwhile, so the others carry on. |
+| `r` | The sprint tab. |
+
+Your instructions outrank the team's own decisions, are logged in `docs/agile/human_directives.md`, and are given to every developer in each later task. Every conversation (standups, votes, briefings, your own words to the developers) travels over A2A and is written to `a2a-audit.jsonl`.
+
+Flags: `--sprint-capacity N`, `--max-days N`, `--steps-per-day N`, `--unattended` (approve everything automatically, for CI), `--no-agile` (one flat run, no sprints). With `--plain`, decisions are asked at the prompt but you cannot interrupt mid-run.
+
+When the team is done it leaves `final/<run>` for you to review and merge into main. Nothing is ever merged into main for you.
+
+### The coding harness
+
+`harness/` is a Python port of opencode's logic (sessions, compaction, tools, permissions, agents, subagents, slash commands, a run coordinator and a session inbox for steering and queued input). Each developer runs their own harness in their own clone.
 
 ## Docs
 

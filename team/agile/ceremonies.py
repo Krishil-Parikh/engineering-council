@@ -362,10 +362,10 @@ class Ceremonies:
             instruction = str(res.get("instruction") or "").strip()
             if res.get("resolved") is True and instruction:
                 item.status, item.resolution = "resolved", instruction
-                self.engine.brief(item.dev, f"Scrum master, about your blocker ({item.text}): {instruction}")
+                await self.engine.brief(item.dev, f"Scrum master, about your blocker ({item.text}): {instruction}")
         for note in notes:
             for dev in self.active_devs(sprint):
-                self.engine.brief(dev, f"A note from the human: {note}")
+                await self.engine.brief(dev, f"A note from the human: {note}", sender="human")
         state.standups.append(standup)
         self.store.save()
         base = R.sprint_dir(sprint.number)

@@ -201,7 +201,7 @@ class Playbook:
             elif d.kind == "rethink":
                 d.effect = await self.rethink(d)
             else:
-                d.effect = self.apply_note(d)
+                d.effect = await self.apply_note(d)
             d.handled = True
             self.store.save()
             if cer is not None:
@@ -213,10 +213,10 @@ class Playbook:
             return list(self.engine.developers)
         return self.ceremonies.active_devs(sprint) or list(self.engine.developers)
 
-    def apply_note(self, d: Directive) -> str:
+    async def apply_note(self, d: Directive) -> str:
         devs = self.current_devs()
         for dev in devs:
-            self.engine.brief(dev, f"Instruction from the human (it outranks the team's own decisions): {d.text}")
+            await self.engine.brief(dev, f"Instruction from the human (it outranks the team's own decisions): {d.text}", sender="human")
         return f"given to {', '.join(devs)}"
 
     async def replan(self, d: Directive) -> str:
@@ -271,7 +271,7 @@ class Playbook:
             state.changelog.append({"at": time.time(), "sprint": state.sprint, "doc": "PRD/Technical_Approach/Design", "change": str(data["docs"]), "why": amendment["why"], "by": "the human"})
             notes.append("documents updated")
         for dev in self.current_devs():
-            eng.brief(dev, f"The human changed the scope: {d.text}. " + (data.get("rationale") or ""))
+            await eng.brief(dev, f"The human changed the scope: {d.text}. " + (data.get("rationale") or ""), sender="human")
         return "; ".join(notes) or str(data.get("rationale") or "no change was needed")
 
     async def rethink(self, d: Directive) -> str:
@@ -302,7 +302,7 @@ class Playbook:
                     self.store.state.dropped.append(fid)
                 notes.append(f"dropped {fid}")
         for dev in devs:
-            eng.brief(dev, f"Course correction agreed with the human: {instruction}")
+            await eng.brief(dev, f"Course correction agreed with the human: {instruction}", sender="human")
         if data.get("docs"):
             await cer.apply_amendments([{"doc": "PRD.md, Technical_Approach.md or Design.md (whichever apply)", "change": str(data["docs"]), "why": f"the human: {d.text}", "by": "the human"}])
             self.store.state.changelog.append({"at": time.time(), "sprint": self.store.state.sprint, "doc": "PRD/Technical_Approach/Design", "change": str(data["docs"]), "why": d.text, "by": "the human"})

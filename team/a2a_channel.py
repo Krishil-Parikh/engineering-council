@@ -27,6 +27,9 @@ async def open_network(engine: "TeamEngine", audit_path: Path) -> A2ANetwork:
 
     def handler_for(name: str):
         async def handle(inbound: Inbound) -> str:
+            if inbound.topic == "briefing":  # an instruction, not a question: it goes to the developer's work, and the agent acknowledges
+                engine.deliver_brief(name, inbound.text)
+                return "Noted."
             return await consult.ask(inbound.sender, name, inbound.text, inbound.topic)
 
         return handle

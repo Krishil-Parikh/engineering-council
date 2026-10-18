@@ -264,6 +264,9 @@ def test_an_interruption_with_a_note_freezes_the_team_and_reaches_every_develope
     assert "Keep every function under ten lines." in later
     api = next(str(r.messages) for r in llm.requests if "Task: write api module" in str(r.messages))
     assert "Standing instructions from the human" in api
+    audit = [json.loads(l) for l in (tmp_path / "team" / "a2a-audit.jsonl").read_text(encoding="utf-8").splitlines()]
+    briefings = [e for e in audit if e["topic"] == "briefing" and e["sender"] == "human"]  # the human's words reached the developers over A2A
+    assert briefings and all("Keep every function under ten lines." in e["text"] and e["reply"] == "Noted." for e in briefings)
     repo = TeamRepo(tmp_path / "team" / "remote")
     assert "Keep every function under ten lines." in repo.file_at("viewer", "origin/final/r1", "docs/agile/human_directives.md")
 
