@@ -85,6 +85,7 @@ class A2AAgent:
         self.name, self.description, self.skill, self.token, self.host, self.port = name, description or name, skill, token, host, port
         self.handler = handler
         self._server: Optional[grpc.aio.Server] = None
+        self._request_handler: Any = None
         self.card: Optional[a2a_pb2.AgentCard] = None
 
     @property
@@ -110,13 +111,16 @@ class A2AAgent:
         handler = DefaultRequestHandler(_Executor(self.name, self.handler), InMemoryTaskStore(), self.card)
         a2a_pb2_grpc.add_A2AServiceServicer_to_server(GrpcHandler(handler), server)
         await server.start()
-        self._server = server
+        self._server, self._request_handler = server, handler
         return self
 
     async def stop(self) -> None:
         if self._server is not None:
             await self._server.stop(grace=0.5)
             self._server = None
+        handler, self._request_handler = getattr(self, "_request_handler", None), None
+        if handler is not None and hasattr(handler, "aclose"):
+            await handler.aclose()  # drain the SDK's per-request tasks so none outlives the event loop
 
 # The SDK logs a warning each time a request finishes before its event dispatcher is joined; it is harmless and would otherwise print on every call.
 logging.getLogger("a2a.server.events.event_queue_v2").setLevel(logging.ERROR)

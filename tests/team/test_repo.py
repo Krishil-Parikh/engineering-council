@@ -159,3 +159,58 @@ def test_abort_merge_restores_the_branch(repo):
 
 def test_slugify():
     assert slugify("Add Login / OAuth2!") == "add-login-oauth2" and slugify("???") == "work" and len(slugify("x" * 100)) <= 48
+
+
+# ------------------------------------------------------------------ existing repositories
+
+def make_source(tmp_path, branch="trunk"):
+    import os
+
+    src = tmp_path / "existing"
+    src.mkdir()
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    put(src / "app.py", "print('v1')\n")
+    put(src / "old.py", "print('old')\n")
+    put(src / ".gitignore", "secret.env\nbuild/\n")
+    for args in (["init", "-q", "-b", branch], ["add", "-A"], ["commit", "-q", "-m", "first"]):
+        subprocess.run(["git", *args], cwd=src, check=True, env=env)
+    return src
+
+
+def test_the_trunk_keeps_its_own_name_and_is_protected(tmp_path):
+    src = make_source(tmp_path, "trunk")
+    assert TeamRepo.detect_main(src) == "trunk" and TeamRepo.detect_main(None) == "main" and TeamRepo.detect_main(tmp_path / "plain") == "main"
+    repo = TeamRepo(tmp_path / "team", main_branch="trunk")
+    repo.init(src)
+    assert repo.branches("ana") == ["trunk"] and set(repo.protected) >= {"trunk", "main", "master"}
+    ana = repo.sandbox("ana")
+    subprocess.run(["git", "checkout", "-q", "-B", "trunk", "origin/trunk"], cwd=ana, check=True)
+    put(ana / "x.txt", "x")
+    repo.commit_all("ana", "straight to trunk")
+    with pytest.raises(RepoError, match="protected"):
+        repo.push("ana", "trunk")
+    bypass = subprocess.run(["git", "push", "--no-verify", "origin", "HEAD:refs/heads/trunk"], cwd=ana, capture_output=True)
+    assert bypass.returncode != 0 and b"protected" in bypass.stderr
+
+
+def test_uncommitted_work_is_part_of_the_starting_point(tmp_path):
+    src = make_source(tmp_path)
+    put(src / "app.py", "print('v2, not committed')\n")  # edited
+    put(src / "new.py", "print('new')\n")  # untracked
+    (src / "old.py").unlink()  # deleted
+    put(src / "secret.env", "TOKEN=1")  # ignored
+    put(src / "build" / "out.bin", "x")  # ignored folder
+    repo = TeamRepo(tmp_path / "team", main_branch="trunk")
+    repo.init(src)
+    ana = repo.sandbox("ana")
+    assert (ana / "app.py").read_text() == "print('v2, not committed')\n" and (ana / "new.py").exists()
+    assert not (ana / "old.py").exists() and not (ana / "secret.env").exists() and not (ana / "build").exists()
+    assert repo.seed_notes == ["3 uncommitted change(s) in the repository were included in the team's starting point"]
+    assert repo.log("ana")[0].endswith("Working tree of the repository when the team started") and repo.log("ana")[1].endswith("first")
+
+
+def test_a_clean_repository_adds_no_extra_commit(tmp_path):
+    src = make_source(tmp_path)
+    repo = TeamRepo(tmp_path / "team", main_branch="trunk")
+    repo.init(src)
+    assert repo.seed_notes == [] and repo.log("ana") == [repo.log("ana")[0]] and repo.log("ana")[0].endswith("first")

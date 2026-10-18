@@ -38,7 +38,7 @@ def task_prompt(spec: Spec, feature: Feature, task: Task, index: int, others: li
         p += f"What the team already knows:\n{memory}\n\n"
     p += (
         "How to work: read AGENTS.md and the relevant part of docs/ first, then do this task in the files the directory layout names, write or update tests "
-        f"for it, run the project's test command and fix failures. When it passes, commit with the message `{feature.id}: {task.title}` (do not push). "
+        f"for it, run the project's test command and fix failures. When it passes, commit with the message `{feature.id}: {task.title}` and publish the branch: `git push origin {feature.branch}`. If the push fails, read the error, fix the cause (fetch and rebase, finish a half-done merge, whatever it is) and push again; never force-push. "
         "Finish with a short report of what you built, how you verified it and anything unfinished."
     )
     return p
@@ -70,5 +70,16 @@ def repair_prompt(failing: list[tuple[str, int, str]]) -> str:
     report = "\n\n".join(f"$ {c}\nexit code {code}\n{out}" for c, code, out in failing)
     return (
         "The project's verification commands fail on the integration branch. Find the root cause and fix it with the smallest correct change, then "
-        f"run them again.\n\n{report}\n\nCommit the fix with the message `fix: verification` (do not push)."
+        f"run them again.\n\n{report}\n\nCommit the fix with the message `fix: verification` and push your branch (`git push origin <your branch>`; if that fails, find out why and fix it)."
+    )
+
+
+def design_followup(adrs: list[str]) -> str:
+    listing = "\n".join(f"- {a}" for a in adrs)
+    return (
+        "The team approved a design change for this feature and it is recorded here:\n"
+        f"{listing}\n\n"
+        "docs/Design.md still describes the old design. Update it now so the document matches what you built: the changed contract, component boundary "
+        "or data model, in the same style as the rest of the document. Keep every other part as it is, and keep any diagrams consistent. "
+        "Commit the change with the message `docs: apply approved design change`, push your branch, and reply with one sentence saying what you changed."
     )

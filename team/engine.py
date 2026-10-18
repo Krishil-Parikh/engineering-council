@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import shutil
 import time
@@ -34,9 +35,11 @@ from memory import CHECKPOINT_PROMPT, DISTILL_PROMPT, LessonStore, ProjectLog, R
 from team.build import GITIGNORE, agents_md
 from team.channel import Channel, LocalChannel
 from team.design import Decision, DesignBoard, design_change_tool
-from team.persona import DEVELOPER_RULES, agent_id, developer_agent
+from team.gitbrain import GitBrain
+from team.throttle import ThrottledLLM
+from team.persona import agent_id, developer_agent, rules_for
 from team.plan import DISCUSS_PROMPT, PLAN_PROMPT, Feature, Plan, PlanError, fallback_plan
-from team.prompts import conflict_ask, conflict_resolution, repair_prompt, spec_brief, task_prompt
+from team.prompts import conflict_ask, conflict_resolution, design_followup, repair_prompt, spec_brief, task_prompt
 from team.repo import RepoError, TeamRepo, slugify
 from team.scheduler import FeatureOutcome, Scheduler
 
@@ -57,6 +60,11 @@ class TeamConfig:
     transport: str = "a2a"  # "a2a" (gRPC between agents) or "local" (in-process)
     memory_dir: Optional[Path] = None  # cross-project memory (lessons, profiles, learned skills); None turns it off
     distill: bool = True  # also ask the scrum master to reflect on the run in its own words
+    max_llm_concurrency: int = 4  # model requests in flight at once, shared by every developer
+    publish: Optional[str] = None  # where to push the finished branches: a URL or path, or 'source' for the repository the project was built on
+    publish_all: bool = False  # publish every feature branch too, not only the final one
+    pull_request: bool = False  # open a pull request for the final branch (needs the GitHub CLI); the human still does the merging
+    git_fix_rounds: int = 2  # how many times a failed git step is diagnosed and fixed before the feature gives up
     plan_discussion_rounds: int = 1  # rounds of group discussion among the developers before the scrum master writes the plan (0 = none)
 
 
@@ -82,6 +90,19 @@ class TeamResult:
     warnings: list[str] = field(default_factory=list)
     decisions: list[Decision] = field(default_factory=list)
     lessons_learned: int = 0
+    usage: dict[str, dict[str, float]] = field(default_factory=dict)  # per developer: requests' tokens and cost
+    published_to: Optional[str] = None
+    pull_request_url: Optional[str] = None
+
+
+def _run_gh(args: list[str], cwd: Path) -> tuple[int, str]:
+    import subprocess
+
+    try:
+        out = subprocess.run(["gh", *args], cwd=cwd, capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+        return out.returncode, out.stdout + out.stderr
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 127, str(exc)
 
 
 def run_command(command: str, cwd: Path, timeout: int) -> tuple[int, str]:
@@ -116,8 +137,10 @@ class TeamEngine:
         self.cfg = config or TeamConfig()
         self.source = source
         self.llm, self.api_key, self.model = llm, api_key, model
+        self._shared_llm: Optional[ThrottledLLM] = None
+        self.run_gh: Callable[[list[str], Path], tuple[int, str]] = _run_gh  # replaceable in tests
         self.on_event = on_event or (lambda kind, data: None)
-        self.repo = TeamRepo(self.root / "remote")
+        self.repo = TeamRepo(self.root / "remote", main_branch=TeamRepo.detect_main(source))  # an existing repository's trunk keeps its own name
         self.integration = f"integration/{self.cfg.run_id}"
         self.final = f"final/{self.cfg.run_id}"
         self.developers = list(self.roster)
@@ -127,11 +150,14 @@ class TeamEngine:
         self._own_channel = channel is None
         self.channel: Channel = channel or LocalChannel(self.harness, lambda d: self.roster.get(d, d.upper()))
         self._network = None
+        if isinstance(self.channel, LocalChannel) and self.channel.on_message is None:
+            self.channel.on_message = lambda m: self._emit("talk", sender=m.sender, recipient=m.recipient, topic=m.topic, text=m.text, reply=m.reply)
         self.board = DesignBoard(self.channel, [*self.developers, INTEGRATOR], self.repo.sandbox_path, INTEGRATOR)
         self.result = TeamResult(self.cfg.run_id, self.root, self.integration)
         self.conflict_counts: dict[str, int] = {}
         self.plan: Optional[Plan] = None
         self.conflict_log: list[dict] = []
+        self.brain = GitBrain(self.repo, self.harness, agent_id, rounds=self.cfg.git_fix_rounds, timeout=self.cfg.task_timeout, emit=self._emit)
         self.lessons = LessonStore(self.cfg.memory_dir) if self.cfg.memory_dir else None
         self.project_log = ProjectLog(self.repo.sandbox_path(INTEGRATOR), self.spec.project_name)
 
@@ -142,10 +168,22 @@ class TeamEngine:
         if self.lessons is not None and self.lessons.skills_dir.is_dir():  # skills the team has learned on earlier projects
             shutil.copytree(self.lessons.skills_dir, data / "skills", dirs_exist_ok=True)
         return Harness(
-            sandbox, llm=self.llm, api_key=self.api_key, model=self.model, data_root=data, home=self.root / "home", db_path=data / "sessions.db",
-            snapshots=self.cfg.snapshots, agents=[agent], rules=DEVELOPER_RULES, default_agent=agent.id,
+            sandbox, llm=self.shared_llm(), model=self.model, data_root=data, home=self.root / "home", db_path=data / "sessions.db",
+            snapshots=self.cfg.snapshots, agents=[agent], rules=rules_for(dev, integrator=(dev == INTEGRATOR), protected=self.repo.protected), default_agent=agent.id,
             on_event=lambda kind, d, dev=dev: self.on_event(f"{dev}:{kind}", d),
         )
+
+    def shared_llm(self) -> ThrottledLLM:
+        """The one model client every developer goes through, limited to a few requests at a time."""
+        if self._shared_llm is None:
+            inner = self.llm
+            if inner is None:
+                from harness.ai.gemini import GeminiClient
+                from harness.app import DEFAULT_MODEL
+
+                inner = GeminiClient(self.api_key or os.environ["GEMINI_API_KEY"], self.model or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL)
+            self._shared_llm = ThrottledLLM(inner, self.cfg.max_llm_concurrency)
+        return self._shared_llm
 
     def harness(self, dev: str) -> Harness:
         """The developer's harness, working in their own sandbox clone (created on first use)."""
@@ -162,6 +200,10 @@ class TeamEngine:
     async def _git(self, fn, *args, **kw):
         return await asyncio.to_thread(fn, *args, **kw)
 
+    async def git(self, dev: str, goal: str, fn, *args, branch=None):
+        """A git step that may fail: if it does, the team works out why, fixes it and tries again (see team/gitbrain.py)."""
+        return await self.brain.run(dev, goal, fn, *args, branch=branch)
+
     def _emit(self, kind: str, **data: Any) -> None:
         self.on_event(kind, data)
 
@@ -169,7 +211,8 @@ class TeamEngine:
 
     async def setup(self) -> None:
         await self._git(self.repo.init, self.source)
-        await self._git(self.repo.checkout_branch, INTEGRATOR, self.integration)
+        self.result.warnings.extend(self.repo.seed_notes)
+        await self.git(INTEGRATOR, f"check out the integration branch {self.integration}", self.repo.checkout_branch, INTEGRATOR, self.integration, branch=self.integration)
         sandbox = self.repo.sandbox(INTEGRATOR)
         docs = sandbox / "docs"
         docs.mkdir(exist_ok=True)
@@ -180,9 +223,9 @@ class TeamEngine:
             write_text(sandbox / ".gitignore", GITIGNORE)
         if not (sandbox / "AGENTS.md").exists():
             write_text(sandbox / "AGENTS.md", agents_md(self.spec))
-        if await self._git(self.repo.commit_all, INTEGRATOR, "Add specification and project memory"):
+        if await self.git(INTEGRATOR, "commit the specification and project memory", self.repo.commit_all, INTEGRATOR, "Add specification and project memory"):
             self._emit("seeded", branch=self.integration)
-        await self._git(self.repo.push, INTEGRATOR, self.integration)
+        await self.git(INTEGRATOR, f"publish {self.integration} to the team remote", self.repo.push, INTEGRATOR, self.integration, branch=self.integration)
 
     # ------------------------------------------------------------------ planning
 
@@ -248,7 +291,7 @@ class TeamEngine:
     async def run_feature(self, feature: Feature) -> FeatureOutcome:
         dev = feature.owner or self.developers[0]
         h = self.harness(dev)
-        await self._git(self.repo.checkout_branch, dev, feature.branch, self.integration)
+        await self.git(dev, f"check out {feature.branch} (start it from {self.integration}, or resume it if it already exists on the remote)", self.repo.checkout_branch, dev, feature.branch, self.integration, branch=feature.branch)
         session = h.new_session(agent=agent_id(dev), title=feature.title)
         other = [f"{f.owner}: {f.title}" for f in (self.plan.features if self.plan else []) if f.id != feature.id]
         for index, task in enumerate(feature.tasks, 1):
@@ -259,14 +302,30 @@ class TeamEngine:
             except asyncio.TimeoutError:
                 await h.sessions.interrupt(session.id)
                 return FeatureOutcome(False, f"task '{task.title}' timed out after {self.cfg.task_timeout:.0f}s")
-            await self._git(self.repo.commit_all, dev, f"{feature.id}: {task.title}")  # whatever the developer left uncommitted
+            await self.git(dev, "commit whatever the developer left uncommitted", self.repo.commit_all, dev, f"{feature.id}: {task.title}")
             if result.outcome != "succeeded":
                 return FeatureOutcome(False, f"task '{task.title}' did not finish ({result.outcome}): {result.error or result.text[:200]}")
+        await self.design_followthrough(dev, feature, h, session.id)
         if not await self._git(self.repo.changed_files, dev, self.integration):
             self.result.warnings.append(f"{feature.id}: {dev} made no changes")
-        await self._git(self.repo.push, dev, feature.branch)
+        await self.git(dev, f"publish {feature.branch} to the team remote so it can be merged (it must end up on origin with all of your commits)", self.repo.push, dev, feature.branch, branch=feature.branch)
         merged, note = await self.merge_feature(feature)
         return FeatureOutcome(merged, note)
+
+    async def design_followthrough(self, dev: str, feature: Feature, h: Harness, session_id: str) -> None:
+        """An approved design change leaves an ADR in the branch. If docs/Design.md was not updated to match, the developer is asked to do it."""
+        changed = await self._git(self.repo.changed_files, dev, self.integration)
+        adrs = [f for f in changed if f.startswith("docs/adr/") and f.endswith(".md")]
+        if not adrs or "docs/Design.md" in changed:
+            return
+        self._emit("design-followup", feature=feature.id, owner=dev, adrs=adrs)
+        try:
+            await asyncio.wait_for(h.prompt(design_followup(adrs), session_id=session_id), self.cfg.task_timeout)
+        except asyncio.TimeoutError:
+            await h.sessions.interrupt(session_id)
+        await self.git(dev, "commit the Design.md update", self.repo.commit_all, dev, f"{feature.id}: apply approved design change to Design.md")
+        if "docs/Design.md" not in await self._git(self.repo.changed_files, dev, self.integration):
+            self.result.warnings.append(f"{feature.id}: a design change was approved ({', '.join(adrs)}) but docs/Design.md was not updated")
 
     # ------------------------------------------------------------------ merging
 
@@ -274,9 +333,9 @@ class TeamEngine:
         """Merges a pushed branch into the integration branch, one merge at a time."""
         branch = source_branch or feature.branch
         async with self.merge_lock:
-            await self._git(self.repo.checkout_branch, INTEGRATOR, self.integration)
+            await self.git(INTEGRATOR, f"check out the integration branch {self.integration} at the commit the remote has", self.repo.checkout_branch, INTEGRATOR, self.integration, branch=self.integration)
             before = await self._git(self.repo.head, INTEGRATOR)
-            merge = await self._git(self.repo.merge, INTEGRATOR, branch, f"Merge {branch}")
+            merge = await self.git(INTEGRATOR, f"merge origin/{branch} into {self.integration} (conflicts are fine: they are handled afterwards; anything else is the problem)", self.repo.merge, INTEGRATOR, branch, f"Merge {branch}", branch=self.integration)
             if merge.status == "conflict":
                 self.conflict_counts[feature.id] = self.conflict_counts.get(feature.id, 0) + 1
                 self._emit("conflict", feature=feature.id, files=merge.files)
@@ -286,7 +345,7 @@ class TeamEngine:
                     return False, f"merge conflict in {', '.join(merge.files)} could not be resolved"
                 self.conflict_log[-1]["resolved"] = True
             await self.remember_merge(feature, branch, before)
-            await self._git(self.repo.push, INTEGRATOR, self.integration)
+            await self.git(INTEGRATOR, f"publish {self.integration} to the team remote with the merge of {branch}", self.repo.push, INTEGRATOR, self.integration, branch=self.integration)
         return True, f"merged {branch}" + (" after resolving a conflict" if feature.id in self.conflict_counts else "")
 
     # ------------------------------------------------------------------ memory
@@ -327,7 +386,7 @@ class TeamEngine:
         if feature.id in self.conflict_counts:
             lines.append("merged after a conflict that was resolved by conversation")
         await self.project_log.add(f"Merged {feature.title}", lines, self._summarize)
-        await self._git(self.repo.commit_all, INTEGRATOR, f"memory: after {branch}")
+        await self.git(INTEGRATOR, "commit the refreshed code map and project log", self.repo.commit_all, INTEGRATOR, f"memory: after {branch}")
 
     async def learn(self) -> None:
         """At the end of a run: turn what happened into lessons, update the developers' experience and promote lessons seen on several projects to skills."""
@@ -446,6 +505,8 @@ class TeamEngine:
             await self.verify_and_repair()
             await self.finish()
             await self.learn()
+            self.result.usage = self.usage()
+            await self.publish()
         finally:
             self.result.decisions = list(self.board.decisions)
             for h in self.harnesses.values():
@@ -457,7 +518,7 @@ class TeamEngine:
         commands = [c for c in self.spec.verification_commands if c.strip() and not c.lower().startswith("proposed")]
         integ = self.repo.sandbox(INTEGRATOR)
         for attempt in range(self.cfg.repair_rounds + 1):
-            await self._git(self.repo.checkout_branch, INTEGRATOR, self.integration)
+            await self.git(INTEGRATOR, f"check out the integration branch {self.integration}", self.repo.checkout_branch, INTEGRATOR, self.integration, branch=self.integration)
             self.result.verification = [(c, *await asyncio.to_thread(run_command, c, integ, self.cfg.verification_timeout)) for c in commands]
             failing = [(c, code, out) for c, code, out in self.result.verification if code != 0]
             self._emit("verification", failing=len(failing), attempt=attempt)
@@ -472,23 +533,85 @@ class TeamEngine:
 
             dev = pick_developer(Step(order=0, title="fix failing verification", details=" ".join(c for c, _, _ in failing)), self.spec, self.roster, {})
             branch = f"fix/{self.cfg.run_id}-{attempt + 1}"
-            await self._git(self.repo.checkout_branch, dev, branch, self.integration)
+            await self.git(dev, f"start the repair branch {branch} from {self.integration}", self.repo.checkout_branch, dev, branch, self.integration, branch=branch)
             h = self.harness(dev)
             result = await asyncio.wait_for(h.prompt(repair_prompt(failing), agent=agent_id(dev)), self.cfg.task_timeout)
-            await self._git(self.repo.commit_all, dev, "fix: verification")
+            await self.git(dev, "commit the repair", self.repo.commit_all, dev, "fix: verification")
             if result.outcome != "succeeded":
                 self.result.warnings.append(f"repair by {dev} did not finish: {result.error or result.outcome}")
                 return
-            await self._git(self.repo.push, dev, branch)
+            await self.git(dev, f"publish the repair branch {branch}", self.repo.push, dev, branch, branch=branch)
             ok, note = await self.merge_feature(Feature(f"fix-{attempt + 1}", "fix verification", [], owner=dev), source_branch=branch)
             if not ok:
                 self.result.warnings.append(f"repair merge failed: {note}")
                 return
 
+    def usage(self) -> dict[str, dict[str, float]]:
+        """What each developer's sessions used (a developer's child sessions included)."""
+        out: dict[str, dict[str, float]] = {}
+        for dev, h in self.harnesses.items():
+            sessions = h.store.list()
+            out[dev] = {
+                "sessions": float(len(sessions)), "input_tokens": sum(getattr(x.tokens, "input", 0) for x in sessions),
+                "output_tokens": sum(getattr(x.tokens, "output", 0) for x in sessions), "cost": round(sum(x.cost for x in sessions), 6),
+            }
+        return out
+
+    def publish_target(self) -> Optional[str]:
+        target = self.cfg.publish
+        if target in (None, ""):
+            return None
+        if target != "source":
+            return target
+        if self.source is None or not (Path(self.source) / ".git").exists():
+            return None
+        from harness.git import run as git_run
+
+        remote = git_run(["remote", "get-url", "origin"], str(self.source))
+        return remote.text.strip() if remote.code == 0 and remote.text.strip() else str(Path(self.source).resolve())
+
+    async def publish(self) -> None:
+        """Pushes the finished branches to the repository the project was built for. Never a protected branch: main stays the human's."""
+        if not self.cfg.publish:
+            return
+        target = self.publish_target()
+        if target is None or self.result.final_branch is None:
+            self.result.warnings.append("--publish was given but there is nowhere to publish to (build on an existing repository, or name a target)")
+            return
+        branches = [self.final] + ([self.integration, *[f.branch for f in (self.plan.features if self.plan else [])]] if self.cfg.publish_all else [])
+        pushed = []
+        for branch in branches:
+            if branch in self.repo.protected:
+                continue
+            try:
+                await self._git(self.repo.push_to, INTEGRATOR, target, branch)
+                pushed.append(branch)
+            except RepoError as exc:
+                self.result.warnings.append(f"could not publish {branch} to {target}: {exc}")
+        if not pushed:
+            return
+        self.result.published_to = target
+        self._emit("published", target=target, branches=pushed)
+        if self.cfg.pull_request and self.final in pushed:
+            await self.open_pull_request()
+
+    async def open_pull_request(self) -> None:
+        cwd = Path(self.source) if self.source is not None and (Path(self.source) / ".git").exists() else self.root
+        body = self.meeting_dir / "team_report.md"
+        if not body.exists():
+            write_text(body, render_report(self.spec, self.result, self.roster))
+        args = ["pr", "create", "--base", self.repo.main, "--head", self.final, "--title", f"{self.spec.project_name}: team build {self.cfg.run_id}", "--body-file", str(body)]
+        code, out = await asyncio.to_thread(self.run_gh, args, cwd)
+        if code == 0:
+            self.result.pull_request_url = out.strip().splitlines()[-1] if out.strip() else None
+            self._emit("pull-request", url=self.result.pull_request_url)
+        else:
+            self.result.warnings.append(f"could not open a pull request: {out.strip()[:300]}")
+
     async def finish(self) -> None:
         """Publishes the final branch for the human. Never touches main."""
-        await self._git(self.repo.checkout_branch, INTEGRATOR, self.final, self.integration)
-        await self._git(self.repo.push, INTEGRATOR, self.final)
+        await self.git(INTEGRATOR, f"create {self.final} from {self.integration}", self.repo.checkout_branch, INTEGRATOR, self.final, self.integration, branch=self.final)
+        await self.git(INTEGRATOR, f"publish {self.final} for the human to review", self.repo.push, INTEGRATOR, self.final, branch=self.final)
         self.result.final_branch = self.final
         self._emit("final", branch=self.final)
 
@@ -514,6 +637,12 @@ def render_report(spec: Spec, res: TeamResult, roster: dict[str, str]) -> str:
         s += "\n## Verification\n\n| Command | Exit |\n|---|---|\n" + "".join(f"| `{c}` | {code} |\n" for c, code, _ in res.verification)
     if res.decisions:
         s += "\n## Design decisions\n\n" + "\n".join(f"- {d.title} ({d.proposer}): {'approved' if d.approved else 'rejected'}" + (f", see `{d.adr}`" if d.adr else "") for d in res.decisions) + "\n"
+    if res.usage:
+        s += "\n## Model use\n\n| Developer | Sessions | Input tokens | Output tokens | Cost (USD) |\n|---|---|---|---|---|\n"
+        for dev, u in res.usage.items():
+            s += f"| {dev} | {int(u['sessions'])} | {int(u['input_tokens']):,} | {int(u['output_tokens']):,} | {u['cost']:.4f} |\n"
+    if res.published_to:
+        s += f"\n## Published\n\nThe final branch was pushed to `{res.published_to}`" + (f" and a pull request was opened: {res.pull_request_url}" if res.pull_request_url else ".") + "\n"
     if res.warnings:
         s += "\n## Warnings\n\n" + "\n".join(f"- {w}" for w in res.warnings) + "\n"
     s += (

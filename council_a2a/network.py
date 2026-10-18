@@ -29,10 +29,16 @@ class AuditLog:
 
     path: Optional[Path] = None
     entries: list[dict] = field(default_factory=list)
+    listeners: list[Callable[[dict], None]] = field(default_factory=list)  # told of every exchange as it is recorded (a live view)
 
     def record(self, **entry) -> None:
         entry = {"ts": round(time.time(), 3), **entry}
         self.entries.append(entry)
+        for listener in self.listeners:
+            try:
+                listener(entry)
+            except Exception:  # noqa: BLE001 - a broken viewer must not break the conversation
+                pass
         if self.path is not None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.path, "a", encoding="utf-8") as fh:

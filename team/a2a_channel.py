@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 async def open_network(engine: "TeamEngine", audit_path: Path) -> A2ANetwork:
     consult = LocalChannel(engine.harness, lambda d: engine.roster.get(d, "INTEGRATOR"))
     network = A2ANetwork(token=secrets.token_hex(16), audit_path=audit_path)
+    network.audit.listeners.append(
+        lambda e: engine._emit("talk", sender=e.get("sender", ""), recipient=e.get("recipient", ""), topic=e.get("topic", ""), text=e.get("text", ""), reply=e.get("reply", e.get("error", "")))
+    )
 
     def handler_for(name: str):
         async def handle(inbound: Inbound) -> str:

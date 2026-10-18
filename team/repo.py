@@ -57,9 +57,42 @@ class TeamRepo:
     def __init__(self, root: Path, main_branch: str = "main", protected: tuple[str, ...] = ()) -> None:
         self.root = Path(root).resolve()
         self.main = main_branch
-        self.protected = tuple(dict.fromkeys((main_branch, *(["master"] if main_branch == "main" else []), *protected)))
+        self.protected = tuple(dict.fromkeys((main_branch, "main", "master", *protected)))  # the repository's own trunk, and the two usual names
         self.origin = self.root / "origin.git"
         self.sandboxes = self.root / "sandboxes"
+        self.seed_notes: list[str] = []  # what was special about the starting point (for the report)
+
+    @staticmethod
+    def detect_main(source: Optional[Path]) -> str:
+        """The branch an existing repository is on (its trunk, whatever it is called); 'main' for a new project."""
+        if source is not None and (Path(source) / ".git").exists():
+            result = git_run(["symbolic-ref", "--quiet", "--short", "HEAD"], str(source))
+            name = result.text.strip()
+            if result.code == 0 and name:
+                return name
+        return "main"
+
+    def _overlay_working_tree(self, source: Path, seed: Path) -> None:
+        """The team should start from what the user sees, not only from what was last committed: copy over uncommitted edits and new
+        (non-ignored) files, remove files deleted in the working tree, and commit that as the starting point."""
+        listing = git_run(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], str(source)).text.split("\0")
+        deleted = {f for f in git_run(["ls-files", "-z", "--deleted"], str(source)).text.split("\0") if f}
+        for rel in (f for f in listing if f and f not in deleted):
+            origin_file = Path(source) / rel
+            if origin_file.is_file() and not origin_file.is_symlink():
+                target = seed / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(origin_file, target)
+        for rel in deleted:
+            try:
+                (seed / rel).unlink()
+            except OSError:
+                pass
+        self._git(seed, "add", "-A")
+        changed = [l for l in self._git(seed, "status", "--porcelain").text.splitlines() if l.strip()]
+        if changed:
+            self._commit(seed, "Working tree of the repository when the team started", "Council", "council@council.local")
+            self.seed_notes.append(f"{len(changed)} uncommitted change(s) in the repository were included in the team's starting point")
 
     # ------------------------------------------------------------------ plumbing
 
@@ -90,7 +123,9 @@ class TeamRepo:
             if source is not None and (Path(source) / ".git").exists():
                 self._git(self.root, "clone", "-q", "-c", "core.autocrlf=false", str(source), str(seed))
                 head = self._git(seed, "rev-parse", "--abbrev-ref", "HEAD").text.strip()
-                self._git(seed, "branch", "-M", self.main) if head != self.main else None
+                if head != self.main:
+                    self._git(seed, "branch", "-M", self.main)
+                self._overlay_working_tree(Path(source), seed)
             else:
                 seed.mkdir()
                 self._git(seed, "init", "-q", "-b", self.main)
@@ -170,6 +205,17 @@ class TeamRepo:
         if result.code != 0:
             raise RepoError(f"push of {branch} refused: {result.err.strip()}")
 
+    def push_to(self, dev: str, url: str, branch: str) -> None:
+        """Publishes one branch to a repository outside the team (the project's own remote). A protected branch is refused here as well as by
+        the sandbox hook, so no code path can update main from the team's side."""
+        if branch in self.protected:
+            raise RepoError(f"{branch} is protected: only the human updates it")
+        self.fetch(dev)
+        # push the team remote's copy of the branch: it exists there even when this clone never checked it out
+        result = self._git(self.sandbox(dev), "push", "-q", url, f"refs/remotes/origin/{branch}:refs/heads/{branch}", check=False)
+        if result.code != 0:
+            raise RepoError(f"push of {branch} to {url} failed: {result.err.strip() or result.text.strip()}")
+
     def human_push(self, dev: str, branch: str, target: str) -> None:
         """What the human does at the end: update a protected branch. Never called by an agent."""
         self._git(self.sandbox(dev), "push", "-q", "origin", f"{branch}:refs/heads/{target}", env={"TEAM_HUMAN": "1"})
@@ -232,6 +278,65 @@ class TeamRepo:
 
     def merging(self, dev: str) -> bool:
         return (self.sandbox(dev) / ".git" / "MERGE_HEAD").exists()
+
+    # ------------------------------------------------------------------ recovery
+
+    def state_report(self, dev: str, branch: Optional[str] = None) -> str:
+        """What a person would look at first when git misbehaves: status, branches with their upstreams, recent history, the remote."""
+        path = self.sandbox(dev)
+        parts = []
+        for title, args in (
+            ("git status -sb", ["status", "-sb"]),
+            ("git branch -vv", ["branch", "-vv"]),
+            ("git log --oneline -8", ["log", "--oneline", "-8"]),
+            ("git remote -v", ["remote", "-v"]),
+        ):
+            result = self._git(path, *args, check=False)
+            parts.append(f"$ {title}\n{(result.text + result.err).strip()}")
+        if branch:
+            remote = self._git(path, "log", "--oneline", "-5", f"origin/{branch}", check=False)
+            parts.append(f"$ git log --oneline -5 origin/{branch}\n{(remote.text + remote.err).strip()}")
+        for marker_file, what in (("MERGE_HEAD", "a merge is in progress"), ("rebase-merge", "a rebase is in progress"), ("rebase-apply", "a rebase is in progress"), ("CHERRY_PICK_HEAD", "a cherry-pick is in progress")):
+            if (path / ".git" / marker_file).exists():
+                parts.append(what)
+        return "\n\n".join(parts)
+
+    def clear_stale_locks(self, dev: str, older_than: float = 5.0) -> list[str]:
+        """Removes git lock files left behind by a process that died. Only locks older than a few seconds, so a running git is never disturbed."""
+        import time
+
+        removed = []
+        git_dir = self.sandbox(dev) / ".git"
+        for lock in git_dir.rglob("*.lock"):
+            try:
+                if time.time() - lock.stat().st_mtime >= older_than:
+                    lock.unlink()
+                    removed.append(str(lock.relative_to(git_dir)))
+            except OSError:
+                continue
+        return removed
+
+    def rebase_onto_remote(self, dev: str, branch: str) -> bool:
+        """The usual answer to a rejected push: fetch, then replay local commits on top of the remote branch. False (and nothing changed) when
+        that would conflict or the remote has no such branch."""
+        path = self.sandbox(dev)
+        self.fetch(dev)
+        if not self.exists(dev, branch):
+            return False
+        result = self._git(path, "rebase", f"origin/{branch}", check=False)
+        if result.code == 0:
+            return True
+        self._git(path, "rebase", "--abort", check=False)
+        return False
+
+    def abort_in_progress(self, dev: str) -> list[str]:
+        """Abandons a half-finished merge, rebase or cherry-pick so the working tree is usable again."""
+        path = self.sandbox(dev)
+        done = []
+        for name, args in (("merge", ["merge", "--abort"]), ("rebase", ["rebase", "--abort"]), ("cherry-pick", ["cherry-pick", "--abort"])):
+            if self._git(path, *args, check=False).code == 0:
+                done.append(name)
+        return done
 
     # ------------------------------------------------------------------ inspection
 
