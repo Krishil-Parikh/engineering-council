@@ -23,6 +23,7 @@ from harness.agent import Agent, AgentRegistry, default_registry
 from harness.ai.catalog import ModelCatalog
 from harness.ai.gemini import GeminiClient
 from harness.ai.model import ResolvedModel
+from harness.command import CommandService, Invocation
 from harness.config import service as cfg
 from harness.db.database import Database
 from harness.file_access import FileAccess
@@ -44,8 +45,10 @@ from harness.shell.service import ShellService
 from harness.skill import SkillCatalog
 from harness.skill_loader import SkillLoader
 from harness.snapshot import Snapshots
+from harness.tool import input_repair
 from harness.tool.builtin import edit, harness_tools, question, read, search, shell, skill, subagent, write
 from harness.tool.builtin.deps import ToolDeps
+from harness.tool.builtin.subagent import SubagentJobs
 from harness.tool.output import ToolOutput
 from harness.tool.registry import ToolRegistry
 from harness.util.global_paths import GlobalPaths
@@ -129,11 +132,14 @@ class Harness:
             snapshots=self.snapshots, observer=self.on_event,
         )
         self.sessions = SessionService(self.store, self.runner, str(self.location.directory))
+        self.subagent_jobs = SubagentJobs(self.sessions, self.jobs)
+        self.commands = CommandService(self.sessions, self.agents, self.location.directory, self.config, self.location.project_directory, self.subagent_jobs)
         self.deps = ToolDeps(
             self.location, self.permission, self.access, self.store, SessionInstructions(self.store, self.location), Ripgrep(),
             extras={
                 "shell": self.shell, "jobs": self.jobs, "sessions": self.sessions, "agents": self.agents, "forms": self.forms, "skills": self.skills,
                 "worktrees": self.worktrees, "model_catalog": self.catalog, "models_available": self.catalog.available,
+                "subagent_jobs": self.subagent_jobs,
                 "synthetic": lambda sid, text, description, metadata: self.sessions.synthetic(sid, text, description, metadata),
             },
         )
@@ -152,6 +158,7 @@ class Harness:
                 if tool.name.startswith("session_") or tool.name == "models":
                     self.registry.add(tool)
         self.registry.before.append(subagent.repair_input)
+        input_repair.install(self.registry)  # wrong-shaped arguments ("20" for 20, a JSON string for an object...) are corrected before validation
         selected = self.agents.resolve()
         self.registry.update("subagent", lambda t: setattr(t, "description", subagent.with_available_subagents(t.description, self.agents, selected)))
 
@@ -203,6 +210,15 @@ class Harness:
         if agent and info.agent != agent:
             self.sessions.switch_agent(info.id, agent)
         self.sessions.prompt(info.id, text)
+        drained = await self.sessions.resume(info.id)
+        return RunResult(info.id, drained.outcome, drained.steps, last_text(self.sessions.messages(info.id)), drained.error.message if drained.error else None)
+
+    async def command(self, name: str, text: str = "", session_id: Optional[str] = None) -> RunResult:
+        """Runs a slash command (`init`, `review`, or one from a commands folder) and, if it prompted the session, runs the session."""
+        info = self.sessions.get(session_id) if session_id else self.new_session()
+        prompted = await self.commands.execute(name, Invocation(info.id, text))
+        if not prompted:  # it started a background subagent instead; the session has nothing new to answer
+            return RunResult(info.id, "succeeded", 0, "")
         drained = await self.sessions.resume(info.id)
         return RunResult(info.id, drained.outcome, drained.steps, last_text(self.sessions.messages(info.id)), drained.error.message if drained.error else None)
 

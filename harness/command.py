@@ -64,7 +64,7 @@ class Invocation:
 @dataclass
 class Definition:
     name: str
-    execute: Callable[[Invocation], Awaitable[None]]
+    execute: Callable[[Invocation], Awaitable[Optional[bool]]]
     description: Optional[str] = None
 
 
@@ -199,6 +199,9 @@ class CommandService:
         self._defs = None
 
     def reload(self) -> None:
+        """Re-reads the configuration (a command file was added or changed) and rebuilds the command set."""
+        if self.config is not None:
+            self.config.reload()
         self._defs = None
 
     def _build(self) -> dict[str, Definition]:
@@ -225,16 +228,15 @@ class CommandService:
     def list(self) -> list[CommandInfo]:
         return [CommandInfo(d.name, d.description) for d in self._all().values()]
 
-    async def execute(self, name: str, invocation: Invocation) -> None:
-        """Runs the command: its prompt is added to the session (the caller resumes the session). Raises NotFoundError or ExecutionError."""
+    async def execute(self, name: str, invocation: Invocation) -> bool:
+        """Runs the command. Returns True if a prompt was added to the session (the caller resumes it), False if the command ran elsewhere
+        (as a background subagent). Raises NotFoundError or ExecutionError."""
         d = self._all().get(name)
         if d is None:
             raise NotFoundError(name)
         try:
-            await d.execute(invocation)
-        except CommandError:
-            raise
-        except Exception as exc:  # noqa: BLE001
+            return (await d.execute(invocation)) is not False
+        except Exception as exc:  # noqa: BLE001 - whatever went wrong inside a command is an execution error
             log.error("command %s failed: %s", name, exc)
             raise ExecutionError(name, str(exc) or "Command execution failed") from exc
 
@@ -266,7 +268,7 @@ class CommandService:
             text = await evaluate_template(str(info["template"]), inv.text, self.directory, self.shell)
             if subagent if subagent is not None else (command_agent is not None and command_agent.mode == "subagent"):
                 await self._run_as_subagent(name, info, inv, agent_id, chosen_model, text)
-                return
+                return False
             session = self.sessions.get(inv.session_id)
             if agent_id and session.agent != agent_id:
                 self.sessions.switch_agent(inv.session_id, agent_id)

@@ -98,41 +98,56 @@ def deliver(sessions: SessionService, jobs: JobService, info: JobInfo, recovery:
         jobs.complete_background(info.notification_id)
 
 
+class SubagentJobs:
+    """Runs a child session as a background job and tells the parent when it finishes (opencode: session/subagent-job.ts)."""
+
+    def __init__(self, sessions: SessionService, jobs: JobService) -> None:
+        self.sessions, self.jobs = sessions, jobs
+        self._watching: set[str] = set()
+        self._tasks: set[asyncio.Task] = set()
+
+    async def start(self, recovery: dict[str, Any]) -> JobInfo:
+        child = recovery["childSessionID"]
+
+        async def run() -> str:
+            await self.sessions.resume(child)
+            latest = next((m for m in self.sessions.messages(child, "desc", 20) if isinstance(m, M.Assistant) and m.time.completed is not None and m.error is None), None)
+            return completion_text(latest)
+
+        return await self.jobs.start(child, "subagent", run, title=recovery["description"], metadata={}, recovery=recovery)
+
+    def background(self, recovery: dict[str, Any], job: Optional[JobInfo] = None) -> Optional[JobInfo]:
+        """Moves the job to the background and watches for its end."""
+        info = self.jobs.background(recovery["childSessionID"])
+        if info:
+            self.notify(recovery, info.started_at)
+        return info
+
+    def notify(self, recovery: dict[str, Any], started_at: int) -> None:
+        """One observer per job generation, including continuations of the same child."""
+        key = f"{recovery['childSessionID']}:{started_at}"
+        if key in self._watching:
+            return
+        self._watching.add(key)
+
+        async def watch() -> None:
+            try:
+                waited = await self.jobs.wait(recovery["childSessionID"])
+                if waited.info:
+                    deliver(self.sessions, self.jobs, waited.info, recovery)
+            finally:
+                self._watching.discard(key)
+
+        task = asyncio.ensure_future(watch())
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+
 def make(deps: ToolDeps) -> ToolInfo:
     sessions: SessionService = deps.extras["sessions"]
     agents: AgentRegistry = deps.extras["agents"]
     jobs: JobService = deps.extras["jobs"]
-    watching: set[str] = deps.extras.setdefault("_subagent_watchers", set())
-    tasks: set[asyncio.Task] = deps.extras.setdefault("_subagent_tasks", set())
-
-    def notify(recovery: dict[str, Any], started_at: int) -> None:
-        """One observer per job generation, including continuations of the same child."""
-        key = f"{recovery['childSessionID']}:{started_at}"
-        if key in watching:
-            return
-        watching.add(key)
-
-        async def watch() -> None:
-            try:
-                waited = await jobs.wait(recovery["childSessionID"])
-                if waited.info:
-                    deliver(sessions, jobs, waited.info, recovery)
-            finally:
-                watching.discard(key)
-
-        task = asyncio.ensure_future(watch())
-        tasks.add(task)
-        task.add_done_callback(tasks.discard)
-
-    async def start_job(recovery: dict[str, Any]) -> JobInfo:
-        child = recovery["childSessionID"]
-
-        async def run() -> str:
-            await sessions.resume(child)
-            latest = next((m for m in sessions.messages(child, "desc", 20) if isinstance(m, M.Assistant) and m.time.completed is not None and m.error is None), None)
-            return completion_text(latest)
-
-        return await jobs.start(child, "subagent", run, title=recovery["description"], metadata={}, recovery=recovery)
+    subagent_jobs: SubagentJobs = deps.extras.setdefault("subagent_jobs", SubagentJobs(sessions, jobs))
 
     def resolve_model(value: str) -> M.ModelRef:
         try:
@@ -207,11 +222,9 @@ def make(deps: ToolDeps) -> ToolInfo:
         sessions.prompt(child.id, inp.prompt if existing is not None else "\n".join(["You are a subagent spawned by another session.", inp.prompt]))
 
         recovery = {"kind": "subagent", "parentSessionID": ctx.session_id, "childSessionID": child.id, "agent": agent.name, "description": inp.description}
-        started = await start_job(recovery)
+        await subagent_jobs.start(recovery)
         if background:
-            info = jobs.background(child.id)
-            if info:
-                notify(recovery, info.started_at)
+            subagent_jobs.background(recovery)
             return _result(background_result(child.id))
         try:
             result = await jobs.block(child.id, ctx.session_id)
@@ -220,7 +233,7 @@ def make(deps: ToolDeps) -> ToolInfo:
             await jobs.cancel(child.id)
             raise
         if result and result.type == "backgrounded":
-            notify(recovery, result.info.started_at)
+            subagent_jobs.notify(recovery, result.info.started_at)
             return _result(background_result(child.id))
         # Failure surfaces keep the sessionID visible so the model can continue the child.
         if result and result.info.status == "error":
