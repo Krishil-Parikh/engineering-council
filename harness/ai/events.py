@@ -75,8 +75,21 @@ class ToolCall:
 
 @dataclass
 class StepFinish:
+    """One model step is complete: why it stopped, what it cost, and any provider state (thought signatures) to replay."""
+
     usage: Optional[Usage] = None
     provider_metadata: Optional[dict[str, Any]] = None
+    normalized: NormalizedFinish = "stop"
+    raw: Optional[str] = None
+
+
+@dataclass
+class ToolInputError:
+    """The provider produced tool arguments that are not valid JSON."""
+
+    id: str
+    name: str
+    raw: str
 
 
 @dataclass
@@ -91,7 +104,7 @@ class ProviderError:
     classification: Optional[str] = None  # context-overflow | payload-too-large
 
 
-LLMEvent = Union[TextStart, TextDelta, TextEnd, ReasoningStart, ReasoningDelta, ReasoningEnd, ToolInputStart, ToolInputDelta, ToolInputEnd, ToolCall, StepFinish, Finish, ProviderError]
+LLMEvent = Union[ToolInputError, TextStart, TextDelta, TextEnd, ReasoningStart, ReasoningDelta, ReasoningEnd, ToolInputStart, ToolInputDelta, ToolInputEnd, ToolCall, StepFinish, Finish, ProviderError]
 
 
 class LLMClient(Protocol):

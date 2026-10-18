@@ -26,6 +26,7 @@ from harness.session.compaction import AgentInfo, Loaded
 from harness.session.store import SessionInfo, SessionStore
 from harness.skill import SkillCatalog
 from harness.skill_instructions import load as skill_instructions
+from harness.tool.registry import Snapshot
 from harness.util.global_paths import GlobalPaths
 
 
@@ -40,14 +41,18 @@ class Selection:
     agent: AgentInfo
     permissions: Ruleset
     instructions: I.List
-    tools: list[T.ToolEntry]
+    snapshot: Snapshot  # the tools advertised to the model and how to execute a call against exactly those tools
+
+    @property
+    def tools(self) -> list[T.ToolEntry]:
+        return self.snapshot.definitions
 
 
 class SessionContext:
     def __init__(
         self, store: SessionStore, location: Location, paths: GlobalPaths, discovery: InstructionDiscovery, skills: SkillCatalog,
         resolve_agent: Callable[[Optional[str]], Optional[tuple[AgentInfo, Ruleset]]], resolve_model: Callable[[SessionInfo], ResolvedModel],
-        tools_for: Callable[[Ruleset], list[T.ToolEntry]] = lambda permissions: [],
+        tools_for: Callable[[Ruleset], Snapshot] = lambda permissions: Snapshot([]),
     ) -> None:
         self.store, self.location, self.paths = store, location, paths
         self.discovery, self.skills = discovery, skills
