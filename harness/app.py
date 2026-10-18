@@ -42,6 +42,7 @@ from harness.session.instructions import SessionInstructions
 from harness.session.runner.runner import SessionRunner
 from harness.session.service import SessionService
 from harness.session.store import SessionInfo, SessionStore
+from harness.session.title import SessionTitle
 from harness.shell.service import ShellService
 from harness.skill import SkillCatalog
 from harness.skill_loader import SkillLoader
@@ -92,6 +93,7 @@ class Harness:
         approve: Optional[Approver] = None, snapshots: bool = True, catalog: Optional[ModelCatalog] = None,
         on_event: Optional[Callable[[str, dict[str, Any]], None]] = None, compaction: Optional[C.Settings] = None,
         agents: Optional[list[Agent]] = None, rules: Optional[Ruleset] = None, default_agent: Optional[str] = None,
+        auto_title: bool = False,
     ) -> None:
         self.on_event = on_event or (lambda kind, data: None)
         self.input_hooks: list[Callable[[str, int], None]] = []
@@ -135,6 +137,9 @@ class Harness:
             snapshots=self.snapshots, observer=self.on_event, inbox=self.inbox, on_input=self._input_became_visible,
         )
         self.sessions = SessionService(self.store, self.runner, str(self.location.directory), self.inbox)
+        self.titles = SessionTitle(self.store, self.llm, self.agents, self._resolve_model, lambda kind, data: self.on_event(kind, data))
+        if auto_title:  # one extra model request per new conversation, so opt-in (the team engine leaves it off)
+            self.input_hooks.append(self.titles.when_input_arrives)
         self.subagent_jobs = SubagentJobs(self.sessions, self.jobs)
         self.commands = CommandService(self.sessions, self.agents, self.location.directory, self.config, self.location.project_directory, self.subagent_jobs)
         self.deps = ToolDeps(
@@ -218,6 +223,7 @@ class Harness:
         if agent and info.agent != agent:
             self.sessions.switch_agent(info.id, agent)
         self.sessions.prompt(info.id, text)
+        self._input_became_visible(info.id, 1)  # recorded directly, not through the inbox, so the runner will not announce it
         drained = await self.sessions.resume(info.id)
         return RunResult(info.id, drained.outcome, drained.steps, last_text(self.sessions.messages(info.id)), drained.error.message if drained.error else None)
 
@@ -227,10 +233,12 @@ class Harness:
         prompted = await self.commands.execute(name, Invocation(info.id, text))
         if not prompted:  # it started a background subagent instead; the session has nothing new to answer
             return RunResult(info.id, "succeeded", 0, "")
+        self._input_became_visible(info.id, 1)
         drained = await self.sessions.resume(info.id)
         return RunResult(info.id, drained.outcome, drained.steps, last_text(self.sessions.messages(info.id)), drained.error.message if drained.error else None)
 
     async def close(self) -> None:
+        await self.titles.close()
         await self.sessions.close()
         await self.shell.close()
         self.forms.close()
