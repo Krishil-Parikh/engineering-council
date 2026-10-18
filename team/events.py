@@ -56,6 +56,52 @@ def describe(kind: str, d: dict) -> Optional[tuple[str, str]]:
         return "ok", f"[publish] {', '.join(d['branches'])} pushed to {d['target']}"
     if kind == "pull-request":
         return "ok", f"[pr]      pull request opened: {d['url']}"
+    return _agile(kind, d)
+
+
+def _agile(kind: str, d: dict) -> Optional[tuple[str, str]]:
+    """The sprint process: planning, work days, standups, review, report, retrospective, document sync, and the human's part in it."""
+    if kind == "sprint-planned":
+        carried = f"\n   carried over: {', '.join(d['carried'])}" if d.get("carried") else ""
+        return "info", f"\n== SPRINT {d['sprint']} PLANNED ==  {d['tasks']} task(s), {len(d['features'])} feature(s)\n   goal: {_short(d['goal'], 200)}" + carried
+    if kind == "day-start":
+        return "dim", f"-- sprint {d['sprint']}, day {d['day']}: {', '.join(d['working']) or 'nobody'} working"
+    if kind == "gate-freeze":
+        return "dim", f"   coding paused ({d['holder']})"
+    if kind == "gate-thaw":
+        return "dim", f"   coding may resume ({d['holder']} done)"
+    if kind == "standup":
+        return "info", f"[standup {d['number']}] day {d['day']}: {_short(d['summary'], 220)}"
+    if kind == "impediment":
+        return "warn", f"[impediment] {d['id']} ({d['dev']}): {_short(d['text'], 160)}"
+    if kind == "sprint-review":
+        return ("ok" if d["goal_met"] else "warn"), f"[review]  sprint {d['sprint']}: goal {'met' if d['goal_met'] else 'NOT met'}. {_short(d['summary'], 200)}"
+    if kind == "sprint-report":
+        return "info", f"[report]  sprint {d['sprint']}: {d['completed']}/{d['planned']} tasks delivered"
+    if kind == "sprint-retro":
+        return "info", f"[retro]   sprint {d['sprint']} actions: {_short('; '.join(d['actions']), 200) or 'none'}"
+    if kind == "doc-sync":
+        return "info", f"[docs]    sprint {d['sprint']}: {len(d['applied'])} of {d['proposed']} proposed amendment(s) applied"
+    if kind == "agile-docs":
+        return "dim", f"[docs]    {d['message']} ({len(d['files'])} file(s))"
+    if kind == "feature-dropped":
+        return "warn", f"[dropped] {d['feature']}: {_short(d['detail'], 120)}"
+    if kind == "feature-requeued":
+        return "warn", f"[retry]   {d['feature']} goes back into a sprint"
+    if kind == "approval-requested":
+        return "warn", f"[needs you] {d['title']}"
+    if kind == "approval-answered":
+        return ("ok" if d["approved"] else "warn"), f"[decision] {d['title']}: {'approved' if d['approved'] else 'declined'}"
+    if kind == "interrupted":
+        return "warn", "[you] the team is paused" + (f" (still finishing a step: {', '.join(d['late'])})" if d.get("late") else "")
+    if kind == "directive-handled":
+        return "info", f"[you] {d['kind']}: {_short(d['effect'], 200)}"
+    if kind == "resumed":
+        return "ok", "[you] work resumes"
+    if kind == "note":
+        return "info", f"[you] note for the next standup: {_short(d['text'], 160)}"
+    if kind == "agile-warning":
+        return "warn", f"[agile]   {_short(d['text'], 200)}"
     return None
 
 

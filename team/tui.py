@@ -15,10 +15,14 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, RichLog, Static, TabbedContent, TabPane
 
 from team.events import describe, describe_talk
+from team.tui_desk import ApprovalScreen, InterruptScreen, NoteScreen
 
 STYLES = {"info": "cyan", "ok": "green", "warn": "yellow", "bad": "bold red", "dim": "dim"}
-STATUS_STYLES = {"waiting": "dim", "working": "yellow", "conflict": "bold yellow", "merged": "green", "failed": "bold red", "blocked": "red"}
+STATUS_STYLES = {"waiting": "dim", "working": "yellow", "conflict": "bold yellow", "merged": "green", "failed": "bold red", "blocked": "red", "dropped": "dim strike"}
 GIT_EVENTS = {"git-trouble", "git-fixed", "git-unfixed", "git-gave-up"}
+# the sprint process, shown on its own tab as well as in the activity log
+SPRINT_EVENTS = {"sprint-planned", "standup", "impediment", "sprint-review", "sprint-report", "sprint-retro", "doc-sync", "agile-docs", "feature-dropped", "feature-requeued",
+                 "approval-requested", "approval-answered", "interrupted", "directive-handled", "resumed", "note", "agile-warning"}
 
 
 class TeamApp(App):
@@ -37,6 +41,10 @@ class TeamApp(App):
         Binding("c", "tab('talk')", "Conversations"),
         Binding("g", "tab('git')", "Git"),
         Binding("s", "tab('summary')", "Summary"),
+        Binding("r", "tab('sprint')", "Sprint"),
+        Binding("i", "interrupt", "Interrupt / speak"),
+        Binding("n", "note", "Note"),
+        Binding("p", "approvals", "Decisions waiting"),
     ]
 
     def __init__(self, project: str = "") -> None:
@@ -50,6 +58,9 @@ class TeamApp(App):
         self.status: dict[str, str] = {}
         self.counts = {"talk": 0, "git_trouble": 0, "git_fixed": 0, "conflicts": 0}
         self._worker = None
+        self.sprint, self.goal, self.day, self.paused = 0, "", 0, False
+        self.waiting: list[dict] = []  # decisions waiting for the human, oldest first
+        self._asking = False  # a decision dialog is open
 
     # ---- layout
     def compose(self) -> ComposeResult:
@@ -63,6 +74,8 @@ class TeamApp(App):
             with TabbedContent(id="tabs", initial="activity"):
                 with TabPane("Activity", id="activity"):
                     yield RichLog(id="activity-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                with TabPane("Sprint", id="sprint"):
+                    yield RichLog(id="sprint-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Conversations", id="talk"):
                     yield RichLog(id="talk-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Git", id="git"):
@@ -119,6 +132,23 @@ class TeamApp(App):
             self._set(d["feature"], "merged", "")
         elif kind == "feature-failed":
             self._set(d["feature"], "failed", d.get("detail", "")[:18])
+        elif kind == "feature-dropped":
+            self._set(d["feature"], "dropped", "")
+        elif kind == "feature-requeued":
+            self._set(d["feature"], "waiting", "retry")
+        elif kind == "sprint-planned":
+            self.sprint, self.goal, self.day = d["sprint"], d["goal"], 0
+        elif kind == "day-start":
+            self.day = d["day"]
+        elif kind == "gate-freeze":
+            self.paused = True
+        elif kind == "gate-thaw":
+            self.paused = False
+        elif kind == "approval-requested":
+            self.waiting.append(d)
+            self._ask_next()
+        elif kind == "approval-answered":
+            self.waiting = [w for w in self.waiting if w.get("id") != d.get("id")]
         elif kind == "feature-blocked":
             self._set(d["feature"], "blocked", "waiting on a failed one")
         elif kind == "task":
@@ -140,6 +170,8 @@ class TeamApp(App):
             self.log_line(*shown)
             if kind in GIT_EVENTS:
                 self.write("git-log", *shown)
+            if kind in SPRINT_EVENTS:
+                self.write("sprint-log", *shown)
         self._tick()
 
     def _set(self, feature: str, status: str, now: Optional[str] = None) -> None:
@@ -170,13 +202,19 @@ class TeamApp(App):
         merged = sum(1 for s in self.status.values() if s == "merged")
         working = sum(1 for s in self.status.values() if s == "working")
         elapsed = int(time.monotonic() - self.started)
-        phase = "finished" if self.finished else "building"
+        phase = "finished" if self.finished else "paused" if self.paused else "building"
         lines = [
             f"{phase} · {elapsed // 60}m{elapsed % 60:02d}s",
             f"features: {merged}/{total} merged, {working} in progress",
             f"conflicts: {self.counts['conflicts']} · conversations: {self.counts['talk']}",
             f"git trouble: {self.counts['git_trouble']} (fixed: {self.counts['git_fixed']})",
         ]
+        if self.sprint:
+            lines.insert(1, f"sprint {self.sprint}, day {self.day}: {self.goal[:46]}")
+        if self.waiting:
+            lines.append(f"{len(self.waiting)} decision(s) waiting for you: press p")
+        if not self.finished and self.agile_desk() is not None:
+            lines.append("i: interrupt and speak · n: leave a note")
         if self.finished:
             lines.append("press q to leave, s for the summary")
         try:
@@ -197,6 +235,63 @@ class TeamApp(App):
         for w in r.warnings:
             log.write(Text(f"  ! {w}", style="yellow"))
         self.log_line("ok" if r.passed else "warn", "build finished — press s for the summary")
+
+    # ---- the human
+    def agile_desk(self) -> Any:
+        agile = getattr(self.engine, "agile", None)
+        return getattr(agile, "desk", None)
+
+    def _ask_next(self) -> None:
+        """Opens the dialog for the oldest decision that is waiting, unless one is already open."""
+        desk = self.agile_desk()
+        if self._asking or not self.waiting or desk is None:
+            return
+        item = self.waiting[0]
+        self._asking = True
+
+        def answered(result) -> None:
+            self._asking = False
+            if result is not None:
+                approved, text = result
+                try:
+                    desk.answer(item["id"], approved, text)
+                except KeyError:
+                    pass
+                self.waiting = [w for w in self.waiting if w.get("id") != item["id"]]
+            else:  # decided later: it stays in the list, at the back, until asked for with p
+                self.waiting = self.waiting[1:] + self.waiting[:1]
+                self._tick()
+                return
+            self._ask_next()
+
+        self.push_screen(ApprovalScreen(item), answered)
+
+    def action_approvals(self) -> None:
+        self._ask_next()
+
+    def action_interrupt(self) -> None:
+        if self.agile_desk() is None or self.finished:
+            self.notify("Interrupting needs a sprint run that is in progress.", severity="warning")
+            return
+        self.run_worker(self._interrupt(), exclusive=False, name="interrupt")
+
+    async def _interrupt(self) -> None:
+        desk = self.agile_desk()
+        info = await desk.interrupt()
+        status = {**desk.status(), "late": info.get("late", [])}
+        self.push_screen(InterruptScreen(desk, status))
+
+    def action_note(self) -> None:
+        desk = self.agile_desk()
+        if desk is None or self.finished:
+            self.notify("Notes need a sprint run that is in progress.", severity="warning")
+            return
+
+        def saved(text) -> None:
+            if text:
+                desk.note(text)
+
+        self.push_screen(NoteScreen(), saved)
 
     # ---- actions
     def action_tab(self, name: str) -> None:

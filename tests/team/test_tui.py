@@ -140,3 +140,191 @@ def test_quitting_mid_build_cancels_it_and_leaves_the_branches(tmp_path):
 
     asyncio.run(main())
     assert not app.finished and app.return_code == 2
+
+
+# ---------------------------------------------------------------------------------------------- the human's dialogs
+
+from types import SimpleNamespace  # noqa: E402
+
+from team.tui_desk import ApprovalScreen, InterruptScreen, NoteScreen, parse_spoken, read_documents  # noqa: E402
+
+
+class StubDesk:
+    def __init__(self):
+        self.answers, self.notes, self.said, self.interrupts, self.released = [], [], [], 0, 0
+
+    def answer(self, approval_id, approved, text=""):
+        self.answers.append((approval_id, approved, text))
+
+    def note(self, text):
+        self.notes.append(text)
+
+    async def interrupt(self):
+        self.interrupts += 1
+        return {"late": []}
+
+    async def say(self, text, kind=None):
+        self.said.append((text, kind))
+        return SimpleNamespace(kind=kind or "note", effect="given to everyone")
+
+    async def release(self):
+        self.released += 1
+
+    def status(self):
+        return {"phase": "sprinting", "sprint": 1, "day": 2, "goal": "Ship storage", "workers": ["DEV_1"], "resting": {"DEV_1": "task-done"}, "open_impediments": ["need a schema"]}
+
+
+def with_desk(app):
+    desk = StubDesk()
+    app.engine = SimpleNamespace(agile=SimpleNamespace(desk=desk))
+    return desk
+
+
+ASK = {"id": "APP-001", "title": "Accept the project documents?", "detail": "Read these:\n- nowhere.md", "kind": "docs"}
+
+
+def test_a_decision_opens_a_dialog_and_the_answer_reaches_the_desk():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            desk = with_desk(app)
+            app.handle("approval-requested", ASK)
+            await pilot.pause(0.2)
+            assert isinstance(app.screen, ApprovalScreen)
+            assert "1 decision(s) waiting" in str(app.screen_stack[0].query_one("#status").render())
+            await pilot.click("#approve")
+            await pilot.pause(0.2)
+            assert desk.answers == [("APP-001", True, "")] and not isinstance(app.screen, ApprovalScreen)
+
+    asyncio.run(main())
+
+
+def test_declining_carries_the_feedback_and_a_postponed_decision_comes_back_with_p():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            desk = with_desk(app)
+            app.handle("approval-requested", ASK)
+            await pilot.pause(0.2)
+            await pilot.press("escape")  # decide later
+            await pilot.pause(0.2)
+            assert not isinstance(app.screen, ApprovalScreen) and desk.answers == [] and len(app.waiting) == 1
+            await pilot.press("p")
+            await pilot.pause(0.2)
+            assert isinstance(app.screen, ApprovalScreen)
+            app.screen.query_one("#feedback").value = "add offline support"
+            await pilot.click("#decline")
+            await pilot.pause(0.2)
+            assert desk.answers == [("APP-001", False, "add offline support")]
+
+    asyncio.run(main())
+
+
+def test_the_next_decision_opens_after_the_first_is_answered():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            desk = with_desk(app)
+            app.handle("approval-requested", ASK)
+            app.handle("approval-requested", {**ASK, "id": "APP-002", "title": "Design change: cache", "kind": "decision", "detail": "use redis"})
+            await pilot.pause(0.2)
+            await pilot.click("#approve")
+            await pilot.pause(0.3)
+            assert isinstance(app.screen, ApprovalScreen) and app.screen.item["id"] == "APP-002"
+            await pilot.click("#decline")
+            await pilot.pause(0.2)
+            assert [a[:2] for a in desk.answers] == [("APP-001", True), ("APP-002", False)]
+
+    asyncio.run(main())
+
+
+def test_the_documents_are_shown_in_full_before_the_human_accepts_them(tmp_path):
+    prd = tmp_path / "PRD.md"
+    prd.write_text("# PRD\nThe product shall do the thing.\n", encoding="utf-8")
+    shown = read_documents(f"Read these:\n- {prd}\n- {tmp_path / 'missing.md'}")
+    assert "PRD.md" in shown and "The product shall do the thing." in shown and "missing" not in shown
+
+
+def test_interrupting_pauses_the_team_and_what_is_said_reaches_the_desk():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            desk = with_desk(app)
+            await pilot.press("i")
+            await pilot.pause(0.3)
+            assert desk.interrupts == 1 and isinstance(app.screen, InterruptScreen)
+            box = app.screen.query_one("#spoken")
+            box.value = "/scope drop the admin panel"
+            await box.action_submit()
+            await pilot.pause(0.3)
+            assert desk.said == [("drop the admin panel", "scope")]
+            box.value = "keep it simple"
+            await box.action_submit()
+            await pilot.pause(0.3)
+            assert desk.said[-1] == ("keep it simple", None) and desk.released == 0  # still paused until the human lets go
+            await pilot.press("escape")
+            await pilot.pause(0.3)
+            assert desk.released == 1 and not isinstance(app.screen, InterruptScreen)
+
+    asyncio.run(main())
+
+
+def test_a_note_does_not_pause_anything():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            desk = with_desk(app)
+            await pilot.press("n")
+            await pilot.pause(0.2)
+            assert isinstance(app.screen, NoteScreen)
+            box = app.screen.query_one("#note")
+            box.value = "prefer small commits"
+            await box.action_submit()
+            await pilot.pause(0.2)
+            assert desk.notes == ["prefer small commits"] and desk.interrupts == 0
+
+    asyncio.run(main())
+
+
+def test_without_a_sprint_run_the_human_keys_explain_themselves():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            await pilot.press("i")
+            await pilot.pause(0.2)
+            assert not isinstance(app.screen, InterruptScreen) and app.is_running
+
+    asyncio.run(main())
+
+
+def test_sprint_events_fill_the_sprint_tab_and_the_status():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            app.handle("sprint-planned", {"sprint": 1, "goal": "Ship storage", "features": ["db"], "tasks": 2, "carried": []})
+            app.handle("day-start", {"sprint": 1, "day": 1, "working": ["DEV_6"]})
+            app.handle("gate-freeze", {"holder": "ceremony"})
+            app.handle("standup", {"sprint": 1, "number": 1, "day": 1, "summary": "On track.", "impediments": []})
+            status = str(app.query_one("#status").render())
+            assert "sprint 1, day 1: Ship storage" in status and status.startswith("paused")
+            app.handle("gate-thaw", {"holder": "ceremony"})
+            app.action_tab("sprint")
+            await pilot.pause(0.2)
+            assert lines(app, "sprint-log") >= 2
+
+    asyncio.run(main())
+
+
+def test_spoken_prefixes_choose_the_kind():
+    assert parse_spoken("/scope drop ui") == ("drop ui", "scope")
+    assert parse_spoken("/rethink the storage is overbuilt") == ("the storage is overbuilt", "rethink")
+    assert parse_spoken("just a remark") == ("just a remark", None)
+    assert parse_spoken("/unknown thing") == ("/unknown thing", None)
+
+
+def test_agile_events_read_as_words():
+    assert describe("standup", {"number": 2, "day": 3, "summary": "On track.", "impediments": []})[1] == "[standup 2] day 3: On track."
+    assert "SPRINT 1 PLANNED" in describe("sprint-planned", {"sprint": 1, "tasks": 4, "features": ["a"], "goal": "g", "carried": []})[1]
+    assert describe("approval-requested", {"id": "A", "title": "Design change: cache", "detail": "", "kind": "decision"}) == ("warn", "[needs you] Design change: cache")
+    assert describe("approval-answered", {"id": "A", "title": "x", "approved": False})[1] == "[decision] x: declined"
+    assert describe("interrupted", {"late": ["DEV_2"]})[1].endswith("(still finishing a step: DEV_2)")
