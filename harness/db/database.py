@@ -61,6 +61,14 @@ create table if not exists permission_saved (
   effect text not null,
   primary key (project, action, resource)
 );
+
+create table if not exists worktree (
+  project_id text not null,
+  directory text not null,
+  strategy text,
+  time_created integer not null,
+  primary key (project_id, directory)
+);
 """
 
 

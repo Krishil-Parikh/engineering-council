@@ -84,7 +84,7 @@ class SessionStore:
         return [_info(r) for r in self.db.all("select * from session where parent_id = ? order by time_created", (session_id,))]
 
     def update(self, session_id: str, **fields: Any) -> None:
-        cols = {"title", "agent", "model", "permission", "metadata", "revert"}
+        cols = {"title", "directory", "agent", "model", "permission", "metadata", "revert"}
         sets, params = ["time_updated = ?"], [M.now_ms()]
         for k, v in fields.items():
             if k not in cols:

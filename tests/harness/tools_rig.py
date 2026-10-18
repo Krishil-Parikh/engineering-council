@@ -58,17 +58,17 @@ class Rig:
             self.registry.add(m(self.deps))
         return self
 
-    async def acall(self, name, **args):
+    async def acall(self, name, /, **args):
         """Run a tool inside the caller's event loop (needed when jobs outlive a single call)."""
         self._n += 1
         snap = self.registry.snapshot(self.rules)
         return await snap.execute(session_id=self.session.id, agent="build", message_id="msg_t", call=Call(f"c{self._n}", name, args))
 
-    def call(self, name, **args):
+    def call(self, name, /, **args):
         """Run a tool; returns the NormalizedResult, or raises ToolError / permission errors."""
         return asyncio.run(self.acall(name, **args))
 
-    def text(self, name, **args):
+    def text(self, name, /, **args):
         return "\n".join(c.text for c in self.call(name, **args).content if hasattr(c, "text"))
 
     def write(self, rel, content, binary=False):

@@ -7,6 +7,7 @@ not to, wakes the session so the model sees it. `interrupt` cancels the run in f
 from __future__ import annotations
 
 import asyncio
+import os
 from typing import Any, Optional
 
 from harness.schema import message as M
@@ -52,6 +53,20 @@ class SessionService:
         previous = M.ModelRef(**info.model) if info.model else None
         self.store.add(session_id, M.ModelSelected(model=model, previous=previous))
         self.store.update(session_id, model=model.model_dump(exclude_none=True))
+
+    def rename(self, session_id: str, title: str) -> None:
+        self.get(session_id)
+        self.store.update(session_id, title=title)
+
+    def move(self, session_id: str, directory: str) -> str:
+        """Points the session at another directory; the next step runs there. Returns the resolved directory."""
+        info = self.get(session_id)
+        target = os.path.realpath(os.path.join(info.directory, os.path.expanduser(directory)))
+        if not os.path.isdir(target):
+            raise NotADirectoryError(f"Directory does not exist: {target}")
+        self.store.add(session_id, M.LocationSwitched(location=M.LocationRef(directory=target), previous=M.LocationRef(directory=info.directory)))
+        self.store.update(session_id, directory=target)
+        return target
 
     def messages(self, session_id: str, order: str = "asc", limit: Optional[int] = None) -> list[M.Info]:
         items = [m for _, m in self.store.messages(session_id)]

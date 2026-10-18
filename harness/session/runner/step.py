@@ -95,7 +95,7 @@ class Step:
         self.llm, self.rec, self.tool_output, self.snapshots = llm, recorder, tool_output, snapshots or Snapshots()
 
     async def attempt(self, inp: StepInput) -> Outcome:
-        start_snapshot = self.snapshots.capture()
+        start_snapshot = await asyncio.to_thread(self.snapshots.capture)
         pub = LLMEventPublisher(
             self.rec, agent=inp.agent, model=inp.model.ref, provider_metadata_key=inp.model.metadata_key,
             assistant_message_id=inp.assistant_message_id, started=M.now_ms(), start_snapshot=lambda: start_snapshot,
@@ -199,10 +199,10 @@ class Step:
 
         record = pub.record()
         if record.finish is not None or record.failure is not None:
-            snapshot = self.snapshots.capture()
+            snapshot = await asyncio.to_thread(self.snapshots.capture)
             files = None
             if start_snapshot and snapshot:
-                files = [] if start_snapshot == snapshot else self.snapshots.files(start_snapshot, snapshot)
+                files = [] if start_snapshot == snapshot else await asyncio.to_thread(self.snapshots.files, start_snapshot, snapshot)
             usage = None
             if record.finish is not None:
                 usage = (SessionUsage.calculate_cost(inp.model.cost, record.finish.tokens), record.finish.tokens)
