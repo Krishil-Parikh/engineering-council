@@ -5,6 +5,7 @@ tool, ("text", reply) answers. The step index is the number of tool results sinc
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, Callable, Union
 
@@ -21,6 +22,7 @@ class TeamLLM:
         self.rules: list[tuple[re.Pattern, Steps]] = []
         self.requests: list[T.LLMRequest] = []
         self.matched: list[str] = []
+        self.rendezvous: list[list] = []
 
     def on(self, pattern: str, steps: Steps) -> "TeamLLM":
         self.rules.append((re.compile(pattern, re.S), steps))
@@ -30,6 +32,27 @@ class TeamLLM:
     def _text(message: T.Message) -> str:
         return "\n".join(p.text for p in message.content if isinstance(p, T.TextPart))
 
+    def meet(self, pattern: str, count: int) -> "TeamLLM":
+        """Holds the first request of each conversation matching `pattern` until `count` of them have arrived. Used to make parallel work
+        genuinely parallel: when every feature must have started (and so branched from the same commit) before any of them gets an answer,
+        a conflict between them cannot be avoided by timing."""
+        self.rendezvous.append([re.compile(pattern, re.S), count, 0, None])
+        return self
+
+    async def _rendezvous(self, text: str, after_tools: int) -> None:
+        if after_tools:
+            return  # only a conversation's first request waits
+        for entry in self.rendezvous:
+            pattern, count, _arrived, _event = entry
+            if not pattern.search(text):
+                continue
+            if entry[3] is None:
+                entry[3] = asyncio.Event()  # created inside the running loop
+            entry[2] += 1
+            if entry[2] >= count:
+                entry[3].set()
+            await asyncio.wait_for(entry[3].wait(), 120)
+
     async def stream(self, request: T.LLMRequest):
         self.requests.append(request)
         messages = request.messages
@@ -38,6 +61,7 @@ class TeamLLM:
             if m.role != "user":
                 continue
             text = self._text(m)
+            await self._rendezvous(text, sum(1 for x in messages[index + 1:] if x.role == "tool"))
             for pattern, steps in self.rules:
                 if pattern.search(text):
                     after = sum(1 for x in messages[index + 1:] if x.role == "tool")

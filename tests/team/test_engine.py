@@ -125,6 +125,7 @@ def test_a_merge_conflict_is_talked_through_and_resolved(tmp_path):
     llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
     llm.on(r"Task: write left", [write("shared.txt", "greeting = 'left'\n"), ("text", "left done")])
     llm.on(r"Task: write right", [write("shared.txt", "greeting = 'right'\n"), ("text", "right done")])
+    llm.meet(r"Task: write (left|right)", 2)  # both features have branched from the same commit before either is answered
     llm.on(r"produced conflicts", [("text", "Keep both greetings, one per line.")])
     llm.on(r"You are merging", [write("shared.txt", "greeting_left = 'left'\ngreeting_right = 'right'\n"), ("text", "combined both greetings")])
     eng, events, _ = engine(tmp_path, llm)
@@ -149,6 +150,7 @@ def test_an_unresolvable_conflict_fails_the_feature_and_leaves_integration_clean
     llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
     llm.on(r"Task: write left", [write("s.txt", "left\n"), ("text", "ok")])
     llm.on(r"Task: write right", [write("s.txt", "right\n"), ("text", "ok")])
+    llm.meet(r"Task: write (left|right)", 2)  # both features have branched from the same commit before either is answered
     llm.on(r"produced conflicts", [("text", "no idea")])
     llm.on(r"You are merging", [("text", "I did nothing")])  # leaves the markers in place
     eng, _, _ = engine(tmp_path, llm, conflict_rounds=2)
@@ -216,6 +218,7 @@ def test_conflict_talk_and_planning_travel_over_a2a(tmp_path):
     llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
     llm.on(r"Task: write left", [write("shared.txt", "a = 'left'\n"), ("text", "ok")])
     llm.on(r"Task: write right", [write("shared.txt", "a = 'right'\n"), ("text", "ok")])
+    llm.meet(r"Task: write (left|right)", 2)  # both features have branched from the same commit before either is answered
     llm.on(r"produced conflicts", [("text", "keep both")])
     llm.on(r"You are merging", [write("shared.txt", "a_left = 'left'\na_right = 'right'\n"), ("text", "combined")])
     eng, _, _ = engine(tmp_path, llm)
@@ -258,6 +261,7 @@ def conflict_llm(extra=None):
     llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
     llm.on(r"Task: write left", [write("shared.txt", "a = 'left'\n"), ("text", "ok")])
     llm.on(r"Task: write right", [write("shared.txt", "a = 'right'\n"), ("text", "ok")])
+    llm.meet(r"Task: write (left|right)", 2)  # both features have branched from the same commit before either is answered
     llm.on(r"produced conflicts", [("text", "keep both")])
     llm.on(r"You are merging", [write("shared.txt", "a_left = 'left'\na_right = 'right'\n"), ("text", "combined")])
     if extra:
