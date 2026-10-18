@@ -18,15 +18,16 @@ dependencies = [
 dev = ["pytest>=8.0"]
 
 [project.scripts]
-engineering-council = "engineering_council.cli:main"
-coding-harness = "coding_harness.cli:main"
+engineering-council = "council.cli:main"
+coding-harness = "harness.legacy.cli:main"
 
-[tool.setuptools]
-packages = ["engineering_council", "coding_harness", "coding_harness.tools"]
+[tool.setuptools.packages.find]
+include = ["meetings*", "harness*", "council_a2a*", "team*", "memory*", "council*"]
 
 [tool.setuptools.package-data]
-engineering_council = ["system_prompts/*.md"]
-coding_harness = ["prompts/*.txt"]
+meetings = ["system_prompts/*.md"]
+"harness.legacy" = ["prompts/*.txt"]
+harness = ["session/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

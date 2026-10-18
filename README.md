@@ -32,7 +32,7 @@ copy .env.example .env              # then set GEMINI_API_KEY (and optionally GE
 
 ## The TUI (default in a real terminal)
 
-Running `python -m engineering_council` opens a full-screen interface so you can oversee the whole meeting:
+Running `python -m council` opens a full-screen interface so you can oversee the whole meeting:
 
 | Area | What you see |
 |---|---|
@@ -50,25 +50,36 @@ Gemma/Gemini models on the free tier return 429/503 under load. The client waits
 ## Use
 
 ```text
-python -m engineering_council                          # opens the TUI with a start form
-python -m engineering_council --name "My App" --problem-file problem.md --repo ./my-repo --constraint "Python" -y
-python -m engineering_council resume output/my-app     # continue an interrupted meeting
-python -m engineering_council revise output/my-app --feedback "Add CSV export"
+python -m council                          # opens the TUI with a start form
+python -m council --name "My App" --problem-file problem.md --repo ./my-repo --constraint "Python" -y
+python -m council resume output/my-app     # continue an interrupted meeting
+python -m council revise output/my-app --feedback "Add CSV export"
 ```
 
 Output goes to `output/<project-slug>/` (git-ignored): `input.md`, `repo_snapshot.json`, `blind/`, `roster.json`, `proposals/`, `conversation/round-N.json`, `reconsiderations/`, `disputes.json`, `questions.json`, `decisions.json`, `specification.json`, the three documents, `minutes.md`, `verification_report.md`, `meeting.json`, `usage.json`. Revisions keep the previous version in `revisions/<timestamp>/`.
 
 Exit codes: `0` success, `1` error, `2` finished but verification still fails, `130` interrupted.
 
-## Layout
+## Layout: independent modules
+
+Each concern lives in one folder and may only import what the table allows (`tests/test_architecture.py` enforces it).
+
+| Folder | What it is | May import |
+|---|---|---|
+| `harness/` | The coding agent engine, modelled on opencode: sessions in SQLite, compaction, instruction memory, skills, agents, permissions, tools. `harness/legacy/` is the first, smaller port, kept until the new runner replaces it. | itself |
+| `council_a2a/` | Agent2Agent protocol over gRPC, built on the official `a2a-sdk` | itself |
+| `memory/` | Project memory (whole-codebase context) and cross-project memory (what the team learned) | itself |
+| `meetings/` | Planning mode: blind thinking, skill picking, the pod conversation, questions, decisions, specification, design review, documents, verification, the TUI | `council_a2a` |
+| `team/` | Agent mode: developers that build, branch, test and merge a project | `harness`, `council_a2a`, `meetings`, `memory` |
+| `council/` | The application entry point (`python -m council`) | everything |
 
 ```text
-engineering_council/
-  cli.py  config.py  models.py  prompts.py  gemini_client.py  repository.py
-  meeting.py  questions.py  synthesis.py  documents.py  verification.py  storage.py
-  conversation.py      blind thinking, skill picking, the multi-round pod conversation
-  system_prompts/      shared rules, developer, scrum master, arbiter, curator, documents...
-tests/                 run with: pytest   (fake client, no network)
+meetings/   cli.py config.py models.py prompts.py gemini_client.py meeting.py conversation.py questions.py
+            synthesis.py documents.py verification.py design_review.py repository.py storage.py tui.py system_prompts/
+harness/    schema/ ai/ db/ instructions/ session/ util/ legacy/
+team/       build.py cli.py
+council/    cli.py __main__.py
+tests/      one folder per module: tests/meetings  tests/harness  tests/team  (run with: pytest; no network)
 ```
 
 ## Tests
@@ -87,11 +98,11 @@ Repository content is untrusted data and is delimited as such in prompts. `.env`
 After a meeting, the pod can implement what it specified:
 
 ```
-python -m engineering_council build output/<project>        # developers build in output/<project>/project
-python -m coding_harness -d some/project                     # or use the harness on its own
+python -m council build output/<project>        # developers build in output/<project>/project
+python -m harness.legacy -d some/project                     # or use the harness on its own
 ```
 
-`coding_harness/` is a separate package modelled on opencode: file, search, edit/patch, shell, web and subagent tools; git and GitHub through
+`harness.legacy/` is a separate package modelled on opencode: file, search, edit/patch, shell, web and subagent tools; git and GitHub through
 the shell (`gh`); permission rules; `AGENTS.md` and skills as project memory; conversation compaction; undo through shadow-git snapshots.
-See `coding_harness/README.md`. The build hands each step of the specification's implementation sequence to the developer whose skill fits,
+See `harness.legacy/README.md`. The build hands each step of the specification's implementation sequence to the developer whose skill fits,
 commits per step, then runs the spec's verification commands with repair rounds, and writes `build_report.md`.
