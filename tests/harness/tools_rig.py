@@ -10,7 +10,9 @@ from harness.location import Location
 from harness.permission import Permission, PermissionSaved
 from harness.ripgrep import Ripgrep
 from harness.schema.permission import Rule
+from harness.job import JobService
 from harness.session.instructions import SessionInstructions
+from harness.shell.service import ShellService
 from harness.session.store import SessionStore
 from harness.tool.builtin.deps import ToolDeps
 from harness.tool.info import ToolError
@@ -38,6 +40,9 @@ class Rig:
         self.permission = Permission(PermissionSaved(self.db, "p"), lambda sid, agent: self.rules, observer=self._observe)
         self.access = FileAccess(self.location, self.permission, home=self.home)
         self.deps = ToolDeps(self.location, self.permission, self.access, self.store, SessionInstructions(self.store, self.location), Ripgrep(use_binary=False))
+        self.shell = ShellService(tmp_path / "shellout", str(self.proj))
+        self.jobs = JobService()
+        self.deps.extras.update({"shell": self.shell, "jobs": self.jobs})
         self.registry = ToolRegistry()
         self._n = 0
 
@@ -53,15 +58,15 @@ class Rig:
             self.registry.add(m(self.deps))
         return self
 
+    async def acall(self, name, **args):
+        """Run a tool inside the caller's event loop (needed when jobs outlive a single call)."""
+        self._n += 1
+        snap = self.registry.snapshot(self.rules)
+        return await snap.execute(session_id=self.session.id, agent="build", message_id="msg_t", call=Call(f"c{self._n}", name, args))
+
     def call(self, name, **args):
         """Run a tool; returns the NormalizedResult, or raises ToolError / permission errors."""
-        self._n += 1
-
-        async def go():
-            snap = self.registry.snapshot(self.rules)
-            return await snap.execute(session_id=self.session.id, agent="build", message_id="msg_t", call=Call(f"c{self._n}", name, args))
-
-        return asyncio.run(go())
+        return asyncio.run(self.acall(name, **args))
 
     def text(self, name, **args):
         return "\n".join(c.text for c in self.call(name, **args).content if hasattr(c, "text"))
