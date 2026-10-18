@@ -103,9 +103,10 @@ class Snapshot:
         try:
             result = await self._run(tool, event["input"], context)
         except ToolError as failure:
+            error_event = {**event, "status": "error", "error": failure}
             for hook in self._after:
-                hook({**event, "status": "error", "error": failure})
-            raise
+                hook(error_event)  # a hook may replace the error (for example to explain a blocked edit)
+            raise error_event["error"] from None
         after = {**event, "status": "completed", "result": result}
         for hook in self._after:
             hook(after)

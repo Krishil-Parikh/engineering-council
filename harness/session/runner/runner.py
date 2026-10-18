@@ -47,8 +47,10 @@ class SessionRunner:
     def __init__(
         self, *, store: SessionStore, context: SessionContext, llm: E.LLMClient, compaction: C.Compaction, tool_output: ToolOutput,
         snapshots: Optional[Snapshots] = None, observer: Optional[Callable[[str, dict[str, Any]], None]] = None,
-        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep, context_hooks: Optional[list[Callable[[dict[str, Any]], None]]] = None,
     ) -> None:
+        # `context` hooks see (and may edit) the model messages of every request: {"sessionID", "agent", "messages", "synthetic"}.
+        self.context_hooks = context_hooks if context_hooks is not None else []
         self.store, self.context, self.llm, self.compaction, self.tool_output = store, context, llm, compaction, tool_output
         self.snapshots, self.observer, self.sleep = snapshots or Snapshots(), observer, sleep
 
@@ -122,7 +124,10 @@ class SessionRunner:
             transcript = R.base_transcript(
                 agent_system=loaded.agent.system, model=loaded.model, tool_names=[t.name for t in loaded.tools], initial=loaded.initial, messages=loaded.messages
             )
-            messages = [*transcript.messages, T.Message.assistant(MAX_STEPS_PROMPT)] if limit_reached else transcript.messages
+            hooked = list(transcript.messages)
+            for hook in self.context_hooks:
+                hook({"sessionID": session_id, "agent": loaded.agent.id, "messages": hooked, "synthetic": lambda text: rec.synthetic(text)})
+            messages = [*hooked, T.Message.assistant(MAX_STEPS_PROMPT)] if limit_reached else hooked
             request = T.LLMRequest(
                 system=transcript.system, tools=list(loaded.tools), messages=messages,
                 generation=T.Generation(max_tokens=R.output_limit(loaded.model.limit, "primary", C.estimate_prompt(loaded))),
