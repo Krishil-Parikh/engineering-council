@@ -206,6 +206,7 @@ def make(deps: ToolDeps) -> ToolInfo:
                 raise ToolError(f"File not found: {inp.path}") from None
             except FM.FileKindError as exc:
                 raise ToolError(f"Path is a directory, not a file: {inp.path}" if exc.actual == "directory" else f"Unable to edit {inp.path}", exc) from None
+            deps.file_time.check(ctx.session_id, target.absolute, target.resource)
             source = original.text
             # Strings that differ only in \r ask to change line endings themselves, so they apply to the exact bytes.
             # Every other edit matches the LF view Read shows the model and keeps the file's endings.
@@ -235,6 +236,7 @@ def make(deps: ToolDeps) -> ToolInfo:
                 )
             keep_bom = original.bom or replaced.startswith("﻿")
             result = FM.write(target.absolute, target.resource, Bom.join(replaced, keep_bom))
+            deps.file_time.record(ctx.session_id, target.absolute)
             final = FM.read_text(target.absolute).text
         diff = file_diff(result.resource, source, final)
         return ToolResult(

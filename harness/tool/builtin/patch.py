@@ -161,6 +161,8 @@ def make(deps: ToolDeps) -> ToolInfo:
                         content = hunk.contents if hunk.contents.endswith("\n") or hunk.contents == "" else hunk.contents + "\n"
                         prepared.append(Prepared(hunk, target, "", Bom.split(content).text, content))
                         continue
+                    if hunk.type in ("delete", "update") and os.path.exists(target.absolute):
+                        deps.file_time.check(ctx.session_id, target.absolute, target.resource)
                     if hunk.type == "delete":
                         try:
                             current = FM.read_text(target.absolute)
@@ -225,6 +227,9 @@ def make(deps: ToolDeps) -> ToolInfo:
                         raise fail(f"Failed to write {change.target.resource}", exc) from None
                     applied.append({"type": hunk.type, "resource": change.target.resource, "target": change.target.absolute})
 
+            for item in applied:
+                if item["type"] != "delete":
+                    deps.file_time.record(ctx.session_id, item["target"])
             final_files = []
             for change in prepared:
                 if change.hunk.type == "delete":

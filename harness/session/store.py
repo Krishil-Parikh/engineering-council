@@ -28,6 +28,7 @@ class SessionInfo:
     model: Optional[dict[str, Any]] = None
     permission: Optional[list[dict[str, str]]] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    revert: Optional[dict[str, Any]] = None  # set while part of the conversation is rewound (see harness/session/revert.py)
     cost: float = 0
     tokens: M.TokenUsage = field(default_factory=M.TokenUsage)
     time_created: int = 0
@@ -45,7 +46,7 @@ def _rules(raw: Optional[list[dict[str, str]]]) -> list[Rule]:
 def _info(row: Any) -> SessionInfo:
     return SessionInfo(
         id=row["id"], directory=row["directory"], parent_id=row["parent_id"], title=row["title"], agent=row["agent"],
-        model=jload(row["model"]), permission=jload(row["permission"]), metadata=jload(row["metadata"]) or {}, cost=row["cost"],
+        model=jload(row["model"]), permission=jload(row["permission"]), metadata=jload(row["metadata"]) or {}, revert=jload(row["revert"]), cost=row["cost"],
         tokens=M.TokenUsage(
             input=row["tokens_input"], output=row["tokens_output"], reasoning=row["tokens_reasoning"],
             cache_read=row["tokens_cache_read"], cache_write=row["tokens_cache_write"],

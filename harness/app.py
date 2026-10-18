@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional, Union
 
-from harness.agent import Agent, AgentRegistry, default_registry
+from harness.agent import Agent, AgentRegistry, default_registry, plan_context_hook, plan_tool_hook
 from harness.ai.catalog import ModelCatalog
 from harness.ai.gemini import GeminiClient
 from harness.ai.model import ResolvedModel
@@ -41,6 +41,8 @@ from harness.session.inbox import SessionInbox
 from harness.session.instructions import SessionInstructions
 from harness.session.runner.runner import SessionRunner
 from harness.session.service import SessionService
+from harness.plugin import Hooks, PluginHost
+from harness.session.revert import SessionRevert
 from harness.session.store import SessionInfo, SessionStore
 from harness.session.title import SessionTitle
 from harness.shell.service import ShellService
@@ -93,9 +95,11 @@ class Harness:
         approve: Optional[Approver] = None, snapshots: bool = True, catalog: Optional[ModelCatalog] = None,
         on_event: Optional[Callable[[str, dict[str, Any]], None]] = None, compaction: Optional[C.Settings] = None,
         agents: Optional[list[Agent]] = None, rules: Optional[Ruleset] = None, default_agent: Optional[str] = None,
-        auto_title: bool = False, before_step: Optional[Callable[[str], Awaitable[None]]] = None,
+        auto_title: bool = False, before_step: Optional[Callable[[str], Awaitable[None]]] = None, plugins: bool = True,
     ) -> None:
-        self.on_event = on_event or (lambda kind, data: None)
+        self._user_event = on_event or (lambda kind, data: None)
+        self.hooks = Hooks(lambda name, message: self._user_event("plugin.error", {"hook": name, "message": message}))
+        self.on_event = self._report  # everything the harness reports goes to the caller, and to the plugins' `event` hooks
         self.input_hooks: list[Callable[[str, int], None]] = []
         self.approve = approve
         self.model_id = model or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
@@ -138,6 +142,7 @@ class Harness:
             before_step=before_step,
         )
         self.sessions = SessionService(self.store, self.runner, str(self.location.directory), self.inbox)
+        self.revert = self.sessions.revert = SessionRevert(self.store, self.snapshots, self.sessions.running, lambda kind, data: self.on_event(kind, data))
         self.titles = SessionTitle(self.store, self.llm, self.agents, self._resolve_model, lambda kind, data: self.on_event(kind, data))
         if auto_title:  # one extra model request per new conversation, so opt-in (the team engine leaves it off)
             self.input_hooks.append(self.titles.when_input_arrives)
@@ -153,6 +158,20 @@ class Harness:
             },
         )
         self._register_tools()
+        # hooks: the plan agent's reminder and error text are hooks like any plugin's; plugins load last so they see (and can edit) the rest
+        self.hooks.add("context", plan_context_hook(plan_directory))
+        self.hooks.add("tool.after", plan_tool_hook(plan_directory))
+        self.runner.context_hooks.append(self.hooks.dispatcher("context"))
+        self.registry.before.append(self.hooks.dispatcher("tool.before"))
+        self.registry.after.append(self.hooks.dispatcher("tool.after"))
+        self.input_hooks.append(self.hooks.dispatcher("input"))
+        self.plugins = PluginHost(self, self.hooks)
+        if plugins:  # project plugins are code: a host that builds in untrusted repositories turns this off
+            self.plugins.load_all(self.config)
+
+    def _report(self, kind: str, data: dict[str, Any]) -> None:
+        self._user_event(kind, data)
+        self.hooks.dispatcher("event")(kind, data)
 
     # ------------------------------------------------------------------ wiring
 

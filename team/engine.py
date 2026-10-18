@@ -182,7 +182,7 @@ class TeamEngine:
             shutil.copytree(self.lessons.skills_dir, data / "skills", dirs_exist_ok=True)
         return Harness(
             sandbox, llm=self.shared_llm(), model=self.model, data_root=data, home=self.root / "home", db_path=data / "sessions.db",
-            snapshots=self.cfg.snapshots, agents=[agent], rules=rules_for(dev, integrator=(dev == INTEGRATOR), protected=self.repo.protected), default_agent=agent.id,
+            snapshots=self.cfg.snapshots, plugins=False, agents=[agent], rules=rules_for(dev, integrator=(dev == INTEGRATOR), protected=self.repo.protected), default_agent=agent.id,
             on_event=lambda kind, d, dev=dev: self.on_event(f"{dev}:{kind}", d),
         )
 

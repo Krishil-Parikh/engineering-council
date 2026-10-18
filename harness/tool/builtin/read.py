@@ -257,6 +257,8 @@ def make(deps: ToolDeps) -> ToolInfo:
                     deps.instructions.load(ctx.session_id, candidates)
         except Exception:  # noqa: BLE001
             pass
+        if not isinstance(out, ListPage):
+            deps.file_time.record(ctx.session_id, target.absolute)
         return ToolResult(content=to_model_content(shown_path, inp.offset, out), output=out, metadata={"truncated": False if isinstance(out, FileOut) else out.truncated})
 
     return ToolInfo(NAME, DESCRIPTION, Input, execute)

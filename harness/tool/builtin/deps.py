@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from harness.file_access import FileAccess, Invocation
+from harness.file_time import FileTime
 from harness.location import Location
 from harness.permission import Permission
 from harness.ripgrep import Ripgrep
@@ -22,6 +23,7 @@ class ToolDeps:
     store: SessionStore
     instructions: SessionInstructions
     ripgrep: Ripgrep = field(default_factory=Ripgrep)
+    file_time: FileTime = field(default_factory=FileTime)  # which files each session has read, and when (so an edit can tell the file changed)
     extras: dict[str, Any] = field(default_factory=dict)  # shell jobs, subagent runner, question handler, skills, ...
 
     def invocation(self, ctx: ToolContext) -> Invocation:

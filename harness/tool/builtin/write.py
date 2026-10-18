@@ -35,7 +35,10 @@ def make(deps: ToolDeps) -> ToolInfo:
             preview = file_diff(target.resource, current.text if current else "", nxt.text, "modified" if current else "added")
             await deps.assert_permission(ctx, "edit", [target.resource], save=["*"], metadata={"files": [preview.to_json()]})
             async with FM.with_lock([target.absolute]):
+                if current is not None:
+                    deps.file_time.check(ctx.session_id, target.absolute, target.resource)
                 result = FM.write_text_preserving_bom(target.absolute, target.resource, inp.content)
+                deps.file_time.record(ctx.session_id, target.absolute)
         except (OSError, FM.FileKindError) as exc:
             raise ToolError(f"Unable to write {inp.path}", exc) from None
         output = {"operation": "write", "target": result.target, "resource": result.resource, "existed": result.existed}

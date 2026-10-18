@@ -34,6 +34,7 @@ class SessionService:
         self.store, self.runner, self.directory = store, runner, directory
         self.inbox: Optional[SessionInbox] = inbox if inbox is not None else getattr(runner, "inbox", None)
         self._results: dict[str, DrainResult] = {}
+        self.revert: Optional[Any] = None  # a SessionRevert: new input to a rewound session makes the rewind final first
         self.coordinator: RunCoordinator[str] = RunCoordinator(self._drain, started=self._started)
 
     async def _started(self, session_id: str) -> None:
@@ -97,9 +98,14 @@ class SessionService:
 
     # ------------------------------------------------------------------ input
 
+    def _settle_revert(self, session_id: str) -> None:
+        if self.revert is not None and self.revert.state(session_id) is not None:
+            self.revert.commit(session_id)
+
     def prompt(self, session_id: str, text: str) -> M.User:
         """Records the user's message directly. For a session that may be busy use `send`, which goes through the inbox."""
         self.get(session_id)
+        self._settle_revert(session_id)
         msg = M.User(text=text)
         self.store.add(session_id, msg)
         return msg
@@ -107,6 +113,7 @@ class SessionService:
     def send(self, session_id: str, text: str, delivery: str = "queue", wake: bool = True) -> Any:
         """Accepts input for a possibly busy session. Returns the inbox item (or, without an inbox, the recorded message)."""
         self.get(session_id)
+        self._settle_revert(session_id)
         if self.inbox is None:
             msg = self.prompt(session_id, text)
             if wake:
