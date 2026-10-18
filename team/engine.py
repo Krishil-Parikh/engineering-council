@@ -53,6 +53,7 @@ class TeamConfig:
     verification_timeout: int = 300
     snapshots: bool = False
     resume: bool = True
+    transport: str = "a2a"  # "a2a" (gRPC between agents) or "local" (in-process)
 
 
 @dataclass
@@ -118,7 +119,9 @@ class TeamEngine:
         self.harnesses: dict[str, Harness] = {}
         self._factory = harness_factory or self._default_harness
         self.merge_lock = asyncio.Lock()
+        self._own_channel = channel is None
         self.channel: Channel = channel or LocalChannel(self.harness, lambda d: self.roster.get(d, d.upper()))
+        self._network = None
         self.board = DesignBoard(self.channel, [*self.developers, INTEGRATOR], self.repo.sandbox_path, INTEGRATOR)
         self.result = TeamResult(self.cfg.run_id, self.root, self.integration)
         self.conflict_counts: dict[str, int] = {}
@@ -301,6 +304,19 @@ class TeamEngine:
 
     async def run(self) -> TeamResult:
         self.root.mkdir(parents=True, exist_ok=True)
+        if self._own_channel and self.cfg.transport == "a2a":
+            from team.a2a_channel import open_network
+
+            self._network = await open_network(self, self.root / "a2a-audit.jsonl")
+            self.channel = self.board.channel = self._network
+        try:
+            return await self._run()
+        finally:
+            if self._network is not None:
+                await self._network.close()
+                self._network = None
+
+    async def _run(self) -> TeamResult:
         await self.setup()
         self.plan = await self.make_plan()
         self._emit("plan", plan=json.loads(self.plan.to_json()))

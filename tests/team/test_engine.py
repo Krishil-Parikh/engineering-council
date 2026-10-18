@@ -198,3 +198,48 @@ def test_resume_does_not_redo_merged_features(tmp_path):
     asyncio.run(eng2.run())
     assert not [k for k, _ in events if k == "feature-started"]  # everything was already merged
     assert len(again.requests) < first_calls
+
+
+def audit(tmp_path):
+    path = tmp_path / "team" / "a2a-audit.jsonl"
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
+
+
+def test_conflict_talk_and_planning_travel_over_a2a(tmp_path):
+    plan = {"features": [
+        {"id": "left", "title": "Left", "owner": "DEV_1", "tasks": [{"title": "write left"}]},
+        {"id": "right", "title": "Right", "owner": "DEV_2", "tasks": [{"title": "write right"}]},
+    ]}
+    llm = TeamLLM()
+    llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
+    llm.on(r"Task: write left", [write("shared.txt", "a = 'left'\n"), ("text", "ok")])
+    llm.on(r"Task: write right", [write("shared.txt", "a = 'right'\n"), ("text", "ok")])
+    llm.on(r"produced conflicts", [("text", "keep both")])
+    llm.on(r"You are merging", [write("shared.txt", "a_left = 'left'\na_right = 'right'\n"), ("text", "combined")])
+    eng, _, _ = engine(tmp_path, llm)
+    result = asyncio.run(eng.run())
+    assert [f.status for f in result.features] == ["merged", "merged"]
+    log = audit(tmp_path)
+    assert any(e["topic"] == "work plan" and e["sender"] == "system" and e["recipient"] == "integrator" for e in log)
+    talks = [e for e in log if e["topic"].startswith("merge conflict in")]
+    assert talks and all(e["sender"] == "integrator" and e["reply"] == "keep both" for e in talks)
+    assert {e["recipient"] for e in talks} >= {"DEV_1"} or {e["recipient"] for e in talks} >= {"DEV_2"}
+
+
+def test_design_votes_are_a2a_messages_to_every_other_developer(tmp_path):
+    plan = {"features": [{"id": "core", "title": "Core", "owner": "DEV_2", "tasks": [{"title": "write core"}]}]}
+    llm = TeamLLM()
+    llm.on(r"Turn the agreed specification", [("text", json.dumps(plan))])
+    llm.on(r"Task: write core", [("tool", "design_change", {"title": "Use bus", "reason": "r", "change": "c"}), write("core.py", "x = 1\n"), ("text", "ok")])
+    llm.on(r"proposes a design change", [("text", json.dumps({"vote": "approve", "comment": "fine"}))])
+    eng, _, _ = engine(tmp_path, llm)
+    asyncio.run(eng.run())
+    votes = [e for e in audit(tmp_path) if e["topic"].startswith("design change:")]
+    assert {e["recipient"] for e in votes} == {"DEV_1", "DEV_3", "DEV_4", "DEV_5", "DEV_6", "integrator"} and all(e["sender"] == "DEV_2" for e in votes)
+    assert len({e["context_id"] for e in votes}) == 1  # one meeting, one conversation
+
+
+def test_local_transport_still_works_without_a2a(tmp_path):
+    eng, _, _ = engine(tmp_path, base_llm(), transport="local")
+    result = asyncio.run(eng.run())
+    assert result.passed and not (tmp_path / "team" / "a2a-audit.jsonl").exists()

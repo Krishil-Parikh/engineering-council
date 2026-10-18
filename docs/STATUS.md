@@ -1,6 +1,6 @@
 # Harness status (opencode port + team engine)
 
-IDs match the original analysis table. Tests: 357 passing, 1 skipped.
+IDs match the original analysis table. Tests: 408 passing, 1 skipped.
 
 ## Done
 
@@ -24,6 +24,9 @@ IDs match the original analysis table. Tests: 357 passing, 1 skipped.
 | G1, G2 | Gemini provider (verified live); model catalog |
 | — | Session service (create, prompt, run, wake, interrupt); `Harness` facade (`harness/app.py`) wiring everything per working directory; checked live against Gemini (write, shell, subagent, grep, edit) |
 | — | Module boundaries enforced by `tests/test_architecture.py` |
+| X1 | A2A over gRPC on the official `a2a-sdk` (`council_a2a`): agent servers, clients, token auth, audit log, direct/broadcast/group conversations; the team's conversations use it |
+| X3, X4 | Team engine (`team/`): plan as a feature graph, scheduler, per-developer sandbox clones, feature branches, merge queue with conflict talks, protected main, final branch, resume; checked live against Gemini |
+| X5 | Design-change meetings with votes and ADRs |
 
 ## Partial
 
@@ -48,10 +51,8 @@ webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit 
 
 ## Not started (our additions)
 
-- X1 A2A over gRPC on `a2a-sdk`, with a channel layer for group chats
 - X2 Only-needed-skills staffing
-- X3 Planning mode with a task DAG
-- X4 Agent mode: per-developer sandbox clones, feature branches, merge queue and conflict talks with the branch owner, integration and final branches, main protected
-- X5 Design-change meetings
+- Planning as a pod meeting (today the plan is one scrum-master call)
+- The meeting's developer calls over A2A
 - X6 Project memory; X7 cross-project memory
 - README and docs update
