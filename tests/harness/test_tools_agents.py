@@ -28,7 +28,7 @@ class FakeRunner:
         self.calls = []
         self.fail = None
 
-    async def drain(self, session_id):
+    async def drain(self, session_id, force=True, scope="input"):
         self.calls.append(session_id)
         if self.gate:
             await self.gate.wait()

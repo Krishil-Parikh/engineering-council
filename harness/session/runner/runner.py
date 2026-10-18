@@ -48,11 +48,15 @@ class SessionRunner:
         self, *, store: SessionStore, context: SessionContext, llm: E.LLMClient, compaction: C.Compaction, tool_output: ToolOutput,
         snapshots: Optional[Snapshots] = None, observer: Optional[Callable[[str, dict[str, Any]], None]] = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep, context_hooks: Optional[list[Callable[[dict[str, Any]], None]]] = None,
+        inbox: Optional[Any] = None, on_input: Optional[Callable[[str, int], None]] = None,
     ) -> None:
         # `context` hooks see (and may edit) the model messages of every request: {"sessionID", "agent", "messages", "synthetic"}.
         self.context_hooks = context_hooks if context_hooks is not None else []
         self.store, self.context, self.llm, self.compaction, self.tool_output = store, context, llm, compaction, tool_output
         self.snapshots, self.observer, self.sleep = snapshots or Snapshots(), observer, sleep
+        # With an inbox, input waits there until a step boundary lets it in (see harness/session/inbox.py). `on_input(session_id, count)` is told
+        # whenever input became visible, which is when a session may need a title.
+        self.inbox, self.on_input = inbox, on_input
 
     # ---- crash recovery
     def settle_stale_compactions(self, session_id: str) -> None:
@@ -83,7 +87,70 @@ class SessionRunner:
                 )
 
     # ---- the loop
-    async def drain(self, session_id: str) -> DrainResult:
+    async def drain(self, session_id: str, force: bool = True, scope: str = "input") -> DrainResult:
+        """Runs the session until it has nothing left to do.
+
+        Without an inbox, every call runs steps until the model stops asking for tools. With one, input is let in at step boundaries: steers
+        between steps of a run, queued items when the session would otherwise stop, a manual compaction before anything after it. `force` runs
+        even when the inbox is empty (an explicit resume); `scope` is 'steer' when the caller only wants steers consumed (queued items wait)."""
+        if self.inbox is None:
+            return await self._drain_steps(session_id)
+        return await self._drain_inbox(session_id, force, scope)
+
+    async def _drain_inbox(self, session_id: str, force: bool, scope: str) -> DrainResult:
+        inbox = self.inbox
+        if not force:
+            pending = inbox.next_promotable(session_id, "input")
+            if pending is None or (scope == "steer" and pending.delivery == "queue" and pending.type != "compaction"):
+                return DrainResult("succeeded", 0)  # nothing this caller may consume
+        rec = Recorder(self.store, session_id, self.observer)
+        self.settle_stale_compactions(session_id)
+        self.settle_stale_tool_calls(session_id, rec)
+        step, steps, continuing, entering = 1, 0, False, True
+        try:
+            while True:
+                while True:  # advance to the next step: handle controls, let input in
+                    nxt = inbox.next_promotable(session_id, "input" if entering or not continuing else "steer")
+                    if nxt is not None and nxt.type == "compaction":
+                        inbox.deliver(session_id, nxt.id)
+                        await self._manual_compaction(session_id)
+                        force = False
+                        continue
+                    if not continuing and nxt is not None and nxt.delivery != "steer":
+                        entering, step = True, 1
+                    if not force and not continuing and (nxt is None or (nxt.delivery == "queue" and scope == "steer" and entering)):
+                        if steps:
+                            rec.idle("succeeded")
+                        return DrainResult("succeeded", steps)
+                    promoted = inbox.promote(self.store, session_id, scope if entering and not continuing else "steer")
+                    if promoted is None:
+                        continue  # a compaction arrived while preparing: it owns this boundary
+                    if promoted > 0:
+                        step = 1
+                        if self.on_input is not None:
+                            self.on_input(session_id, promoted)
+                    break
+                continuing = await self._run_step(session_id, rec, step)
+                step, steps, force, entering = step + 1, steps + 1, False, False
+        except (RunInterrupted, asyncio.CancelledError) as exc:
+            rec.idle("interrupted")
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            return DrainResult("interrupted", steps)
+        except BaseException as exc:  # noqa: BLE001 - recorded on the session; callers read DrainResult
+            error = to_session_error(exc)
+            log.warning("session %s failed: %s", session_id, error.message)
+            rec.idle("failed", error)
+            return DrainResult("failed", steps, error)
+
+    async def _manual_compaction(self, session_id: str) -> None:
+        """A /compact request: summarize the older history now, whatever the window says."""
+        _, loaded = self.context.context(session_id)
+        outcome = await self.compaction.compact(C.Trigger("manual", loaded))
+        if outcome.status == "failed":
+            raise StepFailedError(outcome.error)  # type: ignore[arg-type]
+
+    async def _drain_steps(self, session_id: str) -> DrainResult:
         rec = Recorder(self.store, session_id, self.observer)
         self.settle_stale_compactions(session_id)
         self.settle_stale_tool_calls(session_id, rec)

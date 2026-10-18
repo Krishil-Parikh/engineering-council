@@ -62,6 +62,17 @@ create table if not exists permission_saved (
   primary key (project, action, resource)
 );
 
+create table if not exists session_inbox (
+  id text primary key,
+  session_id text not null references session(id) on delete cascade,
+  type text not null,
+  payload text not null,
+  delivery text not null,
+  enqueued_seq integer not null,
+  time_created integer not null
+);
+create index if not exists session_inbox_session_idx on session_inbox(session_id, enqueued_seq);
+
 create table if not exists worktree (
   project_id text not null,
   directory text not null,

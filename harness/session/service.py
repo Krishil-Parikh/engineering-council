@@ -1,8 +1,14 @@
-"""Sessions as the tools and the team engine use them: create, prompt, run, interrupt (opencode: packages/core/src/session.ts).
+"""Sessions as the tools and the team engine use them: create, prompt, run, interrupt (opencode: packages/core/src/session.ts and execution.ts).
 
-One run per session at a time. `prompt` only records the user's message; `resume` runs the session until it is idle (joining the run
-already in flight, if any); `synthetic` records a system-originated message (a background command or subagent finishing) and, unless told
-not to, wakes the session so the model sees it. `interrupt` cancels the run in flight."""
+Running is owned by a `RunCoordinator`: one execution per session, any number of sessions at once. `resume` runs a session to idle (joining the
+run already in flight); `wake` is the doorbell for new work. With an inbox, input is not appended to a busy session but waits there:
+
+  send(..., delivery="steer")   taken at the next step boundary of the run in progress
+  send(..., delivery="queue")   answered after the current work, when the session is idle
+  compact()                     summarize the older history now (no model answer follows)
+  synthetic()                   a notice from the system (a background command or subagent finished); steered, so a busy parent sees it at once
+
+Without an inbox (a bare runner, as in some tests) `prompt` and `synthetic` record the message directly and a wake simply runs the session."""
 
 from __future__ import annotations
 
@@ -11,6 +17,8 @@ import os
 from typing import Any, Optional
 
 from harness.schema import message as M
+from harness.session.inbox import InboxItem, SessionInbox
+from harness.session.run_coordinator import ExecutionInterrupted, RunCoordinator
 from harness.session.runner.runner import DrainResult, SessionRunner
 from harness.session.store import SessionInfo, SessionStore
 
@@ -22,10 +30,24 @@ class SessionNotFoundError(Exception):
 
 
 class SessionService:
-    def __init__(self, store: SessionStore, runner: SessionRunner, directory: str) -> None:
+    def __init__(self, store: SessionStore, runner: SessionRunner, directory: str, inbox: Optional[SessionInbox] = None) -> None:
         self.store, self.runner, self.directory = store, runner, directory
-        self._runs: dict[str, asyncio.Task] = {}
-        self._wakes: set[asyncio.Task] = set()
+        self.inbox: Optional[SessionInbox] = inbox if inbox is not None else getattr(runner, "inbox", None)
+        self._results: dict[str, DrainResult] = {}
+        self.coordinator: RunCoordinator[str] = RunCoordinator(self._drain, started=self._started)
+
+    async def _started(self, session_id: str) -> None:
+        self._results.pop(session_id, None)  # a new busy period reports only its own work
+
+    async def _drain(self, session_id: str, force: bool, scope: str) -> None:
+        """One busy period can drain several times (input arrived mid-run). Its result adds them up and keeps the worst outcome."""
+        result = await self.runner.drain(session_id, force, scope)
+        before = self._results.get(session_id)
+        if before is not None:
+            rank = {"succeeded": 0, "interrupted": 1, "failed": 2}
+            worst = result if rank.get(result.outcome, 0) >= rank.get(before.outcome, 0) else before
+            result = DrainResult(worst.outcome, before.steps + result.steps, worst.error or before.error or result.error)
+        self._results[session_id] = result
 
     # ------------------------------------------------------------------ records
 
@@ -39,9 +61,8 @@ class SessionService:
                model: Optional[M.ModelRef] = None, directory: Optional[str] = None) -> SessionInfo:
         if parent_id is not None:
             self.get(parent_id)
-        info = self.store.create(directory or self.directory, agent=agent, model=model.model_dump(exclude_none=True) if model else None,
+        return self.store.create(directory or self.directory, agent=agent, model=model.model_dump(exclude_none=True) if model else None,
                                  parent_id=parent_id, title=title)
-        return info
 
     def switch_agent(self, session_id: str, agent: str) -> None:
         info = self.get(session_id)
@@ -74,67 +95,100 @@ class SessionService:
             items.reverse()
         return items[:limit] if limit is not None else items
 
+    # ------------------------------------------------------------------ input
+
     def prompt(self, session_id: str, text: str) -> M.User:
+        """Records the user's message directly. For a session that may be busy use `send`, which goes through the inbox."""
         self.get(session_id)
         msg = M.User(text=text)
         self.store.add(session_id, msg)
         return msg
 
-    def synthetic(self, session_id: str, text: str, description: Optional[str] = None, metadata: Optional[dict[str, Any]] = None,
-                  resume: bool = True) -> M.Synthetic:
+    def send(self, session_id: str, text: str, delivery: str = "queue", wake: bool = True) -> Any:
+        """Accepts input for a possibly busy session. Returns the inbox item (or, without an inbox, the recorded message)."""
         self.get(session_id)
-        msg = M.Synthetic(text=text, description=description, metadata=metadata)
-        self.store.add(session_id, msg)
+        if self.inbox is None:
+            msg = self.prompt(session_id, text)
+            if wake:
+                self.wake(session_id)
+            return msg
+        item = self.inbox.admit(session_id, "user", {"text": text}, delivery)
+        if wake:
+            self.wake(session_id, "steer" if delivery == "steer" else "input")
+        return item
+
+    def synthetic(self, session_id: str, text: str, description: Optional[str] = None, metadata: Optional[dict[str, Any]] = None,
+                  resume: bool = True) -> Any:
+        """A notice from the system. With an inbox it is steered: a running session sees it at its next step, an idle one is woken."""
+        self.get(session_id)
+        if self.inbox is None:
+            msg = M.Synthetic(text=text, description=description, metadata=metadata)
+            self.store.add(session_id, msg)
+            if resume:
+                self.wake(session_id)
+            return msg
+        item = self.inbox.admit(session_id, "synthetic", {"text": text, "description": description, "metadata": metadata}, "steer")
         if resume:
-            self.wake(session_id)
-        return msg
+            self.wake(session_id, "steer")
+        return item
+
+    def cancel_input(self, session_id: str, item_id: str) -> None:
+        self._inbox().cancel(session_id, item_id)
+
+    def steer(self, session_id: str, item_id: str) -> None:
+        """Changes a queued item to be taken at the next step boundary (and wakes an idle session)."""
+        self._inbox().steer(session_id, item_id)
+        self.wake(session_id, "steer")
+
+    def queue(self, session_id: str, item_id: str) -> None:
+        self._inbox().queue(session_id, item_id)
+
+    def pending_input(self, session_id: str) -> list[InboxItem]:
+        return self._inbox().list(session_id)
+
+    def _inbox(self) -> SessionInbox:
+        if self.inbox is None:
+            raise RuntimeError("this session service has no inbox")
+        return self.inbox
 
     # ------------------------------------------------------------------ running
 
     def running(self, session_id: str) -> bool:
-        task = self._runs.get(session_id)
-        return task is not None and not task.done()
+        return self.coordinator.is_active(session_id)
 
-    def _start(self, session_id: str) -> asyncio.Task:
-        task = self._runs.get(session_id)
-        if task is not None and not task.done():
-            return task
-        task = asyncio.ensure_future(self.runner.drain(session_id))
-        self._runs[session_id] = task
-        task.add_done_callback(lambda t, sid=session_id: self._runs.pop(sid, None) if self._runs.get(sid) is t else None)
-        return task
+    def active(self) -> set[str]:
+        return self.coordinator.active()
 
     async def resume(self, session_id: str) -> DrainResult:
         """Runs the session to idle, or joins the run already in flight. Raises CancelledError if the run was interrupted."""
         self.get(session_id)
-        return await asyncio.shield(self._start(session_id))
-
-    def wake(self, session_id: str) -> None:
-        """Starts the session if idle; a running session reads the new message on its next step."""
-        if self.running(session_id):
-            return
-        task = asyncio.ensure_future(self._wake(session_id))
-        self._wakes.add(task)
-        task.add_done_callback(self._wakes.discard)
-
-    async def _wake(self, session_id: str) -> None:
         try:
-            await self.resume(session_id)
-        except asyncio.CancelledError:
-            pass
+            await self.coordinator.run(session_id)
+        except ExecutionInterrupted:
+            raise asyncio.CancelledError() from None
+        return self._results.get(session_id, DrainResult("succeeded", 0))
 
-    async def interrupt(self, session_id: str) -> None:
-        task = self._runs.get(session_id)
-        if task is None or task.done():
-            return
-        task.cancel()
-        try:
-            await task
-        except (asyncio.CancelledError, Exception):  # noqa: BLE001 - the run records its own outcome
-            pass
+    def wake(self, session_id: str, scope: str = "input") -> None:
+        """The doorbell: an idle session starts if it has input it may take; a busy one drains again before it settles."""
+        self.coordinator.wake(session_id, scope)
+
+    async def compact(self, session_id: str) -> DrainResult:
+        """Summarizes the older history now. Goes through the inbox so it takes its turn at a step boundary; no model answer follows it."""
+        self.get(session_id)
+        self._inbox().admit_compaction(session_id, "steer")
+        self.wake(session_id, "steer")
+        await self.coordinator.await_idle(session_id)
+        return self._results.get(session_id, DrainResult("succeeded", 0))
+
+    async def interrupt(self, session_id: str, reason: str = "user", resume: bool = False) -> bool:
+        """Stops the run in flight. With `resume`, input the interrupted run was about to take (steers, a compaction) carries on in a fresh one;
+        queued follow-ups stay parked."""
+        interrupted = await self.coordinator.interrupt(session_id, reason, await_settlement=True)
+        if resume and self.inbox is not None:
+            nxt = self.inbox.next_promotable(session_id, "input")
+            if nxt is not None and (nxt.delivery == "steer" or nxt.type == "compaction"):
+                self.wake(session_id, "steer")
+        return interrupted
 
     async def close(self) -> None:
-        for sid in list(self._runs):
-            await self.interrupt(sid)
-        for task in list(self._wakes):
-            task.cancel()
+        await self.coordinator.close()

@@ -37,6 +37,7 @@ from harness.schema import message as M
 from harness.schema.permission import Request, Ruleset
 from harness.session import compaction as C
 from harness.session.context import SessionContext
+from harness.session.inbox import SessionInbox
 from harness.session.instructions import SessionInstructions
 from harness.session.runner.runner import SessionRunner
 from harness.session.service import SessionService
@@ -93,6 +94,7 @@ class Harness:
         agents: Optional[list[Agent]] = None, rules: Optional[Ruleset] = None, default_agent: Optional[str] = None,
     ) -> None:
         self.on_event = on_event or (lambda kind, data: None)
+        self.input_hooks: list[Callable[[str, int], None]] = []
         self.approve = approve
         self.model_id = model or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
         self.location = Location.of(directory)
@@ -123,15 +125,16 @@ class Harness:
 
         self.registry = ToolRegistry()
         self.tool_output = ToolOutput(self.paths.data / "tool-output")
+        self.inbox = SessionInbox(self.db, lambda kind, data: self.on_event(kind, data))
         self.runner = SessionRunner(
             store=self.store, llm=self.llm, compaction=C.Compaction(self.store, self.llm, settings=compaction or C.Settings()), tool_output=self.tool_output,
             context=SessionContext(
                 self.store, self.location, self.paths, InstructionDiscovery(self.location, self.paths, self.config), self.skills,
                 resolve_agent=self._resolve_agent, resolve_model=self._resolve_model, tools_for=self.registry.snapshot,
             ),
-            snapshots=self.snapshots, observer=self.on_event,
+            snapshots=self.snapshots, observer=self.on_event, inbox=self.inbox, on_input=self._input_became_visible,
         )
-        self.sessions = SessionService(self.store, self.runner, str(self.location.directory))
+        self.sessions = SessionService(self.store, self.runner, str(self.location.directory), self.inbox)
         self.subagent_jobs = SubagentJobs(self.sessions, self.jobs)
         self.commands = CommandService(self.sessions, self.agents, self.location.directory, self.config, self.location.project_directory, self.subagent_jobs)
         self.deps = ToolDeps(
@@ -196,6 +199,11 @@ class Harness:
             self.permission.reply(request.id, choice, message)
         except Exception:  # noqa: BLE001 - already answered (for example by a batch rejection)
             pass
+
+    def _input_became_visible(self, session_id: str, count: int) -> None:
+        """Hook for work that starts once a session has something to talk about (a title, for instance)."""
+        for fn in self.input_hooks:
+            fn(session_id, count)
 
     # ------------------------------------------------------------------ use
 
