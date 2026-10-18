@@ -227,7 +227,7 @@ def test_a_rate_limit_before_any_output_is_retried_on_the_same_assistant_message
     res = r.prompt()
     assert res.outcome == "succeeded" and len(r.llm.requests) == 3
     assert len(r.assistants()) == 1 and r.assistants()[0].content[0].text == "finally" and r.assistants()[0].retry is None
-    assert len(r.slept) == 2 and r.slept[0] >= 3.0  # retry-after raises the delay
+    assert len(r.slept) == 2 and r.slept[0] >= 2.9  # retry-after (3s) raises the delay; the wait is measured from the clock so allow a few ms
     assert [k for k, _ in r.observed].count("retry.scheduled") == 2
 
 
