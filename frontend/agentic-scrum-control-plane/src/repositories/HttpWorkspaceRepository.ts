@@ -29,7 +29,7 @@ export class HttpWorkspaceRepository implements WorkspaceRepository {
 
   constructor(
     private readonly baseUrl: string,
-    private readonly fetcher: typeof fetch = fetch,
+    private readonly fetcher: typeof fetch = (input, init) => fetch(input, init), // a bare `fetch` property throws "Illegal invocation" when called as a method
     private readonly eventSourceFactory: EventSourceFactory = (url) => new EventSource(url),
     options: HttpRepositoryOptions = {},
   ) {

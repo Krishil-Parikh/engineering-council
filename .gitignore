@@ -14,3 +14,4 @@ Engineering_Council_System_Prompts*
 # the web gateway keeps its event log here; the frontend archive it was unpacked from is not part of the repository
 .gateway/
 Azure_Agent-main.zip
+frontend/agentic-scrum-control-plane/e2e-live/screenshots/
