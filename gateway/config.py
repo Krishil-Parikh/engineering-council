@@ -26,6 +26,7 @@ class GatewaySettings:
     unattended: bool = False  # approve every decision automatically (tests only)
     repair_rounds: int = 2  # rounds the team may spend fixing failing verification before the final branch
     rate_per_minute: int = 120  # commands per workspace
+    heartbeat_seconds: float = 20.0  # how often a running workspace says what it is doing (0 = never)
     replay_window: int = 200  # recent events a new stream subscriber is replayed
 
     def __post_init__(self) -> None:

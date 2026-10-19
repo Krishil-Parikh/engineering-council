@@ -96,6 +96,7 @@ class WorkspaceRun:
 
     def set_phase(self, phase: str) -> None:
         if phase in PHASES and self.p.phase != phase:
+            log.info("phase: %s -> %s", self.p.phase, phase)
             self.p.emit("phase.changed", {"phaseId": phase})
             self.phase_log.append(phase)
 
@@ -138,6 +139,7 @@ class WorkspaceRun:
             inp = inp.model_copy(update={"project_name": f"{name} {time.strftime('%Y%m%d-%H%M%S')}"})
         self.meeting_dir = meeting_dir(inp)
         self.state = "meeting"
+        log.info("NEW PROJECT \"%s\"  repo=%s  constraints=%d  output=%s", self.project_name, target or "(none: built locally)", len(inp.constraints), self.meeting_dir)
         self.set_phase("brainstorm")
         n = self.narrator
         n.meet(KICKOFF, f"Kickoff meeting: {self.project_name}", "live")
@@ -148,11 +150,15 @@ class WorkspaceRun:
     async def _run(self, inp: Any) -> None:
         n = self.narrator
         try:
+            log.info("pod meeting starting (the team reads the problem and the repository, then asks you questions)")
             await self._meeting(inp)
+            log.info("pod meeting finished; documents are waiting for you to accept")
             await self._build(inp)
+            log.info("run finished: final branch is ready")
             self.state = "done"
         except asyncio.CancelledError:
             self.state = "stopped"
+            log.warning("run stopped")
             n.system("team", "The run was stopped.")
             raise
         except Exception as exc:  # noqa: BLE001 - shown to the person; the workspace stays usable
@@ -203,6 +209,7 @@ class WorkspaceRun:
             self.meeting_dir, self.meeting_dir / "team", llm=self.deps.team_llm, api_key=getattr(meeting_settings, "api_key", None),
             model=getattr(meeting_settings, "model", None), source=source, config=config, on_event=bridge.handle,
         )
+        log.info("build starting (the team branches from: %s)", source or "a new project")
         self.engine, self.state = engine, "building"
         for note in self.queued_notes:
             if engine.agile is not None:

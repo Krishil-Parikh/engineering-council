@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from gateway.logs import one_line
 from gateway.models import Question
 from gateway.narrator import SCRUM_MASTER_ID, SME_ID, ROLE_TITLES, Narrator, agent_id, clip
 from meetings.meeting import Reporter
@@ -51,6 +52,7 @@ class Questions:
         card = Question(id=qid, context=clip(context, 1500), kind=kind, options=options, recommended=recommended)  # type: ignore[arg-type]
         self.n.say(meet_key, "scrum-master", text, kind="question", question=card)
         self.n.agent("human", status="speaking", activeTask="Waiting for your answer")
+        log.warning("WAITING FOR YOU [%s/%s]: %s  options=%s", kind, qid, one_line(text, 140), options)
         return qid
 
     def find(self, question_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[Pending]:
@@ -64,6 +66,7 @@ class Questions:
         if item is None:
             return None
         self.pending.pop(item.id, None)
+        log.info("you answered [%s]: %s", item.id, one_line(text, 100))
         self.n.say(item.meet_key, "human", text, kind="answer", answers=item.id)
         if not self.pending:
             self.n.agent("human", status="idle", activeTask=None)
@@ -137,9 +140,11 @@ class MeetingBridge(Reporter):
     def stage(self, n: int, label: str) -> None:
         self.run.set_phase("brainstorm")
         self._meet("live")
+        log.info("meeting [%s/10] %s", n, label)
         self.n.system(KICKOFF, f"[{n}/10] {label}")
 
     def say(self, who: str, text: str) -> None:
+        log.info("  %s: %s", who, one_line(text))
         self.n.say(KICKOFF, who, text)
 
     def publish(self, kind: str, who: str, title: str, body: str) -> None:
@@ -148,9 +153,11 @@ class MeetingBridge(Reporter):
         elif kind == "decision":
             self.decisions += 1
         self._meet("live")
+        log.info("  %s %s: %s", who, kind, one_line(title))
         self.n.say(KICKOFF, who, f"{title}\n\n{body}" if body and body.strip() != title.strip() else title)
 
     def roster(self, skills: dict[str, str]) -> None:
+        log.info("  roster: %s", ", ".join(f"{dev}={skill}" for dev, skill in skills.items()))
         counts: dict[str, int] = {}
         for dev, skill in skills.items():
             counts[skill] = counts.get(skill, 0) + 1
@@ -161,9 +168,11 @@ class MeetingBridge(Reporter):
         self.n.system(KICKOFF, "Skills taken: " + ", ".join(f"{dev} → {skill.title()}" for dev, skill in skills.items()))
 
     def note(self, text: str) -> None:
+        log.info("  note: %s", one_line(text, 200))
         self.n.system(KICKOFF, text)
 
     def warn(self, text: str) -> None:
+        log.warning("  warning: %s", one_line(text, 300))
         self.n.system(KICKOFF, f"Warning: {text}")
 
     async def ask(self, questions: list[HumanQuestion], interactive: bool, input_fn: Callable[[str], str]) -> list[Answer]:
@@ -282,11 +291,30 @@ class TeamBridge:
     # -- the stream
     def handle(self, kind: str, data: dict) -> None:
         if ":" in kind and kind.split(":", 1)[0].upper().startswith(("DEV_", "INTEGRATOR")):
-            return  # a developer's harness chatter (every message and tool call); the ceremonies and tasks above are what the browser shows
+            log.debug("%s %s", kind, one_line(data, 200))  # a developer's harness chatter (every message and tool call): shown with --log-level DEBUG
+            return  # the ceremonies and tasks are what the browser shows
+        self._log(kind, data)
         try:
             self._handle(kind, data)
         except Exception:  # noqa: BLE001 - a display problem must never stop the build
             log.exception("could not translate %s", kind)
+
+    @staticmethod
+    def _log(kind: str, data: dict) -> None:
+        try:
+            from team.events import describe
+
+            described = describe(kind, data)
+        except Exception:  # noqa: BLE001 - logging must never get in the way
+            described = None
+        if described is None:
+            log.debug("team event %s", kind)
+            return
+        level, text = described
+        lines = [line for line in text.splitlines() if line.strip()]
+        head = one_line(lines[0], 200) if lines else kind
+        more = f"  (+{len(lines) - 1} lines)" if len(lines) > 1 else ""
+        log.log(logging.WARNING if level in ("warn", "warning", "error") else logging.INFO, "team: %s%s", head, more)
 
     def _handle(self, kind: str, d: dict) -> None:
         n, run = self.n, self.run

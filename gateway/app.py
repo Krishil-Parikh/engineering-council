@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,9 +24,13 @@ from fastapi.staticfiles import StaticFiles
 
 from gateway import commands
 from gateway.config import GatewaySettings
+from gateway.logs import heartbeat_line, one_line
 from gateway.models import validate_command
 from gateway.projection import Projection
 from gateway.runner import Conflict, Deps, WorkspaceRun, default_deps
+
+
+log = logging.getLogger("gateway")
 
 
 class Hub:
@@ -67,6 +72,16 @@ class Hub:
             await run.stop()
 
 
+async def heartbeat(hub: "Hub", seconds: float) -> None:
+    """While a run is going, says so every few seconds, and says what it is waiting for when it goes quiet."""
+    while seconds > 0:
+        await asyncio.sleep(seconds)
+        for run in list(hub.runs.values()):
+            line = heartbeat_line(run)
+            if line is not None:
+                log.log(line[0], "[%s] %s", run.workspace_id, line[1])
+
+
 def problem(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}, "detail": message})
 
@@ -81,7 +96,9 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.hub = Hub(settings, deps or default_deps())
+        beat = asyncio.ensure_future(heartbeat(app.state.hub, settings.heartbeat_seconds))
         yield
+        beat.cancel()
         await app.state.hub.close()
 
     app = FastAPI(title="Engineering Council gateway", version="0.1.0", lifespan=lifespan)
@@ -129,9 +146,14 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
             return problem(400, "invalid_command", "workspaceId does not match the URL.")
         if not request.app.state.hub.allow(workspace_id):
             return problem(429, "rate_limited", "Too many commands; slow down.")
+        summary = one_line({k: v for k, v in body.items() if k not in ("workspaceId", "type")}, 140)
+        log.info("browser -> %s %s", body["type"], summary)
         try:
-            return (await commands.execute(run, body)).dump()
+            result = await commands.execute(run, body)
+            log.info("   %s", "accepted" if result.accepted else f"declined: {result.note or 'not possible right now'}")
+            return result.dump()
         except Conflict as exc:
+            log.warning("   refused (409): %s", exc)
             return problem(409, "conflict", str(exc))
 
     @app.get("/workspace/{workspace_id}/events")
@@ -141,6 +163,7 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
             return error
         assert run is not None
         queue = run.p.subscribe()  # subscribe before reading the backlog, so nothing falls between the two
+        log.info("browser connected to the event stream (%d watching)", len(run.p._subscribers))
         backlog = run.p.recent(settings.replay_window)
 
         def frame(event: dict[str, Any]) -> str:
@@ -166,6 +189,7 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
                         yield frame(event)
             finally:
                 run.p.unsubscribe(queue)
+                log.info("browser left the event stream (%d watching)", len(run.p._subscribers))
 
         return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 

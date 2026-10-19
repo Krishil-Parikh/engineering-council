@@ -30,6 +30,7 @@ class Projection:
         self.workspace_id = workspace_id
         self.window, self.max_messages = window, max_messages
         self.version = 0
+        self.last_event_at = time.monotonic()  # when anything last happened (the heartbeat reports a long silence)
         self.phase = "kickoff"
         self.agents: dict[str, dict[str, Any]] = {}
         self.messages: list[dict[str, Any]] = []
@@ -90,6 +91,7 @@ class Projection:
             "version": self.version + 1, "type": kind, "payload": payload,
         }
         self.apply(event)
+        self.last_event_at = time.monotonic()
         if self._log_path is not None:
             self._log_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self._log_path, "a", encoding="utf-8") as fh:

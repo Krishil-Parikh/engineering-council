@@ -8,6 +8,7 @@ The terminal interface (`python -m council run`) is unchanged and can be used at
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -42,6 +43,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--repo", default=base.repo, help="a repository to build on and publish to when a brief does not name one")
     p.add_argument("--token", default=base.token, help="require this token on every request (Bearer header, or ?token= for the event stream)")
     p.add_argument("--no-a2a", action="store_true", help="call the model in-process instead of over A2A (not recommended)")
+    p.add_argument("--log-level", default=os.environ.get("GATEWAY_LOG_LEVEL", "INFO"), choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="what is printed (default INFO; DEBUG also shows every developer tool call)")
+    p.add_argument("--verbose", action="store_true", help="same as --log-level DEBUG")
+    p.add_argument("--heartbeat", type=float, default=base.heartbeat_seconds, help="seconds between 'still running' lines while a run is going (0 = never)")
     p.add_argument("--fresh", action="store_true", help="forget the saved history of the workspace: start on a blank screen (the output folder is not touched)")
     p.add_argument("--no-memory", action="store_true", help="neither use nor update cross-project memory")
     args = p.parse_args(argv)
@@ -64,6 +68,11 @@ def main(argv: list[str] | None = None) -> int:
     if settings.host not in ("127.0.0.1", "localhost", "::1") and not settings.token:
         print("Refusing to listen on a public address without --token: anyone who can reach it could start runs on your API key.", file=sys.stderr)
         return 1
+    from gateway.logs import setup_logging
+
+    log_file = settings.data_dir / "gateway.log"
+    setup_logging("DEBUG" if args.verbose else args.log_level, log_file)
+    settings.heartbeat_seconds = args.heartbeat
     if args.fresh:
         import shutil
 
@@ -78,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Frontend: {where}/")
     else:
         print("Frontend: run `npm run dev` in frontend/agentic-scrum-control-plane with VITE_TRANSPORT=http-sse and VITE_API_BASE_URL=" + where)
-    uvicorn.run(create_app(settings), host=settings.host, port=settings.port, log_level="warning")
+    print(f"Logs: printed here and kept in {log_file}   (more detail: --verbose; quieter: --log-level WARNING)")
+    uvicorn.run(create_app(settings), host=settings.host, port=settings.port, log_level="warning", access_log=False)
     return 0
 
 
