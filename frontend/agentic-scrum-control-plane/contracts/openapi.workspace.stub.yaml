@@ -1,0 +1,206 @@
+openapi: 3.1.0
+info:
+  title: Agentic Scrum Workspace API (stub)
+  version: 0.1.0
+  description: >
+    Stub contract for the workspace transport consumed by
+    HttpWorkspaceRepository. Mirrors docs/backend-contract.md.
+    Pagination, rate limits, and event retention are TBD.
+servers:
+  - url: '{baseUrl}'
+    variables:
+      baseUrl:
+        default: https://api.example.test
+paths:
+  /workspace/{workspaceId}/snapshot:
+    get:
+      operationId: getWorkspaceSnapshot
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Full canonical snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '401':
+          $ref: '#/components/responses/PermissionDenied'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /workspace/{workspaceId}/commands:
+    post:
+      operationId: executeWorkspaceCommand
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceCommand'
+      responses:
+        '200':
+          description: Command accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+        '400':
+          description: Validation failure (machine-readable error).
+        '401':
+          $ref: '#/components/responses/PermissionDenied'
+        '403':
+          $ref: '#/components/responses/PermissionDenied'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Version conflict.
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /workspace/{workspaceId}/events:
+    get:
+      operationId: subscribeWorkspaceEvents
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: SSE (or WebSocket) stream of WorkspaceEvent frames.
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/WorkspaceEvent'
+components:
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    PermissionDenied:
+      description: 401 Unauthorized or 403 Forbidden.
+    NotFound:
+      description: 404 unknown workspace or entity.
+    RateLimited:
+      description: 429 rate limited.
+  schemas:
+    PhaseId:
+      type: string
+      enum: [kickoff, brainstorm, prd, build, review, ship]
+    WorkspaceEventBase:
+      type: object
+      required: [eventId, workspaceId, occurredAt, version]
+      properties:
+        eventId:
+          type: string
+        workspaceId:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+    WorkspaceEvent:
+      allOf:
+        - $ref: '#/components/schemas/WorkspaceEventBase'
+        - type: object
+          required: [type, payload]
+          properties:
+            type:
+              type: string
+              enum:
+                - agent.updated
+                - message.created
+                - phase.changed
+                - artifact.updated
+                - meet.updated
+                - metrics.updated
+                - skill.updated
+                - sprint.updated
+                - edge.updated
+            payload:
+              type: object
+    WorkspaceSnapshot:
+      type: object
+      required:
+        - workspaceId
+        - version
+        - phaseId
+        - agents
+        - messages
+        - artifacts
+        - meets
+        - processedEventIds
+        - metrics
+      properties:
+        workspaceId:
+          type: string
+        version:
+          type: integer
+        phaseId:
+          $ref: '#/components/schemas/PhaseId'
+        agents:
+          type: array
+          items:
+            type: object
+        messages:
+          type: array
+          items:
+            type: object
+        skills:
+          type: array
+          items:
+            type: object
+        artifacts:
+          type: array
+          items:
+            type: object
+        meets:
+          type: array
+          items:
+            type: object
+        sprints:
+          type: array
+          items:
+            type: object
+        edges:
+          type: array
+          items:
+            type: object
+        metrics:
+          type: object
+        processedEventIds:
+          type: array
+          items:
+            type: string
+    WorkspaceCommand:
+      type: object
+      required: [type, workspaceId]
+      properties:
+        type:
+          type: string
+          enum:
+            - sprint.start
+            - phase.advance
+            - agent.task.reassign
+            - message.create
+            - sme.directive.submit
+            - prd.accept
+            - debate.inject
+            - consensus.force
+        workspaceId:
+          type: string
+    CommandResult:
+      type: object
+      required: [accepted, commandId]
+      properties:
+        accepted:
+          type: boolean
+        commandId:
+          type: string

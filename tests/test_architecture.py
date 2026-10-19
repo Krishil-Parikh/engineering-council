@@ -6,6 +6,7 @@
   meetings     planning mode: the multi-agent meeting, documents, verification, TUI                            imports: council_a2a
   team         agent mode: autonomous developers, branches, merges, design meetings                            imports: harness, council_a2a, meetings, memory
   council      the application entry point that wires the modules together                                     imports: anything
+  gateway      the web API the frontend talks to; translates between the frontend contract and the modules       imports: anything
 """
 
 import ast
@@ -19,6 +20,7 @@ ALLOWED = {
     "meetings": {"meetings", "council_a2a"},
     "team": {"team", "harness", "council_a2a", "meetings", "memory"},
     "council": {"council", "harness", "council_a2a", "memory", "meetings", "team"},
+    "gateway": {"gateway", "council", "harness", "council_a2a", "memory", "meetings", "team"},
 }
 OURS = set(ALLOWED)
 

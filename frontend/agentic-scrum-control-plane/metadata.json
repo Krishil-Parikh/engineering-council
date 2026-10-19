@@ -1,0 +1,6 @@
+{
+  "name": "Agentic Scrum Control Plane",
+  "description": "Multi-agent SDLC orchestration system with generative phase progression, live delegation graph, PR-velocity sparkline, and developer agent bench.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

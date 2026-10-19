@@ -18,6 +18,8 @@ dependencies = [
     "tree-sitter-powershell>=0.26",
     "a2a-sdk[grpc]>=1.2",
     "culsans>=0.9",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +30,7 @@ engineering-council = "council.cli:main"
 coding-harness = "harness.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["meetings*", "harness*", "council_a2a*", "team*", "memory*", "council*"]
+include = ["meetings*", "harness*", "council_a2a*", "team*", "memory*", "council*", "gateway*"]
 
 [tool.setuptools.package-data]
 meetings = ["system_prompts/*.md"]

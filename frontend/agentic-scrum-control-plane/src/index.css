@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@source "./views/control-plane";
+
+@layer base {
+  :root {
+    --ubs-red: #E60000;
+    --ubs-ink: #161616;
+    --ubs-slate: #5B5B5B;
+    --ubs-slate-light: #8E8E8E;
+    --ubs-chalk: #F4F3EE;
+    --ubs-chalk-dark: #EAE9E2;
+    --ubs-paper: #FCFCFB;
+    --ubs-white: #FFFFFF;
+    --ubs-line: #E7E6DF;
+    --ubs-line-strong: #D5D3CA;
+    --ubs-border: rgba(22, 22, 22, 0.08);
+    --glass-bg: rgba(252, 252, 251, 0.88);
+    --shadow-01: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+    --shadow-02: 0 4px 16px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+    --shadow-glow: 0 0 18px rgba(230, 0, 0, 0.35);
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--ubs-paper);
+    color: var(--ubs-ink);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.deck-shell,
+.deck-shell > div {
+  height: calc(100vh - 2.75rem);
+}
+
+/* Keep the desktop deck proportions, but give the embedded workspace room to breathe. */
+@media (max-width: 1100px) {
+  .deck-shell aside.w-\[232px\],
+  .deck-shell aside.w-\[320px\] {
+    display: none;
+  }
+
+  .deck-shell main {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .deck-shell aside.w-\[64px\] {
+    display: none;
+  }
+}
+
+/* Control Plane canvas primitives, kept local so its layout shares one global cascade. */
+.react-flow__attribution {
+  display: none !important;
+}
+
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background: var(--ubs-ink) !important;
+  border: 2px solid var(--ubs-paper) !important;
+}
+
+/* React Flow custom tweaks for clean aesthetic */
+.react-flow__attribution {
+  display: none !important;
+}
+
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 9999px !important;
+  background: var(--ubs-ink) !important;
+  border: 2px solid var(--ubs-paper) !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ubs-line-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ubs-slate);
+}
+
+/* Control Plane utilities, owned by the host cascade (v2 Phase 1).
+   Moved here so deleting the sibling project changes zero pixels. */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+}
+
+.live-pulse {
+  animation: liveGlowPulse 2.2s infinite ease-in-out;
+}
+
+@keyframes liveGlowPulse {
+  0% {
+    box-shadow: 0 0 0px rgba(230,0,0,0.0);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(230,0,0,0.35);
+  }
+  100% {
+    box-shadow: 0 0 0px rgba(230,0,0,0.0);
+  }
+}
+
+.edge-pulse {
+  stroke-dasharray: 8 6;
+  animation: edgeDash 1.2s linear infinite;
+}
+
+@keyframes edgeDash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+

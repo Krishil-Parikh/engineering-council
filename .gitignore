@@ -10,3 +10,7 @@ dist/
 
 # user-supplied prompt pack source (packaged copy lives in engineering_council/system_prompts)
 Engineering_Council_System_Prompts*
+
+# the web gateway keeps its event log here; the frontend archive it was unpacked from is not part of the repository
+.gateway/
+Azure_Agent-main.zip

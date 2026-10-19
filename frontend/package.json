@@ -1,0 +1,14 @@
+{
+  "name": "agentic-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Facade for the single frontend project (agentic-scrum-control-plane). All scripts delegate there.",
+  "scripts": {
+    "setup": "npm --prefix agentic-scrum-control-plane install --legacy-peer-deps",
+    "dev": "npm --prefix agentic-scrum-control-plane run dev",
+    "build": "npm --prefix agentic-scrum-control-plane run build",
+    "lint": "npm --prefix agentic-scrum-control-plane run lint",
+    "test": "npm --prefix agentic-scrum-control-plane run test",
+    "test:e2e": "npm --prefix agentic-scrum-control-plane run test:e2e"
+  }
+}
