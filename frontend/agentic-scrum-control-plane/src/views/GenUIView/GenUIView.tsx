@@ -170,11 +170,11 @@ export function GenUIView() {
     void executeCommand({ type: 'phase.advance', workspaceId, phaseId: nextPhase });
   }, [executeCommand, workspaceId]);
 
-  const handleKickoffSubmit = (briefTitle: string, briefContent: string) => {
+  const handleKickoffSubmit = (briefTitle: string, briefContent: string, repo?: string, constraints?: string[]) => {
     if (live) {
       // The backend starts the meeting and narrates it; the screen follows the phase it reports.
       setToastMessage('The team is starting the kickoff meeting.');
-      void executeCommand({ type: 'sprint.start', workspaceId, brief: briefContent, ...(briefTitle ? { title: briefTitle } : {}) });
+      void executeCommand({ type: 'sprint.start', workspaceId, brief: briefContent, ...(briefTitle ? { title: briefTitle } : {}), ...(repo ? { repo } : {}), ...(constraints?.length ? { constraints } : {}) });
       return;
     }
     setToastMessage(`Meet 01 started — Problem: ${briefTitle.slice(0, 32)}...`);

@@ -21,7 +21,7 @@ async def execute(run: WorkspaceRun, command: dict[str, Any]) -> CommandResult:
     kind = command["type"]
     n = run.narrator
     if kind == "sprint.start":
-        await run.start(command["brief"], command.get("title"), command.get("repo"))
+        await run.start(command["brief"], command.get("title"), command.get("repo"), command.get("constraints"))
         return result(True)
 
     if kind == "sme.directive.submit":

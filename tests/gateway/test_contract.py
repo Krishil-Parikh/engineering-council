@@ -39,6 +39,7 @@ def test_unknown_workspaces_are_404_and_the_error_is_machine_readable(client):
 
 @pytest.mark.parametrize("body, message", [
     ({"type": "sprint.start", "brief": "   "}, "brief is required"),
+    ({"type": "sprint.start", "brief": "x", "constraints": "not a list"}, "constraints must be a list of strings"),
     ({"type": "phase.advance", "phaseId": ""}, "phaseId is required"),
     ({"type": "agent.task.reassign", "agentId": "", "task": "x"}, "agentId is required"),
     ({"type": "agent.task.reassign", "agentId": "a", "task": " "}, "task is required"),

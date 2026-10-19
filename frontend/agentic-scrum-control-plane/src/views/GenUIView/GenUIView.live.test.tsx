@@ -45,6 +45,27 @@ describe('GenUIView with a real backend', () => {
     expect(repository.commands).toEqual([{ type: 'sprint.start', workspaceId: WORKSPACE, brief: 'A habit tracker with a CLI.', title: 'Habitly' }]);
   });
 
+  it('sends the GitHub repository when one is given, so the result is published there', async () => {
+    const repository = renderLive();
+    fireEvent.change(await screen.findByLabelText('GitHub repository'), { target: { value: ' https://github.com/me/habitly ' } });
+    fireEvent.change(screen.getByLabelText('Project brief'), { target: { value: 'A habit tracker.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Start the meet/ }));
+    await waitFor(() => expect(repository.commandsOfType('sprint.start')).toHaveLength(1));
+    expect(repository.commands[0]).toMatchObject({ type: 'sprint.start', brief: 'A habit tracker.', repo: 'https://github.com/me/habitly' });
+  });
+
+  it('sends constraints one per line and loads a problem file into the brief', async () => {
+    const repository = renderLive();
+    const file = new File(['# Habit tracker\nTrack daily habits.'], 'problem.md', { type: 'text/markdown' });
+    fireEvent.change(await screen.findByLabelText('Problem file'), { target: { files: [file] } });
+    await waitFor(() => expect((screen.getByLabelText('Project brief') as HTMLTextAreaElement).value).toContain('Track daily habits.'));
+    expect(screen.getByText(/Loaded problem.md/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Constraints'), { target: { value: 'Python only\n\n no network ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Start the meet/ }));
+    await waitFor(() => expect(repository.commandsOfType('sprint.start')).toHaveLength(1));
+    expect(repository.commands[0]).toMatchObject({ type: 'sprint.start', constraints: ['Python only', 'no network'] });
+  });
+
   it('shows the meeting question with its own options and answers it by id', async () => {
     const repository = renderLive();
     await screen.findByLabelText('Project brief');

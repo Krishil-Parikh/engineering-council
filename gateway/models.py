@@ -179,7 +179,12 @@ def validate_command(command: Any) -> Optional[str]:
         return isinstance(value, str) and bool(value.strip())
 
     if kind == "sprint.start":
-        return None if text("brief") else "brief is required"
+        if not text("brief"):
+            return "brief is required"
+        constraints = command.get("constraints")
+        if constraints is not None and not (isinstance(constraints, list) and all(isinstance(c, str) for c in constraints)):
+            return "constraints must be a list of strings"
+        return None
     if kind == "phase.advance":
         return None if command.get("phaseId") in PHASES else "phaseId is required"
     if kind == "agent.task.reassign":

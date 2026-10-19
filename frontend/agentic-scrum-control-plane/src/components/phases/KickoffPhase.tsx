@@ -5,7 +5,7 @@ import { Agent } from '../../types';
 
 interface KickoffPhaseProps {
   agents: Agent[];
-  onStartMeet: (briefTitle: string, briefContent: string) => void;
+  onStartMeet: (briefTitle: string, briefContent: string, repo?: string, constraints?: string[]) => void;
   /** A real backend is attached: no canned brief, no pretend attachments. */
   live?: boolean;
 }
@@ -30,6 +30,10 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet,
     live ? '' : 'We need an ultra-low-latency SDLC orchestration engine where autonomous generic agents collaborate on PRDs, write integration contracts, and merge pull requests under Business SME supervision.'
   );
   const [projectTitle, setProjectTitle] = useState('');
+  const [repoUrl, setRepoUrl] = useState('');
+  const [constraintsText, setConstraintsText] = useState('');
+  const [problemFile, setProblemFile] = useState('');
+  const [fileError, setFileError] = useState('');
   const [activePreset, setActivePreset] = useState(0);
   const [attachedFiles, setAttachedFiles] = useState<string[]>(live ? [] : [
     'prd_template_v3.md',
@@ -47,13 +51,27 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet,
     setIsSubmitting(true);
     if (submitTimer.current) clearTimeout(submitTimer.current);
     submitTimer.current = setTimeout(() => {
-      onStartMeet(live ? projectTitle.trim() : (PRESET_BRIEFS[activePreset]?.title || 'System SDLC Sprint'), briefText);
+      onStartMeet(live ? projectTitle.trim() : (PRESET_BRIEFS[activePreset]?.title || 'System SDLC Sprint'), briefText, live ? repoUrl.trim() : undefined, live ? constraintsText.split('\n').map((line) => line.trim()).filter(Boolean) : undefined);
     }, 450);
+  };
+
+  const loadProblemFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 200_000) { setFileError(`${file.name} is too large (limit 200 KB).`); return; }
+    try {
+      const text = await file.text();
+      setBriefText(text);
+      setProblemFile(file.name);
+      setFileError('');
+    } catch {
+      setFileError(`Could not read ${file.name}.`);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
+    if (live) { void loadProblemFile(e.dataTransfer.files?.[0]); return; }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const names = Array.from(e.dataTransfer.files).map((f) => f.name);
       setAttachedFiles((prev) => [...prev, ...names]);
@@ -118,6 +136,15 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet,
             className="w-full mb-3 pb-2 text-sm font-semibold text-[#161616] bg-transparent border-0 border-b border-[#E7E6DF] focus:outline-none focus:border-[#161616] placeholder:font-normal placeholder:text-[#8E8E8E]"
           />
         )}
+        {live && (
+          <input
+            value={repoUrl}
+            onChange={(e) => setRepoUrl(e.target.value)}
+            aria-label="GitHub repository"
+            placeholder="GitHub repository URL (optional): build on it and publish to it"
+            className="w-full mb-3 pb-2 text-sm text-[#161616] bg-transparent border-0 border-b border-[#E7E6DF] focus:outline-none focus:border-[#161616] placeholder:text-[#8E8E8E]"
+          />
+        )}
         <label className="block text-xs font-semibold uppercase tracking-wider text-[#5B5B5B] mb-2 font-mono">
           Sprint Objective & Problem Definition
         </label>
@@ -129,6 +156,37 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet,
           placeholder="Describe the problem, target SLAs, schema constraints, or acceptance rules..."
           className="w-full text-sm text-[#161616] leading-relaxed bg-transparent border-0 focus:ring-0 focus:outline-none resize-none placeholder:text-[#8E8E8E]"
         />
+
+        {live && (
+          <div className="mt-3 pt-3 border-t border-[#E7E6DF]">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#5B5B5B] mb-2 font-mono" htmlFor="constraints-input">
+              Constraints
+            </label>
+            <textarea
+              id="constraints-input"
+              value={constraintsText}
+              onChange={(e) => setConstraintsText(e.target.value)}
+              rows={3}
+              aria-label="Constraints"
+              placeholder="One per line, e.g. Python only; no external services; must run offline"
+              className="w-full text-sm text-[#161616] leading-relaxed bg-transparent border-0 focus:ring-0 focus:outline-none resize-none placeholder:text-[#8E8E8E]"
+            />
+            <div className="mt-2 flex items-center gap-3 text-xs text-[#5B5B5B]">
+              <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#E7E6DF] bg-[#F4F3EE] hover:bg-[#EAE9E2] cursor-pointer">
+                <FileText size={12} /> Load a problem file (.md, .txt)
+                <input
+                  type="file"
+                  accept=".md,.markdown,.txt,text/plain,text/markdown"
+                  aria-label="Problem file"
+                  className="sr-only"
+                  onChange={(e) => { void loadProblemFile(e.target.files?.[0]); e.target.value = ''; }}
+                />
+              </label>
+              {problemFile && <span>Loaded {problemFile} into the brief; edit it above if needed.</span>}
+              {fileError && <span role="alert" className="text-[#E60000]">{fileError}</span>}
+            </div>
+          </div>
+        )}
 
         {/* Attached Files Strip */}
         {!live && <div className="mt-4 pt-4 border-t border-[#E7E6DF] flex flex-wrap items-center justify-between gap-3">

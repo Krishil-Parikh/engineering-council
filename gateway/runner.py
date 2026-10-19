@@ -106,7 +106,7 @@ class WorkspaceRun:
 
     # ------------------------------------------------------------------ starting
 
-    async def start(self, brief: str, title: Optional[str] = None, repo: Optional[str] = None) -> None:
+    async def start(self, brief: str, title: Optional[str] = None, repo: Optional[str] = None, constraints: Optional[list[str]] = None) -> None:
         from meetings.meeting import meeting_dir
         from meetings.models import MeetingInput
 
@@ -123,7 +123,7 @@ class WorkspaceRun:
         target = (repo or self.settings.repo or "").strip()
         is_url = target.lower().startswith(("http://", "https://"))
         name = self.project_name
-        inp = MeetingInput(project_name=name, problem=brief.strip(), constraints=[], repo_path=target if target and not is_url else None,
+        inp = MeetingInput(project_name=name, problem=brief.strip(), constraints=[c.strip() for c in (constraints or []) if isinstance(c, str) and c.strip()], repo_path=target if target and not is_url else None,
                            github_url=target if is_url else None, output_dir=str(self.settings.output_dir))
         if (meeting_dir(inp) / "meeting.json").exists():  # the same project name again: a new folder, not a clash
             inp = inp.model_copy(update={"project_name": f"{name} {time.strftime('%Y%m%d-%H%M%S')}"})
