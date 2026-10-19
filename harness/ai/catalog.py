@@ -36,6 +36,7 @@ _MILLION = 1_048_576
 def builtin_models() -> list[ModelInfo]:
     flash = ModelLimit(context=_MILLION, input=_MILLION - 65_536, output=65_536)
     return [
+        ModelInfo("google", "gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", "gemini-flash-lite", 1_780_000_000_000, flash, [ModelCost(0.10, 0.40)]),  # price: same as 3.1 Flash-Lite until published
         ModelInfo("google", "gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", "gemini-flash-lite", 1_767_225_600_000, flash, [ModelCost(0.10, 0.40)]),
         ModelInfo("google", "gemini-2.5-flash", "Gemini 2.5 Flash", "gemini-flash", 1_750_000_000_000, flash, [ModelCost(0.30, 2.50, 0.075)]),
         ModelInfo("google", "gemini-2.5-pro", "Gemini 2.5 Pro", "gemini-pro", 1_750_000_000_000, flash, [ModelCost(1.25, 10.0, 0.31, tier_size=200_000), ModelCost(2.50, 15.0, 0.625)]),
