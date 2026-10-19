@@ -1,11 +1,12 @@
 """The team's git layout: protected main, per-developer sandboxes, branches, merges and conflicts (real git)."""
 
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
-from team.repo import MergeResult, RepoError, TeamRepo, slugify
+from team.repo import MergeResult, RepoError, TeamRepo, _force_remove, slugify
 
 
 def put(path: Path, text: str) -> None:
@@ -242,3 +243,39 @@ def test_github_credentials_are_added_for_this_process_only(tmp_path, monkeypatc
     value = os.environ["GIT_CONFIG_PARAMETERS"]
     assert "credential.https://github.com.helper=!gh auth git-credential" in value and value.startswith("'credential.https://github.com.helper='")
     monkeypatch.delenv("GIT_CONFIG_PARAMETERS")
+
+
+def _shallow_clone(tmp_path):
+    def git(*args, cwd=None):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd, check=True, capture_output=True)
+
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    git("init", "-q", cwd=origin)
+    for n in range(3):
+        put(origin / f"f{n}.txt", str(n))
+        git("add", "-A", cwd=origin)
+        git("commit", "-q", "-m", f"c{n}", cwd=origin)
+    clone = tmp_path / "clone"
+    git("clone", "-q", "--depth", "1", origin.as_uri(), str(clone))
+    assert (clone / ".git" / "shallow").exists()
+    return origin, clone
+
+
+def test_a_shallow_source_is_given_its_full_history_and_seeds_main(tmp_path):
+    """The meeting clones with --depth 1; git refuses to push from a shallow clone, so the full history is fetched first."""
+    _origin, clone = _shallow_clone(tmp_path)
+    r = TeamRepo(tmp_path / "team")
+    r.init(clone)
+    assert r.branches("ana") == ["main"]
+    assert not (clone / ".git" / "shallow").exists()
+    assert (r.sandbox("ana") / "f2.txt").exists()
+
+
+def test_a_shallow_source_that_cannot_be_completed_still_seeds_main(tmp_path):
+    origin, clone = _shallow_clone(tmp_path)
+    shutil.rmtree(origin, onerror=_force_remove)  # its remote is gone: the history cannot be fetched
+    r = TeamRepo(tmp_path / "team")
+    r.init(clone)
+    assert r.branches("ana") == ["main"]
+    assert (r.sandbox("ana") / "f2.txt").exists()

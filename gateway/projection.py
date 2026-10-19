@@ -72,6 +72,11 @@ class Projection:
             self.sprints[payload["id"]] = payload
         elif kind == "edge.updated":
             self.edges[payload["id"]] = payload
+        elif kind == "workspace.reset":
+            # a new project: nothing of the previous one stays (the browser's reducer does the same)
+            self.phase = "kickoff"
+            self.agents, self.messages, self.skills, self.artifacts, self.meets, self.sprints, self.edges = {}, [], {}, {}, {}, {}, {}
+            self.metrics = {"totalMessagesToday": 0, "totalPRs": 0, "prHistory": []}
         self._recent.append(event)
 
     def emit(self, kind: str, payload: dict[str, Any]) -> dict[str, Any]:

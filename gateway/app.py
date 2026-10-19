@@ -46,8 +46,8 @@ class Hub:
         run = WorkspaceRun(workspace_id, projection, self.settings, self.deps)
         if projection.version and projection.phase not in ("kickoff", "ship"):
             # the gateway was restarted in the middle of a run: it cannot be carried on from here, so say so and offer a fresh start
-            run.narrator.system("team", "The gateway was restarted while a run was in progress. That run stopped; start a new sprint (or resume its build from the terminal with --run-id).")
-            run.set_phase("kickoff")
+            run.reset()
+            run.narrator.system("team", "The gateway was restarted while a run was in progress, so that run stopped. Start a new project (its files are still in the output folder; resume a build from the terminal with --run-id).")
         self.runs[workspace_id] = run
         return run
 

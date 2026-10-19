@@ -104,6 +104,13 @@ class WorkspaceRun:
         self.background.add(task)
         task.add_done_callback(self.background.discard)
 
+    def reset(self) -> None:
+        """Clears the workspace (every browser clears its screen too) and seeds it again with the scrum master and you."""
+        self.p.emit("workspace.reset", {})
+        self.narrator = Narrator(self.p)
+        self.narrator.seed()
+        self.questions = Questions(self.narrator)
+
     # ------------------------------------------------------------------ starting
 
     async def start(self, brief: str, title: Optional[str] = None, repo: Optional[str] = None, constraints: Optional[list[str]] = None) -> None:
@@ -118,9 +125,7 @@ class WorkspaceRun:
         use_github_credentials()
         self.loop = asyncio.get_running_loop()
         self.run_no += 1
-        self.narrator = Narrator(self.p, "" if self.run_no == 1 else f"r{self.run_no}-")
-        self.narrator.seed()
-        self.questions = Questions(self.narrator)
+        self.reset()  # a new project starts from a clean slate: nothing of the previous one stays on screen
         self.engine, self.error = None, None
         self.document_accepted, self.document_revisions, self.docs_approval_ids = False, 0, set()
         self.project_name = project_name_from(brief, title)

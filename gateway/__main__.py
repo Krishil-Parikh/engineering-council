@@ -14,6 +14,22 @@ from pathlib import Path
 from gateway.config import GatewaySettings
 
 
+def missing_packages(settings: GatewaySettings) -> list[str]:
+    """Packages a run needs that this Python cannot import. Checked at the start, so a wrong Python fails here and not in the middle of a run."""
+    import importlib.util
+
+    needed = ["fastapi", "uvicorn", "google.genai", "grpc"] + (["a2a"] if settings.a2a else [])
+    absent = []
+    for name in needed:
+        try:
+            found = importlib.util.find_spec(name)
+        except (ImportError, ValueError):
+            found = None
+        if found is None:
+            absent.append(name)
+    return absent
+
+
 def main(argv: list[str] | None = None) -> int:
     base = GatewaySettings.from_env()
     p = argparse.ArgumentParser(prog="python -m gateway", description="The web API the frontend talks to.")
@@ -26,15 +42,32 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--repo", default=base.repo, help="a repository to build on and publish to when a brief does not name one")
     p.add_argument("--token", default=base.token, help="require this token on every request (Bearer header, or ?token= for the event stream)")
     p.add_argument("--no-a2a", action="store_true", help="call the model in-process instead of over A2A (not recommended)")
+    p.add_argument("--fresh", action="store_true", help="forget the saved history of the workspace: start on a blank screen (the output folder is not touched)")
     p.add_argument("--no-memory", action="store_true", help="neither use nor update cross-project memory")
     args = p.parse_args(argv)
     settings = GatewaySettings(
         host=args.host, port=args.port, workspace_id=args.workspace, output_dir=Path(args.output), data_dir=Path(args.data), token=args.token,
         cors_origins=base.cors_origins, static_dir=Path(args.static) if args.static else None, repo=args.repo, a2a=not args.no_a2a, memory=not args.no_memory,
     )
+    missing = missing_packages(settings)
+    if missing:
+        venv_python = Path(__file__).resolve().parents[1] / ".venv" / "Scripts" / "python.exe"
+        venv_hint = venv_python if venv_python.exists() else "<project>/.venv/Scripts/python.exe"
+        lines = [
+            f"This Python ({sys.executable}) is missing: {', '.join(missing)}.",
+            "The gateway has to run in the project's environment, where everything is installed. Start it with:",
+            f"    {venv_hint} -m gateway --port {settings.port}",
+            "(or activate the .venv first, or run `pip install -e .` in this Python).",
+        ]
+        print(chr(10).join(lines), file=sys.stderr)
+        return 1
     if settings.host not in ("127.0.0.1", "localhost", "::1") and not settings.token:
         print("Refusing to listen on a public address without --token: anyone who can reach it could start runs on your API key.", file=sys.stderr)
         return 1
+    if args.fresh:
+        import shutil
+
+        shutil.rmtree(settings.data_dir / settings.workspace_id, ignore_errors=True)
     import uvicorn
 
     from gateway.app import create_app

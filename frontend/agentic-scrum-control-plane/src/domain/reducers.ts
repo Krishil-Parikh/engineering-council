@@ -50,5 +50,10 @@ export function applyWorkspaceEvent(snapshot: WorkspaceSnapshot, event: Workspac
       return { ...next, sprints: upsert(snapshot.sprints, event.payload) };
     case 'edge.updated':
       return { ...next, edges: upsert(snapshot.edges, event.payload) };
+    case 'workspace.reset':
+      return {
+        ...next, phaseId: 'kickoff', agents: [], messages: [], skills: [], artifacts: [], meets: [], sprints: [], edges: [],
+        metrics: { totalMessagesToday: 0, totalPRs: 0, prHistory: [] },
+      };
   }
 }

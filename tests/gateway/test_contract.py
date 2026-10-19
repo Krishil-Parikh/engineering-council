@@ -60,7 +60,7 @@ def test_invalid_commands_are_400_with_the_browsers_own_messages(client, body, m
 
 
 def test_every_command_and_event_type_in_the_contract_is_known():
-    assert len(COMMAND_TYPES) == 8 and len(EVENT_TYPES) == 9 and PHASES == ("kickoff", "brainstorm", "prd", "build", "review", "ship")
+    assert len(COMMAND_TYPES) == 8 and len(EVENT_TYPES) == 10 and PHASES == ("kickoff", "brainstorm", "prd", "build", "review", "ship")
 
 
 def test_a_workspace_id_that_does_not_match_the_url_is_refused(client):
@@ -182,3 +182,60 @@ def test_the_output_and_data_folders_are_absolute_because_git_runs_from_other_fo
 
     settings = GatewaySettings(output_dir="output", data_dir=".gateway")
     assert settings.output_dir.is_absolute() and settings.data_dir.is_absolute()
+
+
+def _with_old_project(projection):
+    projection.emit("agent.updated", {"id": "agent-01", "name": "DEV_1", "role": "Backend Developer"})
+    projection.emit("message.created", {"id": "msg-1", "meetId": "meet-kickoff", "senderId": "agent-01", "senderName": "DEV_1", "text": "old", "timestamp": "10:00:00"})
+    projection.emit("meet.updated", {"id": "meet-kickoff", "title": "Kickoff meeting: Old Project", "status": "completed"})
+    projection.emit("phase.changed", {"phaseId": "build"})
+
+
+def test_workspace_reset_clears_the_previous_project_and_survives_a_restart(tmp_path):
+    log = tmp_path / "events.jsonl"
+    projection = Projection(WORKSPACE, log)
+    _with_old_project(projection)
+    projection.emit("workspace.reset", {})
+    assert projection.snapshot()["agents"] == [] and projection.snapshot()["messages"] == [] and projection.snapshot()["meets"] == []
+    assert projection.phase == "kickoff"
+    reloaded = Projection(WORKSPACE, log)  # a restart replays the log, reset included
+    assert reloaded.snapshot()["agents"] == [] and reloaded.snapshot()["meets"] == [] and reloaded.phase == "kickoff"
+
+
+def test_a_restart_in_the_middle_of_a_run_leaves_a_blank_workspace_not_the_old_project(tmp_path):
+    settings = make_settings(tmp_path)
+    log = settings.data_dir / settings.workspace_id / "events.jsonl"
+    _with_old_project(Projection(settings.workspace_id, log))  # the "previous gateway" died during the build
+    with TestClient(create_app(settings, make_deps())) as restarted:
+        snap = snapshot(restarted)
+    assert snap["phaseId"] == "kickoff"
+    assert not any("Old Project" in meet["title"] for meet in snap["meets"])
+    assert {agent["id"] for agent in snap["agents"]} <= {"agent-sm", "sme-01"}  # only the scrum master and you
+    assert any("restarted" in message["text"] for message in snap["messages"])
+
+
+def test_fresh_forgets_the_saved_history(tmp_path, monkeypatch):
+    from gateway import __main__ as entry
+
+    data = tmp_path / "data"
+    log = data / "workspace-demo" / "events.jsonl"
+    _with_old_project(Projection("workspace-demo", log))
+    assert log.exists()
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)
+    assert entry.main(["--data", str(data), "--output", str(tmp_path / "out"), "--fresh"]) in (0, None)
+    assert not log.exists()
+
+
+def test_the_gateway_refuses_to_start_on_a_python_without_the_packages_a_run_needs(tmp_path, monkeypatch, capsys):
+    import importlib.util
+
+    from gateway import __main__ as entry
+
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a: None if name == "a2a" else real(name, *a))
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: pytest.fail("must not start serving"))
+    assert entry.main(["--data", str(tmp_path / "d"), "--output", str(tmp_path / "o")]) == 1
+    err = capsys.readouterr().err
+    assert "missing: a2a" in err and "-m gateway" in err
+    monkeypatch.setattr("uvicorn.run", lambda *a, **k: None)  # with --no-a2a the package is not needed
+    assert entry.main(["--data", str(tmp_path / "d"), "--output", str(tmp_path / "o"), "--no-a2a"]) in (0, None)

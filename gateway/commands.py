@@ -95,7 +95,7 @@ def advance(run: WorkspaceRun, phase: str) -> CommandResult:
     if phase == current:
         return result(True, "already there")
     if phase == "kickoff" and run.state in ("idle", "done", "failed", "stopped"):
-        run.set_phase("kickoff")
+        run.reset()  # "start a new project": the previous one leaves the screen
         return result(True)
     if phase == "build" and run.document_accepted:
         run.set_phase("build")

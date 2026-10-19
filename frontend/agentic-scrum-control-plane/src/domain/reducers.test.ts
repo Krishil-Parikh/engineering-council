@@ -31,6 +31,23 @@ describe('applyWorkspaceEvent', () => {
     expect(snapshot.agents[0].status).toBe('idle');
   });
 
+  it('clears the previous project on workspace.reset', () => {
+    const busy: WorkspaceSnapshot = {
+      ...snapshot,
+      phaseId: 'ship',
+      messages: [{ id: 'm1', meetId: 'meet-1', senderId: 'agent-1', senderName: 'Agent-01', text: 'hi', timestamp: '10:00:00' }],
+      meets: [{ id: 'meet-1', title: 'Kickoff meeting: Old', status: 'completed', consensusRate: 0, debateIntensity: 0 }],
+      metrics: { totalMessagesToday: 1, totalPRs: 3, prHistory: [] },
+    };
+    const next = applyWorkspaceEvent(busy, { eventId: 'event-9', workspaceId: 'workspace-1', occurredAt: '2026-09-24T00:00:00Z', version: 2, type: 'workspace.reset', payload: {} });
+    expect(next.phaseId).toBe('kickoff');
+    expect(next.agents).toEqual([]);
+    expect(next.messages).toEqual([]);
+    expect(next.meets).toEqual([]);
+    expect(next.metrics.totalPRs).toBe(0);
+    expect(next.version).toBe(2);
+  });
+
   it('ignores duplicate event IDs', () => {
     const event = {
       eventId: 'event-duplicate',

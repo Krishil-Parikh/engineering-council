@@ -134,6 +134,8 @@ export type WorkspaceEvent =
   | (WorkspaceEventBase & { type: 'metrics.updated'; payload: WorkspaceMetrics })
   | (WorkspaceEventBase & { type: 'skill.updated'; payload: WorkspaceSkill })
   | (WorkspaceEventBase & { type: 'sprint.updated'; payload: WorkspaceSprint })
-  | (WorkspaceEventBase & { type: 'edge.updated'; payload: WorkspaceEdge });
+  | (WorkspaceEventBase & { type: 'edge.updated'; payload: WorkspaceEdge })
+  /** A new project starts: the previous one's agents, messages, documents and sprints leave the screen. */
+  | (WorkspaceEventBase & { type: 'workspace.reset'; payload: Record<string, never> });
 
 export const PHASE_IDS: PhaseId[] = ['kickoff', 'brainstorm', 'prd', 'build', 'review', 'ship'];

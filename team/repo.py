@@ -113,6 +113,11 @@ class TeamRepo:
             return
         self.root.mkdir(parents=True, exist_ok=True)
         self._git(self.root, "init", "--bare", "-q", "-b", self.main, str(self.origin))
+        # The meeting clones a repository with --depth 1, and git refuses to push from a shallow clone to a normal repository. Prefer the full history
+        # (the developers can read it too); and let this remote take a shallow update if the history cannot be fetched (a local shallow repository).
+        self._git(self.origin, "config", "receive.shallowUpdate", "true")
+        if source is not None and (Path(source) / ".git" / "shallow").exists():
+            git_run(["fetch", "--unshallow", "-q"], str(source))
         hook = self.origin / "hooks" / "pre-receive"
         hook.parent.mkdir(exist_ok=True)
         hook.write_bytes(HOOK.format(protected=" ".join(self.protected)).encode("utf-8"))
