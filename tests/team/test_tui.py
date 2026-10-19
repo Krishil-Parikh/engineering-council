@@ -328,3 +328,46 @@ def test_agile_events_read_as_words():
     assert describe("approval-requested", {"id": "A", "title": "Design change: cache", "detail": "", "kind": "decision"}) == ("warn", "[needs you] Design change: cache")
     assert describe("approval-answered", {"id": "A", "title": "x", "approved": False})[1] == "[decision] x: declined"
     assert describe("interrupted", {"late": ["DEV_2"]})[1].endswith("(still finishing a step: DEV_2)")
+
+
+def test_the_decision_buttons_stay_on_screen_even_with_a_long_document_and_a_small_terminal(tmp_path):
+    long_doc = tmp_path / "PRD.md"
+    long_doc.write_text("\n".join(f"line {i} of the requirements document" for i in range(400)), encoding="utf-8")
+    ask = {**ASK, "detail": f"Read these:\n- {long_doc}"}
+
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(100, 26)) as pilot:
+            desk = with_desk(app)
+            app.handle("approval-requested", ask)
+            await pilot.pause(0.3)
+            screen_region = app.screen.region
+            for button in ("#approve", "#decline", "#later"):
+                region = app.screen.query_one(button).region
+                assert region.width > 0 and region.height > 0 and screen_region.contains_region(region), button
+            await pilot.click("#approve")
+            await pilot.pause(0.2)
+            assert desk.answers == [("APP-001", True, "")]
+
+    asyncio.run(main())
+
+
+def test_keyboard_shortcuts_decide_even_while_the_feedback_box_has_focus():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(150, 45)) as pilot:
+            desk = with_desk(app)
+            app.handle("approval-requested", ASK)
+            await pilot.pause(0.2)
+            app.screen.query_one("#feedback").focus()
+            app.screen.query_one("#feedback").value = "needs offline support"
+            await pilot.press("ctrl+n")
+            await pilot.pause(0.2)
+            assert desk.answers == [("APP-001", False, "needs offline support")]
+            app.handle("approval-requested", {**ASK, "id": "APP-002"})
+            await pilot.pause(0.2)
+            await pilot.press("ctrl+y")
+            await pilot.pause(0.2)
+            assert desk.answers[-1] == ("APP-002", True, "")
+
+    asyncio.run(main())

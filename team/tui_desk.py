@@ -9,19 +9,21 @@ from typing import Any
 
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, RichLog, Static
 
 DIALOG_CSS = """
 ApprovalScreen, InterruptScreen, NoteScreen { align: center middle; }
-#dialog { width: 110; max-width: 96%; height: auto; max-height: 92%; border: thick $primary; background: $surface; padding: 1 2; }
+#dialog { width: 110; max-width: 96%; height: 94%; border: thick $primary; background: $surface; padding: 0 2; }
 #dialog-title { text-style: bold; padding-bottom: 1; }
-#dialog-body { height: auto; max-height: 24; border: round $primary-darken-2; padding: 0 1; }
+#dialog-body { height: 1fr; min-height: 3; border: round $primary-darken-2; padding: 0 1; }
+#hint { height: 1; color: $text-muted; }
 #dialog-log { height: 10; border: round $primary-darken-2; margin: 1 0; }
-#dialog Input { margin: 1 0; }
+#dialog Input { margin: 0; }
 #dialog Horizontal { height: auto; align-horizontal: right; }
-#dialog Button { margin-left: 2; }
+#dialog Button { margin-left: 2; min-width: 14; }
 """
 
 KINDS = ("note", "scope", "rethink")
@@ -53,7 +55,11 @@ class ApprovalScreen(ModalScreen):
     """Something the team needs the human to decide. Dismisses with (approved, feedback)."""
 
     DEFAULT_CSS = DIALOG_CSS
-    BINDINGS = [("escape", "later", "Decide later")]
+    BINDINGS = [
+        Binding("escape", "later", "Decide later"),
+        Binding("ctrl+y", "approve", "Approve", priority=True),
+        Binding("ctrl+n", "decline", "Decline", priority=True),
+    ]
 
     def __init__(self, item: dict[str, Any]) -> None:
         super().__init__()
@@ -67,6 +73,7 @@ class ApprovalScreen(ModalScreen):
             with VerticalScroll(id="dialog-body"):
                 yield Static(Text(body or detail), id="dialog-detail")
             yield Input(placeholder="If you decline: what should change?  (optional)", id="feedback")
+            yield Static("Ctrl+Y approve · Ctrl+N decline (with the feedback above) · Esc decide later · scroll the text with the mouse wheel or arrow keys", id="hint")
             with Horizontal():
                 yield Button("Decide later (Esc)", id="later")
                 yield Button("Decline", variant="error", id="decline")
@@ -80,6 +87,12 @@ class ApprovalScreen(ModalScreen):
 
     def action_later(self) -> None:
         self.dismiss(None)
+
+    def action_approve(self) -> None:
+        self.dismiss((True, self.query_one("#feedback", Input).value.strip()))
+
+    def action_decline(self) -> None:
+        self.dismiss((False, self.query_one("#feedback", Input).value.strip()))
 
 
 class InterruptScreen(ModalScreen):
