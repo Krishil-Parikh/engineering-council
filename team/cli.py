@@ -71,7 +71,9 @@ def add_build_arguments(p: argparse.ArgumentParser, skip: frozenset[str] = froze
     add("--run-id", help="name this run (default: a timestamp); reuse a run id to resume")
     add("--repair-rounds", type=int, default=2, help="repair rounds when the verification commands fail")
     add("--publish", nargs="?", const="source", metavar="TARGET", help="push the finished branches to TARGET (a URL or path); with no value, to the repository given by --repo. Never main")
-    add("--publish-all", action="store_true", help="with --publish: also push the integration and every feature branch")
+    add("--no-publish", action="store_true", help="do not push the finished branches to the repository you gave (by default they are, never main)")
+    add("--final-only", action="store_true", help="when publishing, push only final/<run>; by default every branch is pushed (integration, each feature, repairs)")
+    add("--publish-all", action="store_true", help=argparse.SUPPRESS)  # the old name for what is now the default
     add("--pr", action="store_true", help="with --publish: open a pull request for the final branch (needs the GitHub CLI); you still do the merging")
     add("--max-llm", type=int, default=4, help="model requests in flight at once, shared by all developers (lower it on a free tier)")
     add("--git-fix-rounds", type=int, default=2, help="how many times a failed git step is diagnosed and fixed before the feature gives up")
@@ -87,13 +89,35 @@ def add_build_arguments(p: argparse.ArgumentParser, skip: frozenset[str] = froze
     sprint.add_argument("--unattended", action="store_true", help="approve every decision automatically (for CI and tests); by default you decide the documents and every major change")
 
 
+def has_remote(path: str) -> bool:
+    """Whether a local repository has an `origin` to publish to."""
+    from harness.git import run as git_run
+
+    try:
+        return git_run(["remote", "get-url", "origin"], path).code == 0
+    except OSError:
+        return False
+
+
+def publish_choice(args: argparse.Namespace) -> Optional[str]:
+    """Where the finished branches go. A repository you gave (on the start form or with --repo) that has a remote of its own gets them by default,
+    so a run in the full-screen view, where there is no flag to type, is not left only on disk. --publish TARGET names another place; --no-publish
+    keeps everything local. Never main."""
+    if args.publish is not None:
+        return args.publish
+    repo = (getattr(args, "repo", None) or "").strip()
+    if repo and not getattr(args, "no_publish", False) and Path(repo).expanduser().is_dir() and has_remote(str(Path(repo).expanduser())):
+        return "source"
+    return None
+
+
 def config_from_args(args: argparse.Namespace) -> tuple[TeamConfig, Optional[Path]]:
     memory_dir = None if args.no_memory else Path(args.memory_dir or os.environ.get("COUNCIL_MEMORY_DIR") or Path.home() / ".council" / "memory")
     agile = None if args.no_agile else AgileConfig(
         capacity=args.sprint_capacity, max_days=args.max_days, steps_per_day=args.steps_per_day, approvals="approve" if args.unattended else "ask",
     )
     config = TeamConfig(
-        max_parallel=args.max_parallel, repair_rounds=args.repair_rounds, memory_dir=memory_dir, publish=args.publish, publish_all=args.publish_all,
+        max_parallel=args.max_parallel, repair_rounds=args.repair_rounds, memory_dir=memory_dir, publish=publish_choice(args), publish_all=not args.final_only,
         pull_request=args.pr, max_llm_concurrency=args.max_llm, git_fix_rounds=args.git_fix_rounds, agile=agile,
     )
     if args.run_id:
@@ -161,10 +185,75 @@ def execute_build(args: argparse.Namespace, meeting: Path) -> int:
         print(f"Learned {result.lessons_learned} lesson(s) for next time (memory: {memory_dir}).")
     if result.published_to:
         print(f"Published to {result.published_to}." + (f" Pull request: {result.pull_request_url}" if result.pull_request_url else ""))
+    else:
+        print(f"NOT published: the work is only on this machine. To push {result.final_branch} to a repository (never main):  python -m council publish \"{meeting}\" <url-or-path>")
     print(f"Review branch {result.final_branch} in {engine.repo.origin} and merge it into {engine.repo.main} yourself. Report: {meeting / 'team_report.md'}")
     for w in result.warnings:
         print(f"  ! {w}")
     return 0 if result.passed else 2
+
+
+def latest_final_branch(origin: Path) -> Optional[str]:
+    from harness.git import run as git_run
+
+    out = git_run(["--git-dir", str(origin), "for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/heads/final"], str(origin))
+    names = [line.strip() for line in out.text.splitlines() if line.strip()]
+    return names[0] if names else None
+
+
+def publish(argv: list[str]) -> int:
+    """`publish <meeting dir> [target]`: push a finished run's branches to a repository. Never main."""
+    p = argparse.ArgumentParser(prog="python -m council publish", description="Push a finished run's final branch to a repository (never main).")
+    p.add_argument("directory", help="the meeting output directory the run was built from")
+    p.add_argument("target", nargs="?", help="where to push: a URL or path (default: the repository the project was built on)")
+    p.add_argument("--workdir", help="where the team's remote lives (default: <directory>/team)")
+    p.add_argument("--branch", help="the branch to push (default: the newest final/<run>)")
+    p.add_argument("--only-final", action="store_true", help="push only the final branch; by default every branch of the run is pushed (integration, each feature, repairs)")
+    args = p.parse_args(argv[1:])
+    use_github_credentials()
+    from harness.git import run as git_run
+
+    meeting = Path(args.directory)
+    origin = (Path(args.workdir) if args.workdir else meeting / "team") / "remote" / "origin.git"
+    if not origin.exists():
+        print(f"Error: {origin} does not exist: nothing was built in {meeting}.", file=sys.stderr)
+        return 1
+    branch = args.branch or latest_final_branch(origin)
+    if not branch:
+        print("Error: there is no final branch to push (the build did not finish).", file=sys.stderr)
+        return 1
+    if branch in ("main", "master"):
+        print("Error: main is yours to update; this command never pushes it.", file=sys.stderr)
+        return 1
+    target = args.target
+    if not target:
+        try:
+            from meetings.meeting import load_saved_input
+
+            saved = load_saved_input(meeting)
+            target = saved.github_url or saved.repo_path
+        except Exception:  # noqa: BLE001 - reported below
+            target = None
+        source = meeting / "source"
+        if not target and source.is_dir() and has_remote(str(source)):
+            target = git_run(["remote", "get-url", "origin"], str(source)).text.strip()
+    if not target:
+        print("Error: no target given and the project was not built on a repository. Give one:  python -m council publish <dir> <url-or-path>", file=sys.stderr)
+        return 1
+    branches = [branch]
+    if not args.only_final:
+        run_id = branch.split("/", 1)[1] if "/" in branch else ""
+        listing = git_run(["--git-dir", str(origin), "for-each-ref", "--format=%(refname:short)", "refs/heads"], str(origin)).text.split()
+        extra = [name for name in listing if name != branch and name not in ("main", "master") and (name.startswith(("feature/", "fix/")) or name == f"integration/{run_id}")]
+        branches += sorted(extra)
+    result = git_run(["--git-dir", str(origin), "push", "-q", target, *[f"refs/heads/{name}:refs/heads/{name}" for name in branches]], str(origin))
+    if result.code != 0:
+        print(f"Error: pushing to {target} failed: {result.err.strip() or result.text.strip()}", file=sys.stderr)
+        return 1
+    for name in branches:
+        print(f"Pushed {name} to {target}")
+    print("Nothing was merged into main. Review the branch and merge it yourself.")
+    return 0
 
 
 def build(argv: list[str]) -> int:

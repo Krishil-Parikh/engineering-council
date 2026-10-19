@@ -121,3 +121,89 @@ def test_the_repository_from_the_start_form_is_the_one_the_team_builds_on(tmp_pa
     none = Namespace(repo=None)
     carry_repo(none, greenfield)
     assert none.repo is None
+
+
+# ---------------------------------------------------------------------------------------------- publishing
+
+
+def make_repo(path, with_remote=None):
+    import subprocess
+
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=path, check=True)
+    (path / "a.txt").write_text("x", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init"], cwd=path, check=True)
+    if with_remote:
+        subprocess.run(["git", "remote", "add", "origin", str(with_remote)], cwd=path, check=True)
+    return path
+
+
+def test_a_repository_you_gave_gets_the_finished_branches_by_default(tmp_path):
+    remote = make_repo(tmp_path / "theirs")
+    with_remote = make_repo(tmp_path / "clone", with_remote=remote)
+    without_remote = make_repo(tmp_path / "local-only")
+    assert cli.publish_choice(parse("--repo", str(with_remote))) == "source"
+    assert cli.publish_choice(parse("--repo", str(without_remote))) is None  # nowhere to push: stays local
+    assert cli.publish_choice(parse("--repo", str(with_remote), "--no-publish")) is None
+    assert cli.publish_choice(parse("--repo", str(with_remote), "--publish", "https://example.com/x.git")) == "https://example.com/x.git"
+    assert cli.publish_choice(parse()) is None  # no repository given at all
+    config, _ = cli.config_from_args(parse("--no-memory", "--repo", str(with_remote)))
+    assert config.publish == "source" and config.publish_all is True  # and every branch, not only the final one
+    assert cli.config_from_args(parse("--no-memory", "--repo", str(with_remote), "--final-only"))[0].publish_all is False
+
+
+def finished_run(tmp_path, branches=("final/r1", "integration/r1", "feature/db", "feature/ui", "fix/r1-1")):
+    """A meeting folder with the team's shared repository holding main and the given branches."""
+    import subprocess
+
+    meeting = tmp_path / "meeting"
+    origin = meeting / "team" / "remote" / "origin.git"
+    origin.parent.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+    work = make_repo(tmp_path / "work")
+    subprocess.run(["git", "push", "-q", str(origin), "main"], cwd=work, check=True)
+    for name in branches:
+        subprocess.run(["git", "push", "-q", str(origin), f"main:refs/heads/{name}"], cwd=work, check=True)
+    return meeting
+
+
+def branches_of(path):
+    import subprocess
+
+    out = subprocess.run(["git", "--git-dir", str(path), "for-each-ref", "--format=%(refname:short)", "refs/heads"], capture_output=True, text=True).stdout
+    return sorted(out.split())
+
+
+def test_the_publish_command_pushes_the_newest_final_branch_and_never_main(tmp_path, capsys):
+    import subprocess
+
+    meeting = finished_run(tmp_path)
+    target = tmp_path / "target.git"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(target)], check=True)
+    assert cli.publish(["publish", str(meeting), str(target), "--only-final"]) == 0
+    assert branches_of(target) == ["final/r1"] and "Nothing was merged into main" in capsys.readouterr().out
+    assert cli.publish(["publish", str(meeting), str(target)]) == 0  # by default every branch of the run goes, so all of it can be browsed
+    assert branches_of(target) == ["feature/db", "feature/ui", "final/r1", "fix/r1-1", "integration/r1"]
+    assert cli.publish(["publish", str(meeting), str(target), "--branch", "main"]) == 1 and "main" not in branches_of(target)
+
+
+def test_the_publish_command_says_what_is_wrong(tmp_path, capsys):
+    assert cli.publish(["publish", str(tmp_path / "nothing-here")]) == 1 and "nothing was built" in capsys.readouterr().err
+    meeting = finished_run(tmp_path, branches=())
+    assert cli.publish(["publish", str(meeting), str(tmp_path / "t.git")]) == 1 and "no final branch" in capsys.readouterr().err
+    meeting2 = finished_run(tmp_path / "second")
+    assert cli.publish(["publish", str(meeting2)]) == 1 and "no target given" in capsys.readouterr().err
+
+
+def test_the_publish_command_finds_the_repository_the_project_was_built_on(tmp_path):
+    from meetings.models import MeetingInput
+
+    meeting = finished_run(tmp_path)
+    target = make_repo(tmp_path / "theirs")
+    import subprocess
+
+    subprocess.run(["git", "config", "receive.denyCurrentBranch", "ignore"], cwd=target, check=True)
+    (meeting / "input.json").write_text(MeetingInput(project_name="X", problem="p", repo_path=str(target), output_dir=str(tmp_path)).model_dump_json(), encoding="utf-8")
+    assert cli.publish(["publish", str(meeting)]) == 0
+    assert "final/r1" in subprocess.run(["git", "branch", "--list"], cwd=target, capture_output=True, text=True).stdout

@@ -11,6 +11,10 @@ def main(argv: list[str] | None = None) -> int:
         from council.pipeline import run
 
         return run(argv[1:])
+    if argv and argv[0] == "publish":
+        from team.cli import publish
+
+        return publish(argv)
     if argv and argv[0] == "build":
         from team.cli import build
 
