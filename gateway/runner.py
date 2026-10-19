@@ -112,6 +112,10 @@ class WorkspaceRun:
 
         if self.active:
             raise Conflict("A run is already in progress in this workspace.")
+        # The repository is cloned during the pod meeting, so a private one needs the GitHub CLI's credentials from the very start, as in the terminal.
+        from team.cli import use_github_credentials
+
+        use_github_credentials()
         self.loop = asyncio.get_running_loop()
         self.run_no += 1
         self.narrator = Narrator(self.p, "" if self.run_no == 1 else f"r{self.run_no}-")
@@ -172,11 +176,10 @@ class WorkspaceRun:
     async def _build(self, inp: Any) -> None:
         from council.pipeline import carry_repo
         from meetings.config import load_settings  # noqa: F401  (the real key is read by the engine when no scripted client is given)
-        from team.cli import add_build_arguments, config_from_args, use_github_credentials
+        from team.cli import add_build_arguments, config_from_args
         from team.engine import TeamEngine
 
         assert self.meeting_dir is not None
-        use_github_credentials()
         parser = argparse.ArgumentParser()
         parser.add_argument("directory")
         add_build_arguments(parser)

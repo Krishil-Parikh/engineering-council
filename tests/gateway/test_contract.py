@@ -167,3 +167,11 @@ def test_the_snapshot_lists_recent_event_ids_so_a_replay_is_ignored_by_the_brows
         p.emit("phase.changed", {"phaseId": "build"})
     snap = p.snapshot()
     assert snap["processedEventIds"] == [e["eventId"] for e in p.recent()] and snap["version"] == p.version
+
+
+def test_github_credentials_are_set_up_before_the_meeting_so_a_private_repository_can_be_cloned(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr("team.cli.use_github_credentials", lambda: calls.append("credentials") or True)
+    response = client.post(f"/workspace/{WORKSPACE}/commands", json={"type": "sprint.start", "workspaceId": WORKSPACE, "brief": "A tiny tool.", "repo": "https://github.com/me/private-repo"})
+    assert response.status_code == 200
+    assert calls == ["credentials"]  # before anything is cloned, not only when the build begins
