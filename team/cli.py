@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import shutil
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -37,6 +39,19 @@ def printer(verbose: bool, ask: Optional[Any] = None):
         print(("\n" if kind in ("plan", "feature-started", "final") else "") + text, flush=True)
 
     return show
+
+
+def use_github_credentials() -> bool:
+    """Private repositories need credentials for every git command that reaches GitHub (the clone here, the push at the end). If the GitHub CLI is
+    signed in, its credentials are used for github.com for this process; nothing is written to any git configuration. Returns whether it was set up."""
+    if shutil.which("gh") is None or subprocess.run(["gh", "auth", "status"], capture_output=True).returncode != 0:
+        return False
+    key = "credential.https://github.com.helper"
+    # git reads these `'key=value'` pairs from the environment; an empty value first resets the helper list for github.com, so the GitHub CLI's
+    # account is the one used (an environment variable cannot be empty on Windows, which is why this older form is used instead of GIT_CONFIG_KEY_n)
+    extra = f"'{key}=' '{key}=!gh auth git-credential'"
+    os.environ["GIT_CONFIG_PARAMETERS"] = f"{os.environ['GIT_CONFIG_PARAMETERS']} {extra}" if os.environ.get("GIT_CONFIG_PARAMETERS") else extra
+    return True
 
 
 def _interactive() -> bool:
@@ -158,6 +173,7 @@ def build(argv: list[str]) -> int:
     p.add_argument("directory", help="a finished meeting output directory")
     add_build_arguments(p)
     args = p.parse_args(argv[1:])
+    use_github_credentials()
     from team.agile.playbook import AgileStopped
 
     try:

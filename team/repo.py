@@ -120,7 +120,8 @@ class TeamRepo:
         seed = self.root / "_seed"
         shutil.rmtree(seed, ignore_errors=True)
         try:
-            if source is not None and (Path(source) / ".git").exists():
+            has_history = source is not None and (Path(source) / ".git").exists() and git_run(["rev-parse", "--verify", "-q", "HEAD"], str(source)).code == 0
+            if has_history:
                 self._git(self.root, "clone", "-q", "-c", "core.autocrlf=false", str(source), str(seed))
                 head = self._git(seed, "rev-parse", "--abbrev-ref", "HEAD").text.strip()
                 if head != self.main:
@@ -129,7 +130,7 @@ class TeamRepo:
             else:
                 seed.mkdir()
                 self._git(seed, "init", "-q", "-b", self.main)
-                if source is not None and Path(source).is_dir() and any(Path(source).iterdir()):
+                if source is not None and Path(source).is_dir() and any(p.name != ".git" for p in Path(source).iterdir()):
                     shutil.copytree(source, seed, dirs_exist_ok=True, ignore=shutil.ignore_patterns(".git"))
                 else:
                     (seed / "README.md").write_bytes(b"# New project\n")

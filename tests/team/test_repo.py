@@ -214,3 +214,31 @@ def test_a_clean_repository_adds_no_extra_commit(tmp_path):
     repo = TeamRepo(tmp_path / "team", main_branch="trunk")
     repo.init(src)
     assert repo.seed_notes == [] and repo.log("ana") == [repo.log("ana")[0]] and repo.log("ana")[0].endswith("first")
+
+
+def test_a_repository_with_no_commits_is_treated_as_a_new_project(tmp_path):
+    """A freshly created (empty) repository, for example an empty GitHub repo that was cloned, has a .git folder and nothing else."""
+    import subprocess
+
+    source = tmp_path / "empty"
+    source.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=source, check=True)
+    repo = TeamRepo(tmp_path / "remote", main_branch=TeamRepo.detect_main(source))
+    repo.init(source)
+    assert repo.branches("dev-1") == ["main"] and repo.file_at("dev-1", "origin/main", "README.md") is not None
+
+
+def test_github_credentials_are_added_for_this_process_only(tmp_path, monkeypatch):
+    import os
+
+    import team.cli as cli
+
+    monkeypatch.delenv("GIT_CONFIG_PARAMETERS", raising=False)
+    monkeypatch.setattr(cli.shutil, "which", lambda name: None)
+    assert cli.use_github_credentials() is False and "GIT_CONFIG_PARAMETERS" not in os.environ
+    monkeypatch.setattr(cli.shutil, "which", lambda name: "gh")
+    monkeypatch.setattr(cli.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 0})())
+    assert cli.use_github_credentials() is True
+    value = os.environ["GIT_CONFIG_PARAMETERS"]
+    assert "credential.https://github.com.helper=!gh auth git-credential" in value and value.startswith("'credential.https://github.com.helper='")
+    monkeypatch.delenv("GIT_CONFIG_PARAMETERS")

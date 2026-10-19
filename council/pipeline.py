@@ -18,7 +18,7 @@ from meetings.cli import _interactive_terminal, build_parser, confirm, gather_in
 from meetings.config import ConfigError, load_settings
 from meetings.gemini_client import GeminiClient, LLMError
 from meetings.meeting import MeetingError, Reporter, load_saved_input, run_meeting
-from team.cli import add_build_arguments, execute_build
+from team.cli import add_build_arguments, execute_build, use_github_credentials
 from team.agile.playbook import AgileStopped
 
 
@@ -83,6 +83,7 @@ def run(argv: list[str]) -> int:
         except (AttributeError, ValueError):
             pass
     args = make_parser().parse_args(argv)
+    use_github_credentials()
     try:
         if args.from_meeting:
             meeting = Path(args.from_meeting)
