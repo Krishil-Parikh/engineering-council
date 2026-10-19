@@ -175,3 +175,10 @@ def test_github_credentials_are_set_up_before_the_meeting_so_a_private_repositor
     response = client.post(f"/workspace/{WORKSPACE}/commands", json={"type": "sprint.start", "workspaceId": WORKSPACE, "brief": "A tiny tool.", "repo": "https://github.com/me/private-repo"})
     assert response.status_code == 200
     assert calls == ["credentials"]  # before anything is cloned, not only when the build begins
+
+
+def test_the_output_and_data_folders_are_absolute_because_git_runs_from_other_folders():
+    from gateway.config import GatewaySettings
+
+    settings = GatewaySettings(output_dir="output", data_dir=".gateway")
+    assert settings.output_dir.is_absolute() and settings.data_dir.is_absolute()

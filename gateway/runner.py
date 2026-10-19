@@ -191,7 +191,7 @@ class WorkspaceRun:
         carry_repo(args, self.meeting_dir)
         config, _ = config_from_args(args)
         repo = (args.repo or "").strip()
-        source = Path(repo).expanduser() if repo and Path(repo).expanduser().is_dir() else None
+        source = Path(repo).expanduser().resolve() if repo and Path(repo).expanduser().is_dir() else None
         meeting_settings = self.deps.meeting_settings()
         bridge = TeamBridge(self)
         engine = TeamEngine(

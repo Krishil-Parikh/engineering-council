@@ -28,6 +28,11 @@ class GatewaySettings:
     rate_per_minute: int = 120  # commands per workspace
     replay_window: int = 200  # recent events a new stream subscriber is replayed
 
+    def __post_init__(self) -> None:
+        # git commands run from other folders (the team's clone, the sandboxes), so every path handed to them must be absolute
+        self.output_dir = Path(self.output_dir).expanduser().resolve()
+        self.data_dir = Path(self.data_dir).expanduser().resolve()
+
     @staticmethod
     def from_env() -> "GatewaySettings":
         env = os.environ
