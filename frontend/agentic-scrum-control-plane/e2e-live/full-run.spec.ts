@@ -53,10 +53,21 @@ test('a brief becomes documents you accept and then a finished project', async (
   await page.screenshot({ path: 'e2e-live/screenshots/finished.png' });
 });
 
-test('the control plane shows the same live team and takes your directions', async ({ page }) => {
+test('the control plane shows the finished run with real data and none of the demo content', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('tab', { name: 'Control Plane' }).click();
   await expect(page.getByTitle('Inject an architectural challenge into the active meet')).toBeVisible();
   await expect(page.getByTitle('Step next agent message & pulse')).toHaveCount(0);
-  await expect(page.getByText('Scrum Master').first()).toBeVisible();
+  await expect(page.getByText('Todo CLI', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('DOCUMENTS ACCEPTED', { exact: true })).toBeVisible();
+  await expect(page.getByText('3/3').first()).toBeVisible();
+  await expect(page.getByText('FEATURES MERGED', { exact: true })).toBeVisible();
+  for (const demo of ['Fintech Clearing SDLC', 'FINMA', 'AUTOPILOT', 'Elapsed', '4.2k tok/s', 'Zurich', 'Kafka']) {
+    await expect(page.getByText(demo)).toHaveCount(0);
+  }
+  // each tab shows real content
+  for (const tab of ['Canvas', 'Meet', 'Artifacts', 'Timeline']) {
+    await page.getByRole('button', { name: new RegExp(`^${tab}`) }).click();
+  }
+  await expect(page.getByText(/^SPRINT DOCUMENTS/)).toBeVisible();
 });

@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, Activity, Users, FileText, MessageSquare, X } from 'lucide-react';
 import { PhaseId, Agent, Skill, TranscriptMessage, PRHourlyData, ArtifactFile } from '../../types';
+import type { WorkspaceSprint } from '../../domain/types';
 import { PRSparkline } from './PRSparkline';
+import { SprintsPanel } from './SprintsPanel';
 import { RosterPanel } from './RosterPanel';
 import { ArtifactsPanel } from './ArtifactsPanel';
 import { TranscriptPanel } from './TranscriptPanel';
@@ -16,6 +18,10 @@ interface RevealDrawerProps {
   totalPRs: number;
   /** The workspace's documents (live backend). Absent in the demo, which shows reference artifacts. */
   artifacts?: ArtifactFile[];
+  /** A real backend is attached: the strip shows the real counts. */
+  live?: boolean;
+  /** The real sprints (live backend); the demo draws its own timeline. */
+  sprints?: WorkspaceSprint[];
 }
 
 export const RevealDrawer: React.FC<RevealDrawerProps> = ({
@@ -26,6 +32,8 @@ export const RevealDrawer: React.FC<RevealDrawerProps> = ({
   prData,
   totalPRs,
   artifacts,
+  live = false,
+  sprints = [],
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'timeline' | 'roster' | 'artifacts' | 'transcript'>('timeline');
@@ -88,7 +96,7 @@ export const RevealDrawer: React.FC<RevealDrawerProps> = ({
           </div>
 
           <div className="flex items-center gap-4 text-xs text-[#8E8E8E] font-mono">
-            <span className="hidden sm:inline">38 PRs merged · 6 agents active</span>
+            <span className="hidden sm:inline">{live ? `${totalPRs} features merged · ${agents.length} agents` : '38 PRs merged · 6 agents active'}</span>
             <span className="text-[11px] px-1.5 py-0.5 rounded bg-[#FCFCFB] border border-[#E7E6DF] text-[#161616]">
               {isOpen ? 'Click to collapse' : 'Pull up reference'}
             </span>
@@ -160,7 +168,7 @@ export const RevealDrawer: React.FC<RevealDrawerProps> = ({
           {/* Active Panel View */}
           <div className="flex-1 min-h-0">
             {activeTab === 'timeline' && (
-              <PRSparkline data={prData} totalPRs={totalPRs} />
+              live ? <SprintsPanel sprints={sprints} totalMerged={totalPRs} /> : <PRSparkline data={prData} totalPRs={totalPRs} />
             )}
             {activeTab === 'roster' && (
               <RosterPanel agents={agents} skills={skills} />

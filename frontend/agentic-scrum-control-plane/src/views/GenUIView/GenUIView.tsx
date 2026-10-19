@@ -296,6 +296,18 @@ export function GenUIView() {
 
   const isHistoricalView = viewingPhase !== currentActivePhase;
 
+  // A run that ended early leaves the screen on the phase it reached. The gateway says so in a system message; show it, with a way out.
+  const runStopped = (() => {
+    if (!live || currentActivePhase === 'ship' || currentActivePhase === 'kickoff') return null;
+    for (let index = snapshot.messages.length - 1; index >= 0; index -= 1) {
+      const message = snapshot.messages[index];
+      if (message.kind !== 'system') continue;
+      if (/^Starting the pod meeting/.test(message.text)) return null;
+      if (/^(The run stopped|The run was stopped|The documents were not accepted)/.test(message.text)) return message.text;
+    }
+    return null;
+  })();
+
   return (
     <div className="min-h-screen bg-[#FCFCFB] text-[#161616] flex flex-col font-sans selection:bg-[#E60000]/15 selection:text-[#161616]">
       <TopBar
@@ -306,8 +318,16 @@ export function GenUIView() {
         playbackSpeed={playbackSpeed}
         onChangePlaybackSpeed={() => setPlaybackSpeed((s) => (s === 1 ? 2 : s === 2 ? 4 : 1))}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        live={live}
+        projectName={snapshot.meets.find((meet) => meet.title.startsWith('Kickoff meeting:'))?.title.replace(/^Kickoff meeting:\s*/, '')}
       />
       <ToastCaption message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      {runStopped && (
+        <div role="alert" className="mx-6 mt-3 p-3 rounded-xl border border-[#E60000]/40 bg-[#FDECEC] text-sm text-[#161616] flex items-center justify-between gap-4">
+          <span><strong className="font-semibold">The run stopped.</strong> {runStopped.replace(/^The run stopped:\s*/, '')}</span>
+          <button onClick={handleRestartSprint} className="shrink-0 px-3 py-1.5 rounded-lg bg-[#161616] text-[#FCFCFB] text-xs font-semibold hover:bg-[#2B2B2B]">Start a new project</button>
+        </div>
+      )}
       <div className="flex-1 flex w-full relative">
         <Spine
           currentActivePhase={currentActivePhase}
@@ -361,7 +381,7 @@ export function GenUIView() {
           </AnimatePresence>
         </main>
       </div>
-      <RevealDrawer currentPhase={viewingPhase} agents={agents} skills={skills} transcript={transcript} prData={prData} totalPRs={totalPRs} artifacts={artifactFiles} />
+      <RevealDrawer currentPhase={viewingPhase} agents={agents} skills={skills} transcript={transcript} prData={prData} totalPRs={totalPRs} artifacts={artifactFiles} live={live} sprints={snapshot.sprints} />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} agents={agents} skills={skills} onAddAgent={handleAddAgent} onRemoveAgent={handleRemoveAgent} onAddSkill={handleAddSkill} localOnly={live} />
     </div>
   );

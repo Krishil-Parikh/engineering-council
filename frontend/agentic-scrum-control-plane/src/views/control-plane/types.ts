@@ -22,6 +22,8 @@ export interface Agent {
   allocatedMemory: string;
   confidenceScore: number;
   recentTools: string[];
+  /** The feature branch the developer works on (a real team only). */
+  activeBranch?: string;
 }
 
 export interface SkillCategory {

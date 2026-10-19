@@ -42,7 +42,26 @@ interface ScrumContextType {
   prdAcceptanceRatio: string;
   forceConsensus: () => void;
   reassignTask: (agentId: string, task: string) => void;
+  /** What the real team is doing, for the header, the strip and the overview. Empty/zero with no backend. */
+  phaseId: string;
+  projectName: string;
+  sprintLabel: string;
+  totalPRs: number;
+  documentsAccepted: { accepted: number; total: number };
+  /** The ceremonies (planning, standups, review, report, retrospective) and documents of one sprint. */
+  sprintMeets: (sprint: Sprint) => Meet[];
+  sprintDocuments: (sprint: Sprint) => Artifact[];
 }
+
+export const PHASE_LABEL: Record<string, string> = {
+  kickoff: 'Kickoff', brainstorm: 'Pod meeting', prd: 'Document review', build: 'Build', review: 'Verification', ship: 'Finished',
+};
+
+const CORE_DOCUMENTS = ['art-prd', 'art-tech', 'art-design'];
+const sprintKey = (id: string) => {
+  const match = /^(?:sprint-)?(r\d+-)?(?:s)?(\d+)/.exec(id);
+  return match ? `${match[1] ?? ''}${Number(match[2])}` : '';
+};
 
 const ScrumContext = createContext<ScrumContextType | undefined>(undefined);
 
@@ -59,7 +78,7 @@ function inferRole(roleTitle: string, id: string): Agent['role'] {
   return 'backend';
 }
 
-function toRichAgent(item: WorkspaceAgent): Agent {
+function toRichAgent(item: WorkspaceAgent, live = false): Agent {
   const role = inferRole(item.role, item.id);
   const isLive = item.status === 'speaking';
   const status: Agent['status'] = item.status === 'blocked'
@@ -78,24 +97,26 @@ function toRichAgent(item: WorkspaceAgent): Agent {
     isLive,
     avatarNumber: item.id.replace('agent-', '').replace('agent', '').slice(0, 2) || 'SM',
     activeTask: item.activeTask ?? 'Awaiting assignment',
-    sparkline: DEFAULT_SPARKLINE,
-    contextTokens: 80000,
-    tokensVelocity: 900,
-    model: 'gemini-2.5-flash',
+    // The backend reports none of the telemetry below, so a real team shows none of it rather than invented numbers.
+    sparkline: live ? [] : DEFAULT_SPARKLINE,
+    contextTokens: live ? 0 : 80000,
+    tokensVelocity: live ? 0 : 900,
+    model: live ? '' : 'gemini-2.5-flash',
     skills: item.claimedSkill ? [item.claimedSkill] : [],
-    allocatedMemory: '2.8 GB',
-    confidenceScore: item.confidenceScore ?? 95,
+    allocatedMemory: live ? '' : '2.8 GB',
+    confidenceScore: item.confidenceScore ?? (live ? 0 : 95),
     recentTools: [],
+    activeBranch: item.activeBranch,
   };
 }
 
-function toRichMessage(item: WorkspaceMessage): Message {
+function toRichMessage(item: WorkspaceMessage, roleOf: (id: string) => string | undefined = () => undefined): Message {
   return {
     id: item.id,
     meetId: item.meetId,
     senderId: item.senderId,
     senderName: item.senderName,
-    senderRole: item.senderId === 'sme-01' ? 'Business SME' : item.senderId === 'agent-sm' ? 'Scrum Master' : 'Developer',
+    senderRole: roleOf(item.senderId) ?? (item.senderId === 'sme-01' ? 'Business SME' : item.senderId === 'agent-sm' ? 'Scrum Master' : 'Developer'),
     timestamp: item.timestamp,
     timeOffsetSec: 0,
     text: item.text,
@@ -103,18 +124,18 @@ function toRichMessage(item: WorkspaceMessage): Message {
   };
 }
 
-function toRichMeet(item: WorkspaceMeet): Meet {
+function toRichMeet(item: WorkspaceMeet, live = false): Meet {
   return {
     id: item.id,
     number: item.id.replace('meet-', ''),
-    sprintId: 'sprint-03',
+    sprintId: live ? '' : 'sprint-03',
     title: item.title,
     topic: item.title,
     status: item.status,
-    elapsedTime: '14:32',
-    remainingTime: '04:12',
-    elapsedSec: 872,
-    remainingSec: 252,
+    elapsedTime: live ? '' : '14:32',
+    remainingTime: live ? '' : '04:12',
+    elapsedSec: live ? 0 : 872,
+    remainingSec: live ? 0 : 252,
     participants: [],
     consensusRate: item.consensusRate,
     debateIntensity: item.debateIntensity,
@@ -250,29 +271,37 @@ const EMPTY_AGENT: Agent = {
   recentTools: [],
 };
 
+const roleOfIn = (workspace: WorkspaceSnapshot) => {
+  const roles = new Map(workspace.agents.map(agent => [agent.id, agent.role]));
+  return (id: string) => roles.get(id);
+};
+
 export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspace?: WorkspaceSnapshot; sharedExecuteCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean }> = ({ children, sharedWorkspace, sharedExecuteCommand, live = false }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [autopilot, setAutopilot] = useState<boolean>(false);
-  const [agents, setAgents] = useState<Agent[]>(() => (sharedWorkspace ? sharedWorkspace.agents.map(toRichAgent) : []));
+  const [agents, setAgents] = useState<Agent[]>(() => (sharedWorkspace ? sharedWorkspace.agents.map(item => toRichAgent(item, live)) : []));
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [meets, setMeets] = useState<Meet[]>(() => (sharedWorkspace ? sharedWorkspace.meets.map(toRichMeet) : []));
-  const [selectedMeetId, setSelectedMeetId] = useState<string>('meet-04');
-  const [messages, setMessages] = useState<Message[]>(() => (sharedWorkspace ? sharedWorkspace.messages.map(toRichMessage) : []));
+  const [meets, setMeets] = useState<Meet[]>(() => (sharedWorkspace ? sharedWorkspace.meets.map(item => toRichMeet(item, live)) : []));
+  const [selectedMeetId, setSelectedMeetId] = useState<string>(live ? '' : 'meet-04');
+  const [messages, setMessages] = useState<Message[]>(() => (sharedWorkspace ? sharedWorkspace.messages.map(item => toRichMessage(item, roleOfIn(sharedWorkspace))) : []));
   const [artifacts, setArtifacts] = useState<Artifact[]>(() => (sharedWorkspace ? sharedWorkspace.artifacts.map(toRichArtifact) : []));
-  const [selectedArtifactId, setSelectedArtifactId] = useState<string>('art-01');
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string>(live ? '' : 'art-01');
   const [sprints, setSprints] = useState<Sprint[]>(() => (sharedWorkspace ? sharedWorkspace.sprints.map(toRichSprint) : []));
-  const [selectedSprintId, setSelectedSprintId] = useState<string>('sprint-03');
+  const [selectedSprintId, setSelectedSprintId] = useState<string>(live ? '' : 'sprint-03');
   const [edges, setEdges] = useState<DelegationEdge[]>(() => (sharedWorkspace ? sharedWorkspace.edges.map(toRichEdge) : []));
   const [skills, setSkills] = useState<WorkspaceSkill[]>(() => sharedWorkspace?.skills ?? []);
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [isSmeModalOpen, setIsSmeModalOpen] = useState<boolean>(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(872);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(252);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(live ? 0 : 872);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(live ? 0 : 252);
   const workspaceId = sharedWorkspace?.workspaceId ?? 'workspace-demo';
 
-  const selectedMeet = meets.find(m => m.id === selectedMeetId) || meets[0] || EMPTY_MEET;
+  // With a real team, "nothing chosen" follows the action: the meeting that is happening, the sprint that is running.
+  const defaultMeet = live ? meets.find(m => m.status === 'live') ?? meets[meets.length - 1] : meets[0];
+  const defaultSprint = live ? sprints.find(s => s.status === 'active') ?? sprints[sprints.length - 1] : sprints[0];
+  const selectedMeet = meets.find(m => m.id === selectedMeetId) || defaultMeet || EMPTY_MEET;
   const selectedArtifact = artifacts.find(a => a.id === selectedArtifactId) || artifacts[0] || EMPTY_ARTIFACT;
-  const selectedSprint = sprints.find(s => s.id === selectedSprintId) || sprints[0] || EMPTY_SPRINT;
+  const selectedSprint = sprints.find(s => s.id === selectedSprintId) || defaultSprint || EMPTY_SPRINT;
   const activeAgent = agents.find(a => a.isLive) || agents[0] || EMPTY_AGENT;
 
   useEffect(() => {
@@ -289,13 +318,13 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
       const previous = new Map(prev.map(agent => [agent.id, agent]));
       return sharedWorkspace.agents.map(item => {
         const existing = previous.get(item.id);
-        const rich = toRichAgent(item);
-        return existing ? { ...existing, activeTask: rich.activeTask, confidenceScore: rich.confidenceScore, isLive: rich.isLive, status: rich.status, name: rich.name, roleTitle: rich.roleTitle } : rich;
+        const rich = toRichAgent(item, live);
+        return existing ? { ...existing, activeBranch: rich.activeBranch, activeTask: rich.activeTask, confidenceScore: rich.confidenceScore, isLive: rich.isLive, status: rich.status, name: rich.name, roleTitle: rich.roleTitle } : rich;
       });
     });
     setMessages(prev => {
       const known = new Set(prev.map(message => message.id));
-      const incoming = sharedWorkspace.messages.filter(item => !known.has(item.id)).map(toRichMessage);
+      const incoming = sharedWorkspace.messages.filter(item => !known.has(item.id)).map(item => toRichMessage(item, roleOfIn(sharedWorkspace)));
       const updated = prev.map(message => {
         const shared = sharedWorkspace.messages.find(item => item.id === message.id);
         return shared ? { ...message, text: shared.text, timestamp: shared.timestamp } : message;
@@ -306,7 +335,7 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
       const previous = new Map(prev.map(meet => [meet.id, meet]));
       return sharedWorkspace.meets.map(item => {
         const existing = previous.get(item.id);
-        const rich = toRichMeet(item);
+        const rich = toRichMeet(item, live);
         return existing ? { ...existing, consensusRate: rich.consensusRate, debateIntensity: rich.debateIntensity, status: rich.status, title: rich.title } : rich;
       });
     });
@@ -395,6 +424,20 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
   const activeAgentsCount = agents.filter(a => a.status !== 'idle').length;
   const prdAcceptanceRatio = artifacts[0] ? `${artifacts[0].acceptedCount}/${artifacts[0].totalRequired}` : '0/0';
 
+  const phaseId = sharedWorkspace?.phaseId ?? 'kickoff';
+  const kickoffMeet = meets.find(m => m.title.startsWith('Kickoff meeting:'));
+  const projectName = kickoffMeet ? kickoffMeet.title.replace(/^Kickoff meeting:\s*/, '') : '';
+  const runningSprint = sprints.find(s => s.status === 'active') ?? sprints[sprints.length - 1];
+  const sprintLabel = phaseId === 'build' && runningSprint ? `Sprint ${runningSprint.number}` : PHASE_LABEL[phaseId] ?? phaseId;
+  const totalPRs = sharedWorkspace?.metrics.totalPRs ?? 0;
+  const coreDocuments = artifacts.filter(a => CORE_DOCUMENTS.includes(a.id));
+  const documentsAccepted = { accepted: coreDocuments.filter(a => a.status === 'approved').length, total: coreDocuments.length };
+  const sprintMeets = (sprint: Sprint) => meets.filter(m => sprintKey(m.id) !== '' && sprintKey(m.id) === sprintKey(sprint.id));
+  const sprintDocuments = (sprint: Sprint) => {
+    const number = Number(sprintKey(sprint.id).replace(/^r\d+-/, ''));
+    return artifacts.filter(a => Number(/sprint-(\d+)\//.exec(a.filename)?.[1] ?? -1) === number);
+  };
+
   return (
     <ScrumContext.Provider
       value={{
@@ -433,7 +476,14 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
         activeAgentsCount,
         prdAcceptanceRatio,
         forceConsensus,
-        reassignTask
+        reassignTask,
+        phaseId,
+        projectName,
+        sprintLabel,
+        totalPRs,
+        documentsAccepted,
+        sprintMeets,
+        sprintDocuments
       }}
     >
       {children}

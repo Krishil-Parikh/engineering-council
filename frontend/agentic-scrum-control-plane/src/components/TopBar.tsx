@@ -10,6 +10,9 @@ interface TopBarProps {
   playbackSpeed: number;
   onChangePlaybackSpeed: () => void;
   onOpenSettings: () => void;
+  /** A real backend is attached: no demo loop controls, and the project's own name is shown. */
+  live?: boolean;
+  projectName?: string;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -19,6 +22,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   playbackSpeed,
   onChangePlaybackSpeed,
   onOpenSettings,
+  live = false,
+  projectName = '',
 }) => {
   return (
     <header className="h-14 border-b border-[#E7E6DF] bg-[#FCFCFB]/90 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between select-none">
@@ -30,12 +35,12 @@ export const TopBar: React.FC<TopBarProps> = ({
         </span>
         <span className="text-xs text-[#8E8E8E] hidden sm:inline" aria-hidden="true">/</span>
         <span className="text-xs text-[#5B5B5B] font-mono hidden sm:inline">
-          sdlc.agent-mesh.v3
+          {live ? projectName || 'new project' : 'sdlc.agent-mesh.v3'}
         </span>
       </div>
 
       {/* Center Zone: Generative Co-Pilot Orchestrator */}
-      <div className="hidden md:flex items-center gap-3">
+      {live ? <div /> : <div className="hidden md:flex items-center gap-3">
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F4F3EE] border border-[#E7E6DF] text-xs text-[#5B5B5B]">
           <span className="text-[11px] font-mono uppercase text-[#8E8E8E]">Orchestrator:</span>
           <button
@@ -56,7 +61,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <span>{playbackSpeed}x</span>
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Right Zone: Live Indicator & Settings */}
       <div className="flex items-center gap-4">

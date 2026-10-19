@@ -84,6 +84,22 @@ describe('the control plane with a real team', () => {
     expect(repository.commands[0]).toMatchObject({ directive: 'Keep the API stable.', meetId: 'meet-01' });
   });
 
+  it('shows the real project and numbers, and none of the demo content', async () => {
+    const repository = renderLiveShell();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Control Plane' }));
+    await screen.findByTitle('Inject an architectural challenge into the active meet');
+    act(() => {
+      repository.phase('build');
+      repository.metrics({ totalMessagesToday: 4, totalPRs: 2, prHistory: [] });
+    });
+    await waitFor(() => expect(screen.getAllByText('Habitly').length).toBeGreaterThan(0));
+    for (const demo of [/Fintech Clearing/, /FINMA/, /AUTOPILOT/, /Elapsed/, /4\.2k tok/, /Kafka/, /Zurich/, /2h 14m/, /Raft/]) {
+      expect(screen.queryByText(demo)).not.toBeInTheDocument();
+    }
+    expect(screen.getByText('FEATURES MERGED')).toBeInTheDocument();
+    expect(screen.getByText('2 features merged')).toBeInTheDocument();
+  });
+
   it('keeps the demo loop controls in the demo', async () => {
     render(
       <WorkspaceProvider workspaceId="workspace-demo" repository={new MockWorkspaceRepository(activeSprintWorkspace('workspace-demo'))}>

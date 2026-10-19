@@ -133,7 +133,7 @@ describe('GenUIView with a real backend', () => {
       repository.agent(developer(2));
       repository.phase('build');
     });
-    expect(await screen.findByText(/0 features? merged/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/0 features? merged/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Spine timeline navigation/)).not.toBeInTheDocument();
     expect(screen.queryByText(/38 commits synced to main/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Advance to Review/)).not.toBeInTheDocument();
@@ -154,6 +154,21 @@ describe('GenUIView with a real backend', () => {
     expect(screen.getByText(/6\/6 features merged/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Start a new project/ }));
     await waitFor(() => expect(repository.commands).toHaveLength(1));
+    expect(repository.commands[0]).toMatchObject({ type: 'phase.advance', phaseId: 'kickoff' });
+  });
+
+  it('says when the run stopped early and offers a new project', async () => {
+    const repository = renderLive();
+    await screen.findByLabelText('Project brief');
+    act(() => {
+      repository.phase('brainstorm');
+      repository.message({ id: 'm-start', kind: 'system', text: 'Starting the pod meeting for "Habitly".' });
+      repository.message({ id: 'm-stop', kind: 'system', text: 'The run stopped: Could not clone https://github.com/me/nothing: Repository not found' });
+    });
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Could not clone https://github.com/me/nothing');
+    fireEvent.click(screen.getByRole('button', { name: /Start a new project/ }));
+    await waitFor(() => expect(repository.commandsOfType('phase.advance')).toHaveLength(1));
     expect(repository.commands[0]).toMatchObject({ type: 'phase.advance', phaseId: 'kickoff' });
   });
 

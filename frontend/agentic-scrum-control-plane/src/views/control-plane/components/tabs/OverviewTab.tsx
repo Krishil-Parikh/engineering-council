@@ -14,8 +14,16 @@ export const OverviewTab: React.FC = () => {
     messages,
     setActiveTab,
     setSelectedAgent,
-    selectedMeet
+    selectedMeet,
+    live,
+    phaseId,
+    sprintLabel,
+    totalPRs,
+    documentsAccepted,
+    selectedSprint
   } = useScrum();
+  const developers = agents.filter(agent => agent.id !== 'agent-sm' && agent.id !== 'sme-01');
+  const documentTracker = live ? Array.from({ length: documentsAccepted.total }, (_, index) => index < documentsAccepted.accepted) : [];
 
   const tickerRef = useRef<HTMLDivElement>(null);
 
@@ -37,10 +45,10 @@ export const OverviewTab: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-[#0F8A4B]" />
           </div>
           <div className="text-[38px] leading-[40px] font-bold text-[#161616] tracking-tight">
-            <Odometer value={`${activeAgentsCount}/6`} />
+            <Odometer value={live ? `${developers.filter(agent => agent.status !== 'idle').length}/${developers.length}` : `${activeAgentsCount}/6`} />
           </div>
-          {/* Sparkline visualization */}
-          <div className="flex items-end gap-[3px] h-3 w-full">
+          {/* Sparkline visualization (decoration for the demo; a real team has no series to draw) */}
+          {live ? <div className="text-[10px] text-[#5B5B5B]">developers working now</div> : <div className="flex items-end gap-[3px] h-3 w-full">
             {[20, 35, 60, 80, 70, 45, 90, 85, 95, 70].map((h, i) => (
               <div
                 key={i}
@@ -48,20 +56,20 @@ export const OverviewTab: React.FC = () => {
                 style={{ height: `${h}%` }}
               />
             ))}
-          </div>
+          </div>}
         </div>
 
         {/* Tile 2: Messages Today */}
         <div className="h-[96px] p-4 bg-[#FCFCFB]/90 backdrop-blur-md rounded-[16px] border border-[#E2E0D9] shadow-[0_1px_2px_rgba(22,22,22,0.04)] flex flex-col justify-between">
           <div className="flex items-center justify-between text-[10.5px] font-bold tracking-wider uppercase text-[#5B5B5B]">
-            <span>MESSAGES TODAY</span>
-            <span className="text-[10px] mono text-[#0F8A4B] font-semibold">+12%</span>
+            <span>{live ? 'MESSAGES' : 'MESSAGES TODAY'}</span>
+            {!live && <span className="text-[10px] mono text-[#0F8A4B] font-semibold">+12%</span>}
           </div>
           <div className="text-[38px] leading-[40px] font-bold text-[#161616] tracking-tight">
             <Odometer value={totalMessagesToday} />
           </div>
           {/* Micro bar distribution */}
-          <div className="flex items-end gap-[3px] h-3 w-full">
+          {live ? <div className="text-[10px] text-[#5B5B5B]">in the team's conversations</div> : <div className="flex items-end gap-[3px] h-3 w-full">
             {[40, 25, 70, 85, 90, 65, 80, 95, 60, 88].map((h, i) => (
               <div
                 key={i}
@@ -69,25 +77,25 @@ export const OverviewTab: React.FC = () => {
                 style={{ height: `${h}%` }}
               />
             ))}
-          </div>
+          </div>}
         </div>
 
         {/* Tile 3: PRD Acceptance */}
         <div className="h-[96px] p-4 bg-[#FCFCFB]/90 backdrop-blur-md rounded-[16px] border border-[#E2E0D9] shadow-[0_1px_2px_rgba(22,22,22,0.04)] flex flex-col justify-between">
           <div className="flex items-center justify-between text-[10.5px] font-bold tracking-wider uppercase text-[#5B5B5B]">
-            <span>PRD ACCEPTANCE</span>
-            <span className="text-[10px] font-semibold text-[#0F8A4B]">Consensus</span>
+            <span>{live ? 'DOCUMENTS ACCEPTED' : 'PRD ACCEPTANCE'}</span>
+            <span className="text-[10px] font-semibold text-[#0F8A4B]">{live ? 'By you' : 'Consensus'}</span>
           </div>
           <div className="text-[38px] leading-[40px] font-bold text-[#161616] tracking-tight">
-            <Odometer value={prdAcceptanceRatio} />
+            <Odometer value={live ? `${documentsAccepted.accepted}/${documentsAccepted.total}` : prdAcceptanceRatio} />
           </div>
-          {/* Dot Tracker: 6 circles */}
+          {/* Dot Tracker: one dot per document (the demo draws six agents) */}
           <div className="flex items-center gap-2">
-            {[1, 2, 3, 4, 5, 6].map(i => (
+            {(live ? documentTracker : [true, true, true, true, true, true]).map((accepted, i) => (
               <span
                 key={i}
-                className="w-2.5 h-2.5 rounded-full bg-[#0F8A4B]"
-                title="Agent Verified & Approved"
+                className={`w-2.5 h-2.5 rounded-full ${accepted ? 'bg-[#0F8A4B]' : 'bg-[#E2E0D9]'}`}
+                title={live ? (accepted ? 'Accepted' : 'Waiting for you') : 'Agent Verified & Approved'}
               />
             ))}
           </div>
@@ -96,15 +104,15 @@ export const OverviewTab: React.FC = () => {
         {/* Tile 4: Time in Phase */}
         <div className="h-[96px] p-4 bg-[#FCFCFB]/90 backdrop-blur-md rounded-[16px] border border-[#E2E0D9] shadow-[0_1px_2px_rgba(22,22,22,0.04)] flex flex-col justify-between">
           <div className="flex items-center justify-between text-[10.5px] font-bold tracking-wider uppercase text-[#5B5B5B]">
-            <span>TIME IN PHASE</span>
-            <span className="text-[10px] mono text-[#161616] font-semibold">Sprint 03</span>
+            <span>{live ? 'FEATURES MERGED' : 'TIME IN PHASE'}</span>
+            <span className="text-[10px] mono text-[#161616] font-semibold">{live ? sprintLabel : 'Sprint 03'}</span>
           </div>
           <div className="text-[38px] leading-[40px] font-bold text-[#161616] tracking-tight">
-            2h 14m
+            {live ? totalPRs : '2h 14m'}
           </div>
-          {/* Progress Bar 68% */}
-          <div className="w-full h-2 bg-[#EDECE7] rounded-full overflow-hidden">
-            <div className="h-full bg-[#161616] rounded-full w-[68%]" />
+          {/* Progress bar: the running sprint's real progress (the demo shows 68%) */}
+          <div className="w-full h-2 bg-[#EDECE7] rounded-full overflow-hidden" title={live ? `${phaseId} · sprint ${selectedSprint.progress}%` : undefined}>
+            <div className="h-full bg-[#161616] rounded-full" style={{ width: live ? `${Math.max(0, Math.min(100, selectedSprint.progress))}%` : '68%' }} />
           </div>
         </div>
       </div>
@@ -147,7 +155,7 @@ export const OverviewTab: React.FC = () => {
             <div className="flex items-center gap-2">
               <MessageSquare className="w-3.5 h-3.5 text-[#5B5B5B]" />
               <span className="text-[11.5px] font-bold tracking-wider uppercase text-[#161616]">
-                {selectedMeet.title.split('—')[0]}
+                {live ? 'Latest from the team' : selectedMeet.title.split('—')[0]}
               </span>
             </div>
 
@@ -202,7 +210,7 @@ export const OverviewTab: React.FC = () => {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold tracking-wider uppercase text-[#5B5B5B]">
-            AGENT WORKBENCH (6 NODES)
+            AGENT WORKBENCH ({agents.length} NODES)
           </span>
           <span className="text-[10.5px] text-[#5B5B5B]">Hover for context depth · Click to inspect</span>
         </div>
@@ -232,8 +240,9 @@ export const OverviewTab: React.FC = () => {
                 {agent.roleTitle.split('·')[0]}
               </div>
 
-              {/* Sparkline */}
-              <div className="flex items-end gap-[2px] h-4 bg-[#F4F3EE] p-1 rounded-[4px] mb-2">
+              {live ? (
+                <div className="text-[10px] text-[#161616] bg-[#F4F3EE] p-1.5 rounded-[4px] mb-2 line-clamp-2 min-h-[30px]">{agent.activeTask}</div>
+              ) : <div className="flex items-end gap-[2px] h-4 bg-[#F4F3EE] p-1 rounded-[4px] mb-2">
                 {agent.sparkline.slice(-6).map((val, idx) => (
                   <div
                     key={idx}
@@ -241,10 +250,10 @@ export const OverviewTab: React.FC = () => {
                     style={{ height: `${Math.max(20, (val / 100) * 100)}%` }}
                   />
                 ))}
-              </div>
+              </div>}
 
               <div className="flex items-center justify-between text-[9.5px] mono text-[#5B5B5B]">
-                <span>{agent.confidenceScore}% conf</span>
+                <span className="truncate">{live ? (agent.activeBranch ?? agent.status) : `${agent.confidenceScore}% conf`}</span>
                 {agent.isLive && <span className="text-[#E60000] font-bold uppercase">Live</span>}
               </div>
             </motion.div>

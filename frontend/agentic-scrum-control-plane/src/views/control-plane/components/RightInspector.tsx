@@ -25,8 +25,11 @@ export const RightInspector: React.FC = () => {
     selectedSprint,
     reassignTask,
     forceConsensus,
-    messages
+    messages,
+    live,
+    sprintDocuments
   } = useScrum();
+  const meetMessages = messages.filter(message => message.meetId === selectedMeet.id).length;
 
   const [customTask, setCustomTask] = useState('');
   const [showTaskInput, setShowTaskInput] = useState(false);
@@ -80,18 +83,18 @@ export const RightInspector: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="text-right">
+                {!live && <div className="text-right">
                   <div className="text-[10px] text-[#5B5B5B] uppercase font-medium">Confidence</div>
                   <div className="text-[14px] font-bold mono text-[#0F8A4B]">
                     {selectedAgent.confidenceScore}%
                   </div>
-                </div>
+                </div>}
               </div>
 
               {/* Status Pill */}
               <div className="mt-3 flex items-center gap-2 text-[11px] text-[#161616] bg-[#F4F3EE] p-2 rounded-[6px] border border-[#EDECE7]">
                 <Cpu className="w-3.5 h-3.5 text-[#5B5B5B] shrink-0" />
-                <span className="truncate mono text-[10.5px] text-[#5B5B5B]">{selectedAgent.model}</span>
+                <span className="truncate mono text-[10.5px] text-[#5B5B5B]">{live ? (selectedAgent.activeBranch ?? 'No branch yet') : selectedAgent.model}</span>
               </div>
             </div>
 
@@ -130,8 +133,8 @@ export const RightInspector: React.FC = () => {
               )}
             </div>
 
-            {/* Execution Telemetry Grid */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Execution Telemetry Grid (the backend reports no token figures, so a real team shows none) */}
+            {!live && <div className="grid grid-cols-2 gap-2">
               <div className="p-2.5 bg-[#FFFFFF] rounded-[8px] border border-[#E2E0D9]">
                 <div className="text-[10px] uppercase font-semibold text-[#5B5B5B]">Context Tokens</div>
                 <div className="text-[13px] font-bold mono text-[#161616] mt-0.5">
@@ -144,7 +147,7 @@ export const RightInspector: React.FC = () => {
                   <Odometer value={selectedAgent.tokensVelocity} /> <span className="text-[10px] font-normal text-[#5B5B5B]">tok/s</span>
                 </div>
               </div>
-            </div>
+            </div>}
 
             {/* Skills & Tools */}
             <div className="flex flex-col gap-1.5">
@@ -164,7 +167,7 @@ export const RightInspector: React.FC = () => {
             </div>
 
             {/* Recent Tool Invocations */}
-            <div className="flex flex-col gap-1.5">
+            {!live && <div className="flex flex-col gap-1.5">
               <div className="text-[11px] font-bold tracking-wider uppercase text-[#5B5B5B]">
                 Recent Tool Calls
               </div>
@@ -176,7 +179,7 @@ export const RightInspector: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Quick Actions */}
             <div className="mt-2 flex flex-col gap-2">
@@ -185,7 +188,7 @@ export const RightInspector: React.FC = () => {
                 className="w-full py-2 bg-[#161616] hover:bg-[#2B2B2B] text-[#FFFFFF] text-[11.5px] font-semibold rounded-[8px] transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98]"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-[#0F8A4B]" />
-                <span>Force Quorum Consensus</span>
+                <span>{live ? 'Approve the pending decision' : 'Force Quorum Consensus'}</span>
               </button>
             </div>
           </div>
@@ -210,8 +213,15 @@ export const RightInspector: React.FC = () => {
               </div>
             </div>
 
+            {live && (
+              <div className="p-3.5 bg-[#FFFFFF] rounded-[10px] border border-[#E2E0D9] flex items-center justify-between text-[12px]">
+                <span className="text-[#5B5B5B] font-semibold uppercase text-[11px]">{selectedMeet.status === 'live' ? 'In progress' : 'Finished'}</span>
+                <span className="mono text-[#161616]">{meetMessages} messages</span>
+              </div>
+            )}
+
             {/* Debate Intensity Heat-Strip */}
-            <div className="p-3.5 bg-[#FFFFFF] rounded-[10px] border border-[#E2E0D9]">
+            {!live && <div className="p-3.5 bg-[#FFFFFF] rounded-[10px] border border-[#E2E0D9]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-bold uppercase text-[#5B5B5B] flex items-center gap-1">
                   <Flame className="w-3.5 h-3.5 text-[#E60000]" />
@@ -243,10 +253,10 @@ export const RightInspector: React.FC = () => {
                 <span>08:00 (Peak Debate)</span>
                 <span>15:00</span>
               </div>
-            </div>
+            </div>}
 
             {/* Active Participants in this Meet */}
-            <div className="flex flex-col gap-1.5">
+            {!live && <div className="flex flex-col gap-1.5">
               <div className="text-[11px] font-bold tracking-wider uppercase text-[#5B5B5B]">
                 Active In Room ({selectedMeet.participants.length})
               </div>
@@ -261,13 +271,13 @@ export const RightInspector: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Meet Summary */}
-            <div className="p-3 bg-[#F4F3EE] rounded-[8px] border border-[#E2E0D9] text-[11.5px] leading-relaxed text-[#5B5B5B]">
+            {!live && <div className="p-3 bg-[#F4F3EE] rounded-[8px] border border-[#E2E0D9] text-[11.5px] leading-relaxed text-[#5B5B5B]">
               <span className="font-bold text-[#161616] block mb-1">Executive Summary</span>
               {selectedMeet.summary}
-            </div>
+            </div>}
           </div>
         )}
 
@@ -307,8 +317,10 @@ export const RightInspector: React.FC = () => {
                 Agent Signatures
               </div>
               <div className="flex flex-col gap-1.5">
-                {['Agent-01', 'Agent-02', 'Agent-03', 'Agent-04', 'Agent-05', 'Agent-06'].map(agentName => {
-                  const hasSigned = selectedArtifact.acceptedBy.includes(agentName);
+                {(live
+                  ? [...selectedArtifact.acceptedBy, ...(selectedArtifact.status === 'approved' ? [] : ['You (Business SME)'])]
+                  : ['Agent-01', 'Agent-02', 'Agent-03', 'Agent-04', 'Agent-05', 'Agent-06']).map(agentName => {
+                  const hasSigned = selectedArtifact.acceptedBy.includes(agentName) || (live && selectedArtifact.status === 'approved' && agentName === 'You (Business SME)');
                   return (
                     <div
                       key={agentName}
@@ -330,14 +342,14 @@ export const RightInspector: React.FC = () => {
               </div>
             </div>
 
-            {/* FINMA Compliance Check */}
-            <div className="p-3 bg-[#E7F5EC] rounded-[8px] border border-[#0F8A4B]/30 flex items-start gap-2.5">
+            {/* FINMA Compliance Check (a demo claim; a real run makes no such check) */}
+            {!live && <div className="p-3 bg-[#E7F5EC] rounded-[8px] border border-[#0F8A4B]/30 flex items-start gap-2.5">
               <ShieldCheck className="w-4 h-4 text-[#0F8A4B] shrink-0 mt-0.5" />
               <div className="text-[11px] text-[#161616]">
                 <strong className="block font-semibold">FINMA Art. 14 Verification Passed</strong>
                 Cryptographic parent lineage hashes validated across all active transaction nodes.
               </div>
-            </div>
+            </div>}
           </div>
         )}
 
@@ -350,11 +362,22 @@ export const RightInspector: React.FC = () => {
                 {selectedSprint.title}
               </div>
               <div className="text-[11px] text-[#5B5B5B] mt-1">
-                Goal: {selectedSprint.goal}
+                {live ? `${selectedSprint.phase || 'Planned'} · ${selectedSprint.progress}% delivered` : `Goal: ${selectedSprint.goal}`}
               </div>
             </div>
 
+            {live && (() => {
+              const retro = sprintDocuments(selectedSprint).find(doc => doc.filename.endsWith('retrospective.md'));
+              return retro ? (
+                <div className="flex flex-col gap-1.5">
+                  <div className="text-[11px] font-bold tracking-wider uppercase text-[#5B5B5B]">Retrospective</div>
+                  <pre className="p-2.5 bg-[#FFFFFF] rounded-[6px] border border-[#E2E0D9] text-[11px] leading-relaxed text-[#161616] whitespace-pre-wrap font-sans">{retro.markdownContent}</pre>
+                </div>
+              ) : <div className="text-[11.5px] text-[#5B5B5B]">The retrospective appears when the sprint closes.</div>;
+            })()}
+
             {/* Retrospective: Went Well */}
+            {!live && <>
             <div className="flex flex-col gap-1.5">
               <div className="text-[11px] font-bold tracking-wider uppercase text-[#0F8A4B]">
                 What Went Well
@@ -397,7 +420,7 @@ export const RightInspector: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div></>}
           </div>
         )}
       </div>

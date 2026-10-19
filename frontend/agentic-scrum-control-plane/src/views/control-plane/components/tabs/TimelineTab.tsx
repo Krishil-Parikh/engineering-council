@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useScrum } from '../../context/ScrumContext';
 import { Activity, CheckCircle2, Clock, AlertTriangle, ShieldCheck, Calendar, ChevronRight } from 'lucide-react';
 import { Sprint } from '../../types';
 
 export const TimelineTab: React.FC = () => {
-  const { sprints, selectedSprint, setSelectedSprintId, setSelectedMeetId, setActiveTab } = useScrum();
+  const { sprints, selectedSprint, setSelectedSprintId, setSelectedMeetId, setActiveTab, live, sprintMeets, sprintDocuments } = useScrum();
+  const [selectedDocId, setSelectedDocId] = useState<string>('');
+  const sprintDocs = live ? sprintDocuments(selectedSprint) : [];
+  const shownDoc = sprintDocs.find(doc => doc.id === selectedDocId) ?? sprintDocs[sprintDocs.length - 1];
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#FCFCFB] p-6 overflow-y-auto gap-6 select-none">
@@ -61,7 +64,7 @@ export const TimelineTab: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-3 text-[11px] mono text-[#5B5B5B]">
-                    <span>{sprint.startDate} → {sprint.targetDate}</span>
+                    {!live && <span>{sprint.startDate} → {sprint.targetDate}</span>}
                     <span className="font-semibold text-[#161616]">{sprint.progress}%</span>
                   </div>
                 </div>
@@ -79,7 +82,9 @@ export const TimelineTab: React.FC = () => {
 
                   {/* Meets nodes along the line */}
                   <div className="absolute inset-x-8 flex items-center justify-between z-10">
-                    {sprint.meets.map(meet => {
+                    {(live
+                      ? sprintMeets(sprint).map(meet => ({ id: meet.id, label: meet.title.replace(/^Sprint \d+\s*/, ''), outcome: 'consensus' as const }))
+                      : sprint.meets).map(meet => {
                       const isConsensus = meet.outcome === 'consensus';
 
                       return (
@@ -105,7 +110,7 @@ export const TimelineTab: React.FC = () => {
                     })}
 
                     {/* SME Gates (Diamond marker) */}
-                    {sprint.smeReviewPoints.map((gate, gIdx) => (
+                    {(live ? [] : sprint.smeReviewPoints).map((gate, gIdx) => (
                       <div key={gIdx} className="flex flex-col items-center group relative">
                         <div
                           className={`w-3.5 h-3.5 rotate-45 border-2 border-[#FFFFFF] shadow-sm ${
@@ -125,8 +130,37 @@ export const TimelineTab: React.FC = () => {
         </div>
       </div>
 
+      {live && (
+        <div className="bg-[#FFFFFF] p-6 rounded-[16px] border border-[#E2E0D9] shadow-xs flex flex-col gap-4">
+          <div className="border-b border-[#E2E0D9] pb-3">
+            <h3 className="text-[14px] font-bold text-[#161616] uppercase tracking-wider">
+              SPRINT DOCUMENTS — {selectedSprint.title}
+            </h3>
+            <p className="text-[12px] text-[#5B5B5B]">Written by the Scrum Master as the sprint runs: backlog, standups, review, report and retrospective.</p>
+          </div>
+          {sprintDocs.length === 0 ? (
+            <div className="text-[12px] text-[#5B5B5B]">Nothing has been written for this sprint yet.</div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {sprintDocs.map(doc => (
+                  <button
+                    key={doc.id}
+                    onClick={() => setSelectedDocId(doc.id)}
+                    className={`px-2.5 py-1 rounded-[6px] border text-[11px] font-mono font-semibold cursor-pointer ${shownDoc?.id === doc.id ? 'bg-[#161616] text-[#FFFFFF] border-[#161616]' : 'bg-[#F4F3EE] text-[#5B5B5B] border-[#E2E0D9] hover:bg-[#EDECE7]'}`}
+                  >
+                    {doc.filename.split('/').slice(-1)[0].replace('.md', '')}
+                  </button>
+                ))}
+              </div>
+              <pre className="p-4 bg-[#FCFCFB] rounded-[10px] border border-[#E2E0D9] text-[12px] leading-relaxed text-[#161616] whitespace-pre-wrap font-sans max-h-[420px] overflow-y-auto select-text">{shownDoc?.markdownContent}</pre>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Bottom Section: Scrum Master Standup Log (Yesterday / Today / Blockers) */}
-      <div className="bg-[#FFFFFF] p-6 rounded-[16px] border border-[#E2E0D9] shadow-xs flex flex-col gap-4">
+      {!live && <div className="bg-[#FFFFFF] p-6 rounded-[16px] border border-[#E2E0D9] shadow-xs flex flex-col gap-4">
         <div className="flex items-center justify-between border-b border-[#E2E0D9] pb-3">
           <div>
             <h3 className="text-[14px] font-bold text-[#161616] uppercase tracking-wider">
@@ -197,7 +231,7 @@ export const TimelineTab: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };

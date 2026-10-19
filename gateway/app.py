@@ -71,6 +71,10 @@ def problem(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(status_code=status, content={"error": {"code": code, "message": message}, "detail": message})
 
 
+# Without a token the gateway only listens on this machine, so any local page (any port, localhost or a private address) may call it.
+LOCAL_ORIGIN = r"^https?://(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$"
+
+
 def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] = None) -> FastAPI:
     settings = settings or GatewaySettings.from_env()
 
@@ -81,7 +85,7 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
         await app.state.hub.close()
 
     app = FastAPI(title="Engineering Council gateway", version="0.1.0", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_origin_regex=LOCAL_ORIGIN if settings.token is None else None, allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"])
 
     def denied(request: Request) -> Optional[JSONResponse]:
         if not settings.token:

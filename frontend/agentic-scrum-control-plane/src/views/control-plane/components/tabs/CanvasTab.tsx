@@ -5,7 +5,7 @@ import { useScrum } from '../../context/ScrumContext';
 import { Network, Zap, CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export const CanvasTab: React.FC = () => {
-  const { edges, agents, selectedAgent } = useScrum();
+  const { edges, agents, selectedAgent, live } = useScrum();
   const activeEdgeCount = edges.filter(e => e.isActive).length;
 
   return (
@@ -25,10 +25,19 @@ export const CanvasTab: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-[#E60000] live-pulse" />
               {activeEdgeCount} Active Transmissions
             </span>
-            <span className="text-[#C9C6BC]">·</span>
-            <span>Raft WAL Quorum 3-Node</span>
-            <span className="text-[#C9C6BC]">·</span>
-            <span>Zurich & Geneva Multi-Zone</span>
+            {live ? (
+              <>
+                <span className="text-[#C9C6BC]">·</span>
+                <span>{agents.length} agents</span>
+              </>
+            ) : (
+              <>
+                <span className="text-[#C9C6BC]">·</span>
+                <span>Raft WAL Quorum 3-Node</span>
+                <span className="text-[#C9C6BC]">·</span>
+                <span>Zurich & Geneva Multi-Zone</span>
+              </>
+            )}
           </div>
         </div>
 

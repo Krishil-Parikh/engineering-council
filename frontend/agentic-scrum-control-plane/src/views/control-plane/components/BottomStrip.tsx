@@ -12,7 +12,10 @@ export const BottomStrip: React.FC = () => {
     isSimulating,
     toggleSimulation,
     stepSimulation,
-    live
+    live,
+    messages,
+    totalPRs,
+    activeAgentsCount
   } = useScrum();
 
   return (
@@ -43,7 +46,7 @@ export const BottomStrip: React.FC = () => {
           ARTIFACT TRAY:
         </span>
 
-        {artifacts.map(art => {
+        {(live ? artifacts.filter(a => ['art-prd', 'art-tech', 'art-design'].includes(a.id)) : artifacts).map(art => {
           const isApproved = art.status === 'approved';
 
           return (
@@ -73,7 +76,15 @@ export const BottomStrip: React.FC = () => {
       {/* Right: Simulation Controls & Telemetry */}
       <div className="flex items-center gap-4">
         {/* Real-time telemetry */}
-        <div className="hidden md:flex items-center gap-3 text-[10.5px] mono">
+        {live ? (
+          <div className="hidden md:flex items-center gap-3 text-[10.5px] mono">
+            <span>{messages.length} messages</span>
+            <span className="text-[#C9C6BC]">·</span>
+            <span>{totalPRs} features merged</span>
+            <span className="text-[#C9C6BC]">·</span>
+            <span>{activeAgentsCount} working</span>
+          </div>
+        ) : <div className="hidden md:flex items-center gap-3 text-[10.5px] mono">
           <span className="text-[#0F8A4B] flex items-center gap-1 font-semibold">
             <span className="w-1.5 h-1.5 rounded-full bg-[#0F8A4B]" />
             FINMA Compliant
@@ -82,7 +93,7 @@ export const BottomStrip: React.FC = () => {
           <span>14ms Latency</span>
           <span className="text-[#C9C6BC]">·</span>
           <span>4.2k tok/s</span>
-        </div>
+        </div>}
 
         <div className="h-3 w-[1px] bg-[#E2E0D9]" />
 

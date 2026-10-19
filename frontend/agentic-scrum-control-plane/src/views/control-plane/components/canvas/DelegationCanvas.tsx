@@ -32,14 +32,14 @@ interface DelegationCanvasProps {
 }
 
 export const DelegationCanvas: React.FC<DelegationCanvasProps> = ({ isMini = false, onExpand }) => {
-  const { agents, edges, selectedAgent, setSelectedAgent, artifacts } = useScrum();
+  const { agents, edges, selectedAgent, setSelectedAgent, artifacts, live } = useScrum();
   const [zoom, setZoom] = useState<number>(isMini ? 0.78 : 1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: isMini ? -20 : 40, y: isMini ? -10 : 30 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Node position map (hierarchical layout matching fintech command architecture)
-  const nodes: NodeLayout[] = [
+  const demoNodes: NodeLayout[] = [
     // Top Row: Scrum Master & SME
     { id: 'agent-sm', x: 380, y: 50, type: 'agent', label: 'ScrumMaster', roleTitle: 'Sprint Arbiter', agentRef: agents.find(a => a.id === 'agent-sm') },
     { id: 'sme-01', x: 680, y: 50, type: 'sme', label: 'Business SME', roleTitle: 'FINMA Compliance' },
@@ -59,14 +59,31 @@ export const DelegationCanvas: React.FC<DelegationCanvasProps> = ({ isMini = fal
     { id: 'art-02', x: 500, y: 540, type: 'artifact', label: 'architecture.md', artifactRef: { name: 'architecture.md', version: 'v1.4', status: 'Review (5/6)' } }
   ];
 
+  // A real team: the Scrum Master and you on top, the developers the meeting assembled below, the three documents at the bottom.
+  const developers = agents.filter(agent => agent.id !== 'agent-sm' && agent.id !== 'sme-01');
+  const developerRows = Math.max(1, Math.ceil(developers.length / 3));
+  const documents = artifacts.filter(artifact => ['art-prd', 'art-tech', 'art-design'].includes(artifact.id));
+  const liveNodes: NodeLayout[] = [
+    { id: 'agent-sm', x: 320, y: 50, type: 'agent', label: 'Scrum Master', roleTitle: 'Runs the sprints', agentRef: agents.find(a => a.id === 'agent-sm') },
+    { id: 'sme-01', x: 620, y: 50, type: 'sme', label: 'You', roleTitle: 'Business SME' },
+    ...developers.map((agent, index) => ({
+      id: agent.id, x: 200 + (index % 3) * 240, y: 220 + Math.floor(index / 3) * 170, type: 'agent' as const, label: agent.name, roleTitle: agent.roleTitle, agentRef: agent,
+    })),
+    ...documents.map((doc, index) => ({
+      id: doc.id, x: 200 + index * 240, y: 220 + developerRows * 170 + 20, type: 'artifact' as const, label: doc.filename,
+      artifactRef: { name: doc.filename, version: doc.currentVersion, status: doc.status === 'approved' ? 'Accepted' : 'Waiting for you' },
+    })),
+  ];
+  const nodes = live ? liveNodes : demoNodes;
+
   // Artifact edges
-  const artifactEdges: DelegationEdge[] = [
+  const demoArtifactEdges: DelegationEdge[] = [
     { id: 'e-sm-art1', source: 'agent-sm', target: 'art-01', label: 'Signoff', isActive: true, latencyMs: 2 },
     { id: 'e-05-art2', source: 'agent-05', target: 'art-02', label: 'DDL Update', isActive: true, latencyMs: 5 },
     { id: 'e-03-art2', source: 'agent-03', target: 'art-02', label: 'Raft Spec', isActive: true, latencyMs: 4 }
   ];
 
-  const allEdges = [...edges, ...artifactEdges];
+  const allEdges = live ? edges : [...edges, ...demoArtifactEdges];
 
   // Selected neighbors calculation for Focus Mode (§5.2)
   const connectedNodeIds = new Set<string>();
@@ -189,7 +206,7 @@ export const DelegationCanvas: React.FC<DelegationCanvasProps> = ({ isMini = fal
               )}
 
               {/* Edge Latency Badge in center */}
-              {!isMini && edge.isActive && (
+              {!isMini && !live && edge.isActive && (
                 <g transform={`translate(${(sx + tx) / 2}, ${(sy + ty) / 2})`}>
                   <rect
                     x="-18"
@@ -290,8 +307,14 @@ export const DelegationCanvas: React.FC<DelegationCanvasProps> = ({ isMini = fal
                 </div>
 
                 <div className="pt-1.5 border-t border-[#EDECE7] flex items-center justify-between text-[9px] mono text-[#5B5B5B]">
-                  <span>{agent.tokensVelocity} tok/s</span>
-                  <span className="text-[#0F8A4B] font-semibold">{agent.confidenceScore}%</span>
+                  {live ? (
+                    <span className="truncate">{agent.activeBranch ?? agent.activeTask}</span>
+                  ) : (
+                    <>
+                      <span>{agent.tokensVelocity} tok/s</span>
+                      <span className="text-[#0F8A4B] font-semibold">{agent.confidenceScore}%</span>
+                    </>
+                  )}
                 </div>
               </motion.div>
             );
@@ -313,7 +336,7 @@ export const DelegationCanvas: React.FC<DelegationCanvasProps> = ({ isMini = fal
                     GOVERNANCE
                   </span>
                 </div>
-                <div className="text-[10px] text-[#5B5B5B] font-medium">FINMA Circular 2026/02</div>
+                <div className="text-[10px] text-[#5B5B5B] font-medium">{live ? 'Decisions and directives' : 'FINMA Circular 2026/02'}</div>
               </div>
             );
           }

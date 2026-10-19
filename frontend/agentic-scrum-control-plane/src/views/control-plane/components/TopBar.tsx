@@ -14,17 +14,21 @@ export const TopBar: React.FC = () => {
     remainingSeconds,
     formatTime,
     setIsSmeModalOpen,
-    triggerDebate
+    triggerDebate,
+    live,
+    projectName,
+    sprintLabel
   } = useScrum();
 
-  const isUrgent = remainingSeconds < 120;
+  const isUrgent = !live && remainingSeconds < 120;
 
+  const stage = live ? sprintLabel : 'Sprint 03';
   const breadcrumbText = 
-    activeTab === 'overview' ? `Sprint 03 / ${selectedMeet.title}` :
-    activeTab === 'canvas' ? 'Sprint 03 / Multi-Agent Delegation Graph' :
-    activeTab === 'meet' ? `Sprint 03 / ${selectedMeet.title}` :
-    activeTab === 'artifacts' ? 'Sprint 03 / SDLC Deliverables & Version Diff' :
-    'Sprint 03 / Sprint & Standup Timeline';
+    activeTab === 'overview' ? `${stage} / ${selectedMeet.title}` :
+    activeTab === 'canvas' ? `${stage} / Multi-Agent Delegation Graph` :
+    activeTab === 'meet' ? `${stage} / ${selectedMeet.title}` :
+    activeTab === 'artifacts' ? `${stage} / SDLC Deliverables & Version Diff` :
+    `${stage} / Sprint & Standup Timeline`;
 
   return (
     <header className="h-[72px] bg-[#FFFFFF] border-b border-[#E2E0D9] px-6 flex items-center justify-between shrink-0 select-none z-30 relative shadow-[0_1px_2px_rgba(22,22,22,0.03)]">
@@ -58,7 +62,7 @@ export const TopBar: React.FC = () => {
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center gap-2 text-[13px] text-[#5B5B5B] truncate"
           >
-            <span className="font-medium text-[#5B5B5B]">Fintech Clearing SDLC</span>
+            <span className="font-medium text-[#5B5B5B]">{live ? projectName || 'New project' : 'Fintech Clearing SDLC'}</span>
             <span className="text-[#C9C6BC]">/</span>
             <span className="font-semibold text-[#161616] truncate">{breadcrumbText}</span>
           </motion.div>
@@ -85,6 +89,7 @@ export const TopBar: React.FC = () => {
             LIVE
           </span>
 
+          {!live && <>
           <div className="h-3 w-[1px] bg-[#E2E0D9]" />
 
           {/* Elapsed Time */}
@@ -100,6 +105,7 @@ export const TopBar: React.FC = () => {
             <span className="text-[10px] uppercase font-sans font-medium">Left</span>
             <Odometer value={formatTime(remainingSeconds)} className="font-semibold" />
           </div>
+          </>}
         </div>
 
         {/* Business SME Directive Button */}
@@ -122,8 +128,8 @@ export const TopBar: React.FC = () => {
           <span>Inject Debate</span>
         </button>
 
-        {/* Autopilot / Manual Segmented Toggle */}
-        <div className="relative flex items-center bg-[#F4F3EE] p-1 rounded-full border border-[#E2E0D9]">
+        {/* Autopilot / Manual Segmented Toggle (a demo setting: a real team always runs on its own and asks you when it needs you) */}
+        {!live && <div className="relative flex items-center bg-[#F4F3EE] p-1 rounded-full border border-[#E2E0D9]">
           <button
             onClick={() => setAutopilot(true)}
             className={`relative z-10 px-3 py-1 text-[11px] font-semibold tracking-wider uppercase transition-colors cursor-pointer ${
@@ -149,7 +155,7 @@ export const TopBar: React.FC = () => {
               autopilot ? 'left-1 w-[82px] bg-[#161616]' : 'left-[86px] w-[70px] bg-[#5B5B5B]'
             }`}
           />
-        </div>
+        </div>}
       </div>
     </header>
   );

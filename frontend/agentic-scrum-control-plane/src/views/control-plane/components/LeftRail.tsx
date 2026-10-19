@@ -5,7 +5,7 @@ import { Sparkles, Layers, Cpu } from 'lucide-react';
 import { Agent } from '../types';
 
 export const LeftRail: React.FC = () => {
-  const { agents, selectedAgent, setSelectedAgent, skills } = useScrum();
+  const { agents, selectedAgent, setSelectedAgent, skills, live } = useScrum();
 
   return (
     <aside className="w-[232px] bg-[#F4F3EE] border-r border-[#E2E0D9] flex flex-col shrink-0 select-none overflow-y-auto overflow-x-hidden">
@@ -17,7 +17,7 @@ export const LeftRail: React.FC = () => {
         <div className="flex items-center gap-1.5 text-[11px] mono font-semibold text-[#5B5B5B]">
           <span>{agents.length}</span>
           <span className="text-[#C9C6BC]">·</span>
-          <span className="text-[#0F8A4B]">Active</span>
+          <span className="text-[#0F8A4B]">{live ? 'On the team' : 'Active'}</span>
         </div>
       </div>
 
@@ -63,8 +63,8 @@ export const LeftRail: React.FC = () => {
                     {agent.roleTitle}
                   </div>
 
-                  {/* Micro Sparkline visualization */}
-                  <div className="flex items-end justify-between gap-[3px] h-6 bg-[#F4F3EE] p-1.5 rounded-[6px] border border-[#E2E0D9]">
+                  {/* Micro Sparkline visualization (decoration for the demo) */}
+                  {!live && <div className="flex items-end justify-between gap-[3px] h-6 bg-[#F4F3EE] p-1.5 rounded-[6px] border border-[#E2E0D9]">
                     {agent.sparkline.map((val, idx) => (
                       <div
                         key={idx}
@@ -72,7 +72,7 @@ export const LeftRail: React.FC = () => {
                         style={{ height: `${Math.max(15, (val / 100) * 100)}%` }}
                       />
                     ))}
-                  </div>
+                  </div>}
 
                   {/* Active Task line */}
                   <div className="mt-2 text-[10.5px] leading-[14px] text-[#5B5B5B] line-clamp-2">
@@ -81,11 +81,11 @@ export const LeftRail: React.FC = () => {
 
                   {/* Token Rate & Subagents */}
                   <div className="mt-2 pt-2 border-t border-[#EDECE7] flex items-center justify-between text-[10px] mono text-[#5B5B5B]">
-                    <span>{agent.tokensVelocity} tok/s</span>
+                    <span className="truncate">{live ? (agent.activeBranch ?? '') : `${agent.tokensVelocity} tok/s`}</span>
                     {agent.subAgentsCount ? (
                       <span className="font-medium text-[#161616]">+{agent.subAgentsCount} sub-agents</span>
                     ) : (
-                      <span>{agent.allocatedMemory}</span>
+                      <span>{live ? '' : agent.allocatedMemory}</span>
                     )}
                   </div>
                 </motion.div>
@@ -138,7 +138,7 @@ export const LeftRail: React.FC = () => {
           <span className="text-[11px] font-bold tracking-wider uppercase text-[#5B5B5B]">
             SKILLS BENCH
           </span>
-          <span className="text-[10px] mono text-[#5B5B5B]">5 mapped</span>
+          <span className="text-[10px] mono text-[#5B5B5B]">{live ? `${skills.length} on the team` : '5 mapped'}</span>
         </div>
 
         <div className="flex flex-col gap-1.5">

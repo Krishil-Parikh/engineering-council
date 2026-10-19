@@ -435,12 +435,15 @@ class TeamBridge:
         run = self.run
         if d["id"] in run.questions.pending:
             run.questions.drop(d["id"])
+        if d["id"] not in run.docs_approval_ids and not run.questions.pending:
+            self.n.meet("decisions", "Decisions waiting for you", "completed")
         if d["id"] in run.docs_approval_ids:
             if d["approved"]:
                 run.document_accepted = True
                 publish_documents(run, "approved", human_accepted=True)
                 run.set_phase("build")
                 self.n.system("prd", "You accepted the documents. Development starts now.")
+                self.n.meet("prd", "Document review", "completed")
             else:
                 run.document_revisions += 1
                 publish_documents(run, "in_review")

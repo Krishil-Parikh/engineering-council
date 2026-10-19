@@ -11,7 +11,8 @@ export const MeetTab: React.FC = () => {
     setSelectedMeetId,
     messages,
     triggerDebate,
-    setIsSmeModalOpen
+    setIsSmeModalOpen,
+    live
   } = useScrum();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,6 +27,7 @@ export const MeetTab: React.FC = () => {
 
   // Filter messages based on search query and message type
   const filteredMessages = messages.filter(msg => {
+    if (live && msg.meetId !== selectedMeet.id) return false; // a real team runs many meetings: each shows its own conversation
     const matchesSearch = 
       msg.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
       msg.senderName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -51,7 +53,7 @@ export const MeetTab: React.FC = () => {
       {/* Top Meet Selector Row */}
       <div className="h-[52px] px-6 bg-[#FFFFFF] border-b border-[#E2E0D9] flex items-center justify-between shrink-0">
         {/* Meet Pills */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto max-w-[55%]">
           {meets.map(meet => {
             const isLive = meet.status === 'live';
             const isSelected = selectedMeet.id === meet.id;
@@ -71,11 +73,11 @@ export const MeetTab: React.FC = () => {
                 {isLive && (
                   <span className="w-2 h-2 rounded-full bg-[#E60000] live-pulse" />
                 )}
-                <span>Meet {meet.number}</span>
+                <span>{live ? meet.title.replace(/^Kickoff meeting: .*/, 'Kickoff') : `Meet ${meet.number}`}</span>
                 {isLive ? (
                   <span className="text-[9px] uppercase font-bold tracking-wider">LIVE</span>
                 ) : (
-                  <span className="text-[10px] mono text-[#5B5B5B]">({meet.elapsedTime})</span>
+                  !live && <span className="text-[10px] mono text-[#5B5B5B]">({meet.elapsedTime})</span>
                 )}
               </button>
             );
@@ -91,7 +93,7 @@ export const MeetTab: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search transcript, code, DDL..."
+              placeholder={live ? 'Search this meeting...' : 'Search transcript, code, DDL...'}
               className="pl-8 pr-3 py-1 bg-[#F4F3EE] border border-[#E2E0D9] rounded-[6px] text-[11.5px] text-[#161616] placeholder-[#5B5B5B] outline-none focus:border-[#161616] w-56"
             />
           </div>
@@ -104,7 +106,7 @@ export const MeetTab: React.FC = () => {
                 filterType === 'all' ? 'bg-[#FFFFFF] text-[#161616] shadow-xs font-semibold' : ''
               }`}
             >
-              All ({messages.length})
+              All ({live ? messages.filter(m => m.meetId === selectedMeet.id).length : messages.length})
             </button>
             <button
               onClick={() => setFilterType('debates')}
@@ -142,16 +144,16 @@ export const MeetTab: React.FC = () => {
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#5B5B5B]">
               Agenda & Scope
             </span>
-            <span className="text-[11px] mono text-[#0F8A4B] font-semibold">
+            {!live && <span className="text-[11px] mono text-[#0F8A4B] font-semibold">
               Consensus: {selectedMeet.consensusRate}%
-            </span>
+            </span>}
           </div>
           <h2 className="text-[16px] font-bold text-[#161616] mb-1">
             {selectedMeet.title}
           </h2>
-          <p className="text-[12.5px] text-[#5B5B5B] leading-relaxed">
+          {!live && <p className="text-[12.5px] text-[#5B5B5B] leading-relaxed">
             {selectedMeet.topic}
-          </p>
+          </p>}
         </div>
 
         {/* Message Blocks */}
@@ -248,14 +250,14 @@ export const MeetTab: React.FC = () => {
         {/* Quick Interaction Strip at bottom of Meet */}
         <div className="mt-4 p-3 bg-[#FFFFFF] rounded-[10px] border border-[#E2E0D9] flex items-center justify-between shadow-xs">
           <div className="text-[12px] text-[#5B5B5B]">
-            Need to steer the ongoing debate or inject an invariant?
+            {live ? 'Want to steer the team or add a constraint?' : 'Need to steer the ongoing debate or inject an invariant?'}
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={triggerDebate}
               className="px-3 py-1.5 text-[11.5px] font-semibold bg-[#F4F3EE] hover:bg-[#EDECE7] text-[#161616] rounded-[6px] border border-[#E2E0D9] cursor-pointer transition-colors"
             >
-              Trigger Network Challenge
+              {live ? 'Challenge the team' : 'Trigger Network Challenge'}
             </button>
             <button
               onClick={() => setIsSmeModalOpen(true)}

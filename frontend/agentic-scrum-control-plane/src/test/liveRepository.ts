@@ -51,6 +51,10 @@ export class LiveFakeRepository implements WorkspaceRepository {
     this.push('agent.updated', agent);
   }
 
+  metrics(metrics: WorkspaceSnapshot['metrics']) {
+    this.push('metrics.updated', metrics);
+  }
+
   commandsOfType(type: WorkspaceCommand['type']) {
     return this.commands.filter((command) => command.type === type);
   }
