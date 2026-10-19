@@ -28,6 +28,8 @@ interface ScrumContextType {
   isSimulating: boolean;
   toggleSimulation: () => void;
   stepSimulation: () => void;
+  /** A real backend is attached: the demo loop and the canned debate text are not offered. */
+  live: boolean;
   triggerDebate: () => void;
   triggerSmeIntervention: (directive: string) => void;
   isSmeModalOpen: boolean;
@@ -248,7 +250,7 @@ const EMPTY_AGENT: Agent = {
   recentTools: [],
 };
 
-export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspace?: WorkspaceSnapshot; sharedExecuteCommand?: (command: WorkspaceCommand) => Promise<CommandResult> }> = ({ children, sharedWorkspace, sharedExecuteCommand }) => {
+export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspace?: WorkspaceSnapshot; sharedExecuteCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean }> = ({ children, sharedWorkspace, sharedExecuteCommand, live = false }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [autopilot, setAutopilot] = useState<boolean>(false);
   const [agents, setAgents] = useState<Agent[]>(() => (sharedWorkspace ? sharedWorkspace.agents.map(toRichAgent) : []));
@@ -359,7 +361,7 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
       type: 'message.create',
       workspaceId,
       message: {
-        meetId: selectedMeetId,
+        meetId: selectedMeet.id,
         senderId: 'agent-03',
         senderName: 'Agent-03',
         text: `Manual simulation step ${manualStepIndex.current}: heartbeat verified, consensus holding.`,
@@ -369,15 +371,20 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
   }, [selectedMeetId, sharedExecuteCommand, workspaceId]);
 
   const triggerDebate = () => {
+    // The canned challenge is about the demo's own subject. With a real team the person writes the challenge themselves.
+    if (live) {
+      setIsSmeModalOpen(true);
+      return;
+    }
     void sharedExecuteCommand?.({ type: 'debate.inject', workspaceId, meetId: selectedMeetId, text: DEBATE_TEXT });
   };
 
   const triggerSmeIntervention = (directive: string) => {
-    void sharedExecuteCommand?.({ type: 'sme.directive.submit', workspaceId, meetId: selectedMeetId, directive });
+    void sharedExecuteCommand?.({ type: 'sme.directive.submit', workspaceId, meetId: selectedMeet.id, directive });
   };
 
   const forceConsensus = () => {
-    void sharedExecuteCommand?.({ type: 'consensus.force', workspaceId, meetId: selectedMeetId });
+    void sharedExecuteCommand?.({ type: 'consensus.force', workspaceId, meetId: selectedMeet.id });
   };
 
   const reassignTask = (agentId: string, task: string) => {
@@ -414,6 +421,7 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
         isSimulating,
         toggleSimulation: () => setIsSimulating(!isSimulating),
         stepSimulation,
+        live,
         triggerDebate,
         triggerSmeIntervention,
         isSmeModalOpen,

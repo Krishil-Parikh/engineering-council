@@ -15,6 +15,16 @@ export interface WorkspaceAgent {
   avatarColor?: string;
 }
 
+/** Something the backend is waiting for the human to decide. It travels on a message (a "question card") so it needs no new event type. */
+export interface WorkspaceQuestion {
+  id: string;
+  context: string;
+  /** meeting: a product question from the pod meeting; documents: accept or decline the first documents; approval: any other decision. */
+  kind: 'meeting' | 'approval' | 'documents';
+  options?: string[];
+  recommended?: string;
+}
+
 export interface WorkspaceMessage {
   id: string;
   meetId: string;
@@ -22,6 +32,10 @@ export interface WorkspaceMessage {
   senderName: string;
   text: string;
   timestamp: string;
+  /** Optional. Absent on ordinary speech. 'question' carries `question`; 'answer' carries `answersQuestion`; 'system' is a narrator line. */
+  kind?: 'question' | 'system' | 'answer';
+  question?: WorkspaceQuestion;
+  answersQuestion?: string;
 }
 
 export interface WorkspaceSkill {

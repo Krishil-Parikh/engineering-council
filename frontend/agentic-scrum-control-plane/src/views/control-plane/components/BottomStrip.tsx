@@ -11,7 +11,8 @@ export const BottomStrip: React.FC = () => {
     setSelectedArtifactId,
     isSimulating,
     toggleSimulation,
-    stepSimulation
+    stepSimulation,
+    live
   } = useScrum();
 
   return (
@@ -85,8 +86,8 @@ export const BottomStrip: React.FC = () => {
 
         <div className="h-3 w-[1px] bg-[#E2E0D9]" />
 
-        {/* Play/Pause & Step Controls */}
-        <div className="flex items-center gap-1 bg-[#F4F3EE] p-0.5 rounded-[6px] border border-[#E2E0D9]">
+        {/* Play/Pause & Step Controls (the demo loop; a real team runs on its own) */}
+        {!live && <div className="flex items-center gap-1 bg-[#F4F3EE] p-0.5 rounded-[6px] border border-[#E2E0D9]">
           <button
             onClick={toggleSimulation}
             className="p-1 hover:bg-[#EDECE7] rounded-[4px] text-[#161616] cursor-pointer transition-colors"
@@ -101,7 +102,7 @@ export const BottomStrip: React.FC = () => {
           >
             <SkipForward className="w-3 h-3" />
           </button>
-        </div>
+        </div>}
       </div>
     </footer>
   );

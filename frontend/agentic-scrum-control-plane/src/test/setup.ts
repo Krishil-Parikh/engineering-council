@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest';
+import { configure } from '@testing-library/react';
+
+// The Control Plane view is loaded on demand; the first render pulls its code in, which can take longer than the 1s default on a busy machine.
+configure({ asyncUtilTimeout: 5000 });
 
 if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = class ResizeObserver {

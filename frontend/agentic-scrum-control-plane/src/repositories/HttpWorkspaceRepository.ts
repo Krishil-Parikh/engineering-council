@@ -22,6 +22,7 @@ export function mapSnapshotHttpError(status: number): Error {
 }
 
 export class HttpWorkspaceRepository implements WorkspaceRepository {
+  readonly live = true;
   private readonly timeoutMs: number;
   private readonly maxReconnectAttempts: number;
   private readonly reconnectBaseMs: number;

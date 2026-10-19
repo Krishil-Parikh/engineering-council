@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useWorkspace } from '../state/WorkspaceProvider';
 import { VIEW_ORDER, VIEW_REGISTRY, type WorkspaceMode } from '../views/viewRegistry';
-import { selectIsEmptyWorkspace } from '../domain/selectors';
+import { selectIsEmptyWorkspace, selectOpenQuestions } from '../domain/selectors';
+import type { WorkspaceMessage } from '../domain/types';
+import { PendingDecisions } from '../components/common/PendingDecisions';
 import { readConfig } from './config';
 import { MockWorkspaceRepository } from '../repositories/MockWorkspaceRepository';
 import { startWorkspaceSimulation } from '../adapters/simulation';
@@ -65,7 +67,7 @@ function StatusBanner({ kind, message, actionLabel, onAction }: { kind: 'error' 
 
 export function WorkspaceShell() {
   const [mode, setMode] = useState<WorkspaceMode>('genui');
-  const { snapshot, repository, status, error, commandError, retry, refresh } = useWorkspace();
+  const { snapshot, repository, status, error, commandError, retry, refresh, live, executeCommand } = useWorkspace();
   const ActiveView = VIEW_REGISTRY[mode].Component;
   const isEmpty = status === 'ready' && selectIsEmptyWorkspace(snapshot);
 
@@ -75,6 +77,17 @@ export function WorkspaceShell() {
     const stop = startWorkspaceSimulation(repository.emit.bind(repository), appConfig.workspaceId);
     return stop;
   }, [repository]);
+
+  const answerDecision = (message: WorkspaceMessage, text: string) => {
+    const question = message.question;
+    if (question?.kind === 'documents' && /^approve/i.test(text)) {
+      void executeCommand({ type: 'prd.accept', workspaceId: snapshot.workspaceId, artifactId: 'art-prd' }).catch(() => undefined);
+      return;
+    }
+    void executeCommand({
+      type: 'sme.directive.submit', workspaceId: snapshot.workspaceId, meetId: message.meetId, directive: text, ...(question ? { questionId: question.id } : {}),
+    }).catch(() => undefined);
+  };
 
   return (
     <>
@@ -116,6 +129,14 @@ export function WorkspaceShell() {
           >
             <ActiveView />
           </React.Suspense>
+        )}
+        {live && status !== 'loading' && (
+          // The GenUI screens show their own questions (the meeting's, the documents'); anything else the team needs from you appears here, in any view.
+          <PendingDecisions
+            questions={selectOpenQuestions(snapshot)}
+            kinds={mode === 'genui' ? ['approval'] : ['approval', 'meeting', 'documents']}
+            onAnswer={answerDecision}
+          />
         )}
         {status !== 'loading' && (status === 'error' || status === 'permission-denied') && (
           <div className="mx-auto max-w-3xl px-4 py-8 text-center text-[13px] text-[#5B5B5B]">

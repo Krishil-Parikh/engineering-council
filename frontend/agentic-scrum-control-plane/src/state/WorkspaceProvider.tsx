@@ -18,6 +18,8 @@ interface WorkspaceContextValue {
   snapshot: WorkspaceSnapshot;
   repository: WorkspaceRepository;
   publishEvent: (event: WorkspaceEvent) => void;
+  /** The workspace is served by a real backend (not the in-memory demo). */
+  live: boolean;
   executeCommand: (command: WorkspaceCommand) => Promise<CommandResult>;
   status: WorkspaceStatus;
   error: Error | null;
@@ -147,7 +149,7 @@ export function WorkspaceProvider({
 
   return (
     <WorkspaceContext.Provider value={{
-      snapshot, repository, publishEvent: store.apply, executeCommand,
+      snapshot, repository, publishEvent: store.apply, executeCommand, live: repository.live === true,
       status, error, streamHealth, lastEventAt, commandError, retry, refresh,
     }}>
       {children}

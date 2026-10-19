@@ -64,9 +64,9 @@ const MainLayout: React.FC = () => {
   );
 };
 
-export default function ControlPlaneView({ workspaceSnapshot, executeCommand }: { workspaceSnapshot?: WorkspaceSnapshot; executeCommand?: (command: WorkspaceCommand) => Promise<CommandResult> }) {
+export default function ControlPlaneView({ workspaceSnapshot, executeCommand, live = false }: { workspaceSnapshot?: WorkspaceSnapshot; executeCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean }) {
   return (
-    <ScrumProvider sharedWorkspace={workspaceSnapshot} sharedExecuteCommand={executeCommand}>
+    <ScrumProvider sharedWorkspace={workspaceSnapshot} sharedExecuteCommand={executeCommand} live={live}>
       <MainLayout />
     </ScrumProvider>
   );

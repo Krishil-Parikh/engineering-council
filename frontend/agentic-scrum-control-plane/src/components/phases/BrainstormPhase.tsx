@@ -7,12 +7,17 @@ interface BrainstormPhaseProps {
   transcript: TranscriptMessage[];
   onSmeSubmitDecision: (messageId: string, decision: string) => void;
   onConcludeMeet: () => void;
+  /** A real backend is attached: the meeting ends itself, and the options come from the question that was asked. */
+  live?: boolean;
+  title?: string;
 }
 
 export const BrainstormPhase: React.FC<BrainstormPhaseProps> = ({
   transcript,
   onSmeSubmitDecision,
   onConcludeMeet,
+  live = false,
+  title,
 }) => {
   const [secondsRemaining, setSecondsRemaining] = useState(882); // ~14m 42s left
   const [customReply, setCustomReply] = useState('');
@@ -59,7 +64,7 @@ export const BrainstormPhase: React.FC<BrainstormPhaseProps> = ({
       <div className="flex items-center justify-between pb-6 mb-8 border-b border-[#E7E6DF]">
         <div>
           <h2 className="text-[17px] font-semibold text-[#161616] tracking-tight">
-            Meet 01: Architecture & Data Invariants
+            {live ? (title ?? 'Kickoff meeting') : 'Meet 01: Architecture & Data Invariants'}
           </h2>
           <p className="text-xs text-[#5B5B5B] mt-0.5">
             Autonomous agent sync · Business SME supervision active
@@ -67,16 +72,18 @@ export const BrainstormPhase: React.FC<BrainstormPhaseProps> = ({
         </div>
 
         {/* 15m Cutoff Timer */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F4F3EE] border border-[#E7E6DF] text-xs font-mono text-[#161616]">
+        {!live && <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#F4F3EE] border border-[#E7E6DF] text-xs font-mono text-[#161616]">
           <Clock className="w-3.5 h-3.5 text-[#E60000]" />
           <span>{formatTimer(secondsRemaining)}</span>
           <span className="text-[10px] text-[#8E8E8E]">/ 15m cutoff</span>
-        </div>
+        </div>}
       </div>
 
       {/* Transcript Messages Stream */}
       <div className="space-y-6">
         {transcript.map((msg, index) => {
+          // A question still waiting for you is shown once, as the decision card below; it joins the transcript when answered.
+          if (live && msg.isQuestionForSME && !msg.smeAnswered) return null;
           const isDebate = msg.isDebate;
           const isScrumMaster = msg.speakerId === 'scrum-master';
 
@@ -165,16 +172,21 @@ export const BrainstormPhase: React.FC<BrainstormPhaseProps> = ({
               <h3 className="text-[15px] font-semibold text-[#161616] mb-2 leading-snug">
                 {pendingSmeQuestion.questionContext || 'Decision requested from Business SME'}
               </h3>
-              <p className="text-xs text-[#5B5B5B] mb-5 leading-relaxed">
-                The agent bench has converged on two implementation paths. Your guidance will be codified directly into Section 2.4 of the PRD.
+              <p className="text-xs text-[#5B5B5B] mb-5 leading-relaxed whitespace-pre-wrap">
+                {live
+                  ? (pendingSmeQuestion.questionDetail || 'Your answer goes straight into the documents the team is writing.')
+                  : 'The agent bench has converged on two implementation paths. Your guidance will be codified directly into Section 2.4 of the PRD.'}
               </p>
 
               {/* Quick Decision Options */}
               <div className="space-y-2 mb-4">
-                {[
-                  'Option A: Mandate Redis Pub/Sub + partitioned Postgres sessions for sub-50ms sync.',
-                  'Option B: Use SQLite WAL mode with local memory ring buffer for airgap compliance.',
-                ].map((option, idx) => (
+                {(live
+                  ? (pendingSmeQuestion.questionOptions ?? [])
+                  : [
+                      'Option A: Mandate Redis Pub/Sub + partitioned Postgres sessions for sub-50ms sync.',
+                      'Option B: Use SQLite WAL mode with local memory ring buffer for airgap compliance.',
+                    ]
+                ).map((option, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
@@ -183,7 +195,7 @@ export const BrainstormPhase: React.FC<BrainstormPhaseProps> = ({
                     }}
                     className="w-full text-left p-3 rounded-xl border border-[#E7E6DF] bg-[#F4F3EE] hover:bg-[#EAE9E2] text-xs font-medium text-[#161616] transition-all flex items-center justify-between group active:scale-98"
                   >
-                    <span>{option}</span>
+                    <span>{option}{live && option === pendingSmeQuestion.questionRecommended ? '  (recommended)' : ''}</span>
                     <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#E60000]" />
                   </button>
                 ))}
@@ -217,7 +229,7 @@ export const BrainstormPhase: React.FC<BrainstormPhaseProps> = ({
         </AnimatePresence>
 
         {/* If SME has answered, show synthesis action or auto-advance */}
-        {answeredSmeQuestions.length > 0 && !pendingSmeQuestion && (
+        {!live && answeredSmeQuestions.length > 0 && !pendingSmeQuestion && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

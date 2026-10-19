@@ -1,4 +1,4 @@
-import type { WorkspaceSnapshot } from './types';
+import type { WorkspaceMessage, WorkspaceSnapshot } from './types';
 
 export function selectActivePhase(snapshot: WorkspaceSnapshot) {
   return snapshot.phaseId;
@@ -47,6 +47,21 @@ export function selectDelegationGraph(snapshot: WorkspaceSnapshot) {
     edges: snapshot.edges,
     activeEdges: snapshot.edges.filter((edge) => edge.isActive),
   };
+}
+
+/** Question cards no one has answered yet, oldest first. */
+export function selectOpenQuestions(snapshot: WorkspaceSnapshot): WorkspaceMessage[] {
+  const answered = new Set(snapshot.messages.filter((message) => message.answersQuestion).map((message) => message.answersQuestion));
+  return snapshot.messages.filter((message) => message.kind === 'question' && message.question && !answered.has(message.question.id));
+}
+
+/** What the human answered, by question id. */
+export function selectAnswers(snapshot: WorkspaceSnapshot): Map<string, string> {
+  const answers = new Map<string, string>();
+  for (const message of snapshot.messages) {
+    if (message.answersQuestion) answers.set(message.answersQuestion, message.text);
+  }
+  return answers;
 }
 
 export function selectIsEmptyWorkspace(snapshot: WorkspaceSnapshot) {

@@ -1,11 +1,11 @@
 import type { PhaseId } from './types';
 
 export type WorkspaceCommand =
-  | { type: 'sprint.start'; workspaceId: string; brief: string }
+  | { type: 'sprint.start'; workspaceId: string; brief: string; title?: string; repo?: string }
   | { type: 'phase.advance'; workspaceId: string; phaseId: PhaseId }
   | { type: 'agent.task.reassign'; workspaceId: string; agentId: string; task: string }
   | { type: 'message.create'; workspaceId: string; message: Omit<import('./types').WorkspaceMessage, 'id'> }
-  | { type: 'sme.directive.submit'; workspaceId: string; directive: string; meetId: string }
+  | { type: 'sme.directive.submit'; workspaceId: string; directive: string; meetId: string; questionId?: string }
   | { type: 'prd.accept'; workspaceId: string; artifactId: string }
   | { type: 'debate.inject'; workspaceId: string; meetId: string; text: string }
   | { type: 'consensus.force'; workspaceId: string; meetId: string };

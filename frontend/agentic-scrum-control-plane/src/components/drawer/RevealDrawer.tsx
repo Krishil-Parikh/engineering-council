@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, Activity, Users, FileText, MessageSquare, X } from 'lucide-react';
-import { PhaseId, Agent, Skill, TranscriptMessage, PRHourlyData } from '../../types';
+import { PhaseId, Agent, Skill, TranscriptMessage, PRHourlyData, ArtifactFile } from '../../types';
 import { PRSparkline } from './PRSparkline';
 import { RosterPanel } from './RosterPanel';
 import { ArtifactsPanel } from './ArtifactsPanel';
@@ -14,6 +14,8 @@ interface RevealDrawerProps {
   transcript: TranscriptMessage[];
   prData: PRHourlyData[];
   totalPRs: number;
+  /** The workspace's documents (live backend). Absent in the demo, which shows reference artifacts. */
+  artifacts?: ArtifactFile[];
 }
 
 export const RevealDrawer: React.FC<RevealDrawerProps> = ({
@@ -23,6 +25,7 @@ export const RevealDrawer: React.FC<RevealDrawerProps> = ({
   transcript,
   prData,
   totalPRs,
+  artifacts,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'timeline' | 'roster' | 'artifacts' | 'transcript'>('timeline');
@@ -162,7 +165,7 @@ export const RevealDrawer: React.FC<RevealDrawerProps> = ({
             {activeTab === 'roster' && (
               <RosterPanel agents={agents} skills={skills} />
             )}
-            {activeTab === 'artifacts' && <ArtifactsPanel />}
+            {activeTab === 'artifacts' && <ArtifactsPanel artifacts={artifacts} />}
             {activeTab === 'transcript' && (
               <TranscriptPanel transcript={transcript} />
             )}

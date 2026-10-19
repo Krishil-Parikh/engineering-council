@@ -3,8 +3,16 @@ import { ARTIFACTS_LIST } from '../../views/GenUIView/referenceArtifacts';
 import { FileText, Download, Code, Check } from 'lucide-react';
 import { ArtifactFile } from '../../types';
 
-export const ArtifactsPanel: React.FC = () => {
-  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactFile>(ARTIFACTS_LIST[0]);
+interface ArtifactsPanelProps {
+  /** The documents of the workspace. Without them (the demo), the built-in reference artifacts are shown. */
+  artifacts?: ArtifactFile[];
+}
+
+export const ArtifactsPanel: React.FC<ArtifactsPanelProps> = ({ artifacts }) => {
+  const list = artifacts ?? ARTIFACTS_LIST;
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const selectedArtifact: ArtifactFile = list.find((a) => a.name === selectedName) ?? list[0] ?? { name: 'No documents yet', size: '', type: '', lastModified: '', content: 'Documents appear here as the team writes them.' };
+  const setSelectedArtifact = (artifact: ArtifactFile) => setSelectedName(artifact.name);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -24,7 +32,7 @@ export const ArtifactsPanel: React.FC = () => {
       <div className="flex items-center justify-between pb-3 border-b border-[#E7E6DF]">
         <div className="flex items-center gap-3">
           <span className="text-xs font-semibold text-[#161616]">
-            Cross-Phase Artifacts ({ARTIFACTS_LIST.length} generated documents)
+            Cross-Phase Artifacts ({list.length} generated documents)
           </span>
           <span className="text-xs text-[#8E8E8E]">·</span>
           <span className="text-xs text-[#5B5B5B] font-mono">
@@ -46,7 +54,7 @@ export const ArtifactsPanel: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 my-2 flex-1 min-h-0">
         {/* Left List */}
         <div className="md:col-span-4 space-y-1.5 overflow-y-auto max-h-[180px]">
-          {ARTIFACTS_LIST.map((art) => (
+          {list.map((art) => (
             <button
               key={art.name}
               onClick={() => setSelectedArtifact(art)}
@@ -76,8 +84,8 @@ export const ArtifactsPanel: React.FC = () => {
       </div>
 
       <div className="pt-2 border-t border-[#E7E6DF] flex items-center justify-between text-[11px] text-[#8E8E8E] font-mono">
-        <span>Artifact checksum: sha256:4f8e91a0...c32d</span>
-        <span>Synced with git commit 7a92c81</span>
+        {artifacts ? <span>Read from the workspace</span> : <span>Artifact checksum: sha256:4f8e91a0...c32d</span>}
+        {artifacts ? <span>{list.length} document{list.length === 1 ? '' : 's'}</span> : <span>Synced with git commit 7a92c81</span>}
       </div>
     </div>
   );

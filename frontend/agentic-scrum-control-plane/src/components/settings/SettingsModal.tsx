@@ -12,6 +12,8 @@ interface SettingsModalProps {
   onAddAgent: () => void;
   onRemoveAgent: (id: string) => void;
   onAddSkill: (name: string, instructions: string) => void;
+  /** A real backend decides the team: what is added or removed here changes only this screen. */
+  localOnly?: boolean;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -22,6 +24,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddAgent,
   onRemoveAgent,
   onAddSkill,
+  localOnly = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'agents' | 'skills' | 'meets' | 'general'>('agents');
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -155,7 +158,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       Developer Agents Bench
                     </h3>
                     <p className="text-xs text-[#5B5B5B] mt-0.5">
-                      All agents share a unified generic template
+                      {localOnly
+                        ? 'The team is chosen by the pod meeting. Changes made here affect only this screen, not the team.'
+                        : 'All agents share a unified generic template'}
                     </p>
                   </div>
                   <span className="text-xs font-mono font-semibold text-[#161616]">

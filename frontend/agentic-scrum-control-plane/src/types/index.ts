@@ -42,6 +42,12 @@ export interface TranscriptMessage {
   smeAnswered?: boolean;
   smeResponse?: string;
   isDebate?: boolean;
+  /** Live backend only: where the message was said, and the question card it carries (see WorkspaceQuestion). */
+  meetId?: string;
+  questionId?: string;
+  questionDetail?: string;
+  questionOptions?: string[];
+  questionRecommended?: string;
 }
 
 export interface PRHourlyData {

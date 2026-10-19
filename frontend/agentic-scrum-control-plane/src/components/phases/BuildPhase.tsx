@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ReactFlow,
@@ -97,7 +97,7 @@ const AgentNode: React.FC<NodeProps> = ({ data, selected }) => {
 
       <div className="flex items-center justify-between pt-1.5 border-t border-[#E7E6DF] text-[10px] font-mono text-[#8E8E8E]">
         <span>{d.branch}</span>
-        <span className="text-[#161616] font-medium">{d.coverage || '100% tests'}</span>
+        <span className="text-[#161616] font-medium">{d.coverage ?? ''}</span>
       </div>
 
       <Handle
@@ -136,9 +136,13 @@ const TaskNode: React.FC<NodeProps> = ({ data }) => {
 interface BuildPhaseProps {
   agents: Agent[];
   onFinishBuild: () => void;
+  /** A real backend is attached: the graph is drawn from the team that exists, and the build ends when the team says so. */
+  live?: boolean;
+  graph?: { nodes: Node[]; edges: Edge[] };
+  summary?: string;
 }
 
-export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild }) => {
+export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild, live = false, graph, summary }) => {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
 
   // Compute status summary
@@ -294,8 +298,14 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild })
     []
   );
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(graph?.nodes ?? initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(graph?.edges ?? initialEdges);
+  useEffect(() => {
+    if (graph) {
+      setNodes(graph.nodes);
+      setEdges(graph.edges);
+    }
+  }, [graph, setNodes, setEdges]);
 
   const nodeTypes = useMemo(
     () => ({
@@ -332,11 +342,11 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild })
           </span>
           <span className="text-xs text-[#8E8E8E]">·</span>
           <span className="text-xs text-[#5B5B5B] font-mono">
-            38 commits synced to main
+            {live ? (summary ?? '') : '38 commits synced to main'}
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        {!live && <div className="flex items-center gap-3">
           <button
             onClick={onFinishBuild}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#161616] text-[#FCFCFB] text-xs font-medium hover:bg-black transition-all shadow-xs active:scale-98"
@@ -344,7 +354,7 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild })
             <span>All PRs Passed CI → Advance to Review</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Full-bleed React Flow Canvas */}
@@ -412,10 +422,10 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild })
                   <span className="text-[#161616]">{selectedAgent.contextUsagePercent}% utilized</span>
                 </div>
 
-                <div className="pt-2 border-t border-[#E7E6DF] flex items-center gap-2 text-emerald-700">
+                {!live && <div className="pt-2 border-t border-[#E7E6DF] flex items-center gap-2 text-emerald-700">
                   <CheckCircle className="w-3.5 h-3.5" />
                   <span className="font-mono text-[11px]">Static types & unit tests passing</span>
-                </div>
+                </div>}
               </div>
             </motion.div>
           )}
@@ -423,7 +433,8 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild })
       </div>
 
       {/* Skill-lane summary beneath the graph (§3.4) */}
-      <div className="px-8 py-3 border-t border-[#E7E6DF] bg-[#FCFCFB] flex items-center justify-center gap-8 text-xs text-[#5B5B5B] select-none font-mono">
+      {live && <LiveLanes agents={agents} />}
+      {!live && <div className="px-8 py-3 border-t border-[#E7E6DF] bg-[#FCFCFB] flex items-center justify-center gap-8 text-xs text-[#5B5B5B] select-none font-mono">
         <div className="flex items-center gap-3">
           <span>Frontend</span>
           <div className="flex items-center gap-1">
@@ -456,7 +467,29 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild })
           <span className="w-2 h-2 rounded-full bg-[#8E8E8E]" />
           <span className="text-[#8E8E8E]">1 idle</span>
         </div>
-      </div>
+      </div>}
     </motion.div>
+  );
+};
+
+/** The skill lanes under the graph, counted from the real team. */
+const LiveLanes: React.FC<{ agents: Agent[] }> = ({ agents }) => {
+  const lanes = new Map<string, { active: number; total: number }>();
+  for (const agent of agents) {
+    if (!agent.claimedSkill) continue;
+    const lane = lanes.get(agent.claimedSkill) ?? { active: 0, total: 0 };
+    lane.total += 1;
+    if (agent.status === 'active') lane.active += 1;
+    lanes.set(agent.claimedSkill, lane);
+  }
+  return (
+    <div className="px-8 py-3 border-t border-[#E7E6DF] bg-[#FCFCFB] flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs text-[#5B5B5B] select-none font-mono">
+      {[...lanes.entries()].map(([skill, lane]) => (
+        <span key={skill}>
+          {skill} <span className="text-[#161616] font-semibold">{lane.active} of {lane.total} working</span>
+        </span>
+      ))}
+      {lanes.size === 0 && <span>The team is being assembled.</span>}
+    </div>
   );
 };

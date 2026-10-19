@@ -6,6 +6,8 @@ import { Agent } from '../../types';
 interface KickoffPhaseProps {
   agents: Agent[];
   onStartMeet: (briefTitle: string, briefContent: string) => void;
+  /** A real backend is attached: no canned brief, no pretend attachments. */
+  live?: boolean;
 }
 
 const PRESET_BRIEFS = [
@@ -23,12 +25,13 @@ const PRESET_BRIEFS = [
   },
 ];
 
-export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet }) => {
+export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet, live = false }) => {
   const [briefText, setBriefText] = useState(
-    'We need an ultra-low-latency SDLC orchestration engine where autonomous generic agents collaborate on PRDs, write integration contracts, and merge pull requests under Business SME supervision.'
+    live ? '' : 'We need an ultra-low-latency SDLC orchestration engine where autonomous generic agents collaborate on PRDs, write integration contracts, and merge pull requests under Business SME supervision.'
   );
+  const [projectTitle, setProjectTitle] = useState('');
   const [activePreset, setActivePreset] = useState(0);
-  const [attachedFiles, setAttachedFiles] = useState<string[]>([
+  const [attachedFiles, setAttachedFiles] = useState<string[]>(live ? [] : [
     'prd_template_v3.md',
     'system_architecture_draft.png',
   ]);
@@ -44,7 +47,7 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet 
     setIsSubmitting(true);
     if (submitTimer.current) clearTimeout(submitTimer.current);
     submitTimer.current = setTimeout(() => {
-      onStartMeet(PRESET_BRIEFS[activePreset]?.title || 'System SDLC Sprint', briefText);
+      onStartMeet(live ? projectTitle.trim() : (PRESET_BRIEFS[activePreset]?.title || 'System SDLC Sprint'), briefText);
     }, 450);
   };
 
@@ -74,7 +77,7 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet 
       </p>
 
       {/* Preset Quick Selectors */}
-      <div className="w-full flex items-center justify-center gap-2 mb-4">
+      {!live && <div className="w-full flex items-center justify-center gap-2 mb-4">
         {PRESET_BRIEFS.map((preset, idx) => (
           <button
             key={idx}
@@ -91,7 +94,7 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet 
             {preset.title.split(' ')[0]} {preset.title.split(' ')[1]}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Input / Drop Zone Card */}
       <motion.div
@@ -106,19 +109,29 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet 
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
+        {live && (
+          <input
+            value={projectTitle}
+            onChange={(e) => setProjectTitle(e.target.value)}
+            aria-label="Project name"
+            placeholder="Project name (optional; taken from the first line of the brief if empty)"
+            className="w-full mb-3 pb-2 text-sm font-semibold text-[#161616] bg-transparent border-0 border-b border-[#E7E6DF] focus:outline-none focus:border-[#161616] placeholder:font-normal placeholder:text-[#8E8E8E]"
+          />
+        )}
         <label className="block text-xs font-semibold uppercase tracking-wider text-[#5B5B5B] mb-2 font-mono">
           Sprint Objective & Problem Definition
         </label>
         <textarea
           value={briefText}
           onChange={(e) => setBriefText(e.target.value)}
-          rows={4}
+          rows={live ? 8 : 4}
+          aria-label="Project brief"
           placeholder="Describe the problem, target SLAs, schema constraints, or acceptance rules..."
           className="w-full text-sm text-[#161616] leading-relaxed bg-transparent border-0 focus:ring-0 focus:outline-none resize-none placeholder:text-[#8E8E8E]"
         />
 
         {/* Attached Files Strip */}
-        <div className="mt-4 pt-4 border-t border-[#E7E6DF] flex flex-wrap items-center justify-between gap-3">
+        {!live && <div className="mt-4 pt-4 border-t border-[#E7E6DF] flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {attachedFiles.map((file, i) => (
               <span
@@ -151,13 +164,15 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet 
             <Upload className="w-3 h-3" />
             <span>Drag specs & diagrams</span>
           </div>
-        </div>
+        </div>}
       </motion.div>
 
       {/* Developer Agents Bench Status */}
       <div className="mt-10 mb-8 flex flex-col items-center">
         <span className="text-xs text-[#5B5B5B] mb-3 font-medium">
-          {agents.length} generic developer agents assembled on the bench
+          {live
+            ? `${agents.length} on the bench: the developers join once the meeting has picked their skills`
+            : `${agents.length} generic developer agents assembled on the bench`}
         </span>
 
         {/* Breathing live agent dots */}
@@ -188,7 +203,7 @@ export const KickoffPhase: React.FC<KickoffPhaseProps> = ({ agents, onStartMeet 
       {/* Primary Action Button */}
       <button
         onClick={handleStart}
-        disabled={isSubmitting}
+        disabled={isSubmitting || (live && !briefText.trim())}
         className="px-6 py-3 rounded-xl bg-[#161616] text-[#FCFCFB] text-sm font-medium hover:bg-black transition-all flex items-center gap-2.5 shadow-md active:scale-98 cursor-pointer disabled:opacity-50"
       >
         <span>Start the meet → becomes Brainstorm</span>
