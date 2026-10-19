@@ -1,7 +1,7 @@
 # Status: harness (opencode port), team engine, agile playbook
 
-Everything below is built and covered by offline tests (no network, scripted model). The real-model proof of concept (a full run against
-Gemini covering conflicts, a design vote, memory recall and a git failure) is the one thing left to do.
+Everything below is built and covered by offline tests (no network, scripted model). The first real-model run (Habitly, Gemini 3.5 Flash-Lite,
+6 features, 2 sprints, about $0.08) completed and was reviewed; see "Lessons from the first real run" below.
 
 ## The pipeline
 
@@ -37,7 +37,42 @@ time in the full-screen view; every major decision waits for them. All agent con
 webfetch, websearch, MCP, LSP, formatter, codemode, mcp-resource, NOTICE credit line, other providers, OAuth. The first, smaller port of the
 harness (`harness/legacy`) and the old sequential build runner were removed once everything moved to the new harness.
 
+## Lessons from the first real run (Habitly)
+
+The run finished with every feature merged and verification passing, but a review of the code it produced scored it **6/10**. The sprint
+process worked (planning, standups, review, retrospective, document sync, all in `docs/agile/`). The weaknesses were in what the pipeline
+did not check:
+
+- no `habitly` command existed (no console script), and `python -m habitly` failed, although the spec required `habitly <command>`;
+- the dashboard's weekly report was always empty: the JavaScript read `habits` / `habit_name` / `completion_rate`, the API returned
+  `habit_summaries` / `name` / `rate` (two agents, two sides of one contract, no test between them);
+- the API crashed on a fresh database when started without the CLI; CSV export broke on a quote in a name; the project README was 3 lines
+  although the spec required install, commands, endpoints and test instructions; build junk (`*.egg-info`) was committed; 81 lint findings.
+
+The run passed because its only verification command was `python -m pytest -q`, which tests units, not the spec's "done means".
+
+## Planned improvements (in this order)
+
+1. **Acceptance step at the end of every sprint and before the final branch.** The scrum master turns the specification's "done means" list
+   into runnable checks (each named command is executed and its output compared with what the spec says), plus a README check (the sections the
+   spec asked for exist and are not a stub). Failures become a repair task for the right developer, exactly like failed verification does today,
+   and are shown in the sprint review and report.
+2. **Contract tests whenever two features meet.** When a feature depends on or consumes another's output (a dashboard and an API, a CLI and a
+   service), planning adds an integration task owned by the consumer: a test that starts the real producer and checks the real payload shape.
+   The integration branch cannot be finalized while such a test is missing or failing.
+3. **Quality gate before merge into the integration branch.** Run the project's linter and type checker if the project has them (and, if it
+   has none, add a minimal config as part of the first feature); refuse files that should not be committed (build output, `*.egg-info`,
+   caches) and add them to `.gitignore`.
+4. **Packaging check.** If the spec names a command (`habitly add ...`), verify that installing the project makes that command exist
+   (console script entry point) and that `python -m <package>` works.
+5. **Review pass by a developer who did not write the code.** After each feature, a different developer reviews the diff for the classes of
+   bug found above (unescaped output, ambiguous identifiers, missing validation, N+1 queries, duplicated logic) and files findings as tasks.
+6. **Publish prompt.** When the run was not started with `--publish` and a target repository exists (for example on the start form), ask at
+   the end whether to push `final/<run>` there, instead of leaving the work only on disk. (In the Habitly run nothing reached GitHub because the
+   run was started without `--publish`; the branches were pushed by hand afterwards.)
+
 ## Not done
 
-- The real-model run described above.
-- A web front end (the desk, the gate and the playbook are plain objects with async methods, ready for one to call).
+- A second real-model run to confirm the planned improvements catch what the first run missed (re-run Habitly and compare).
+- A web front end (the desk, the gate and the playbook are plain objects with async methods, ready for one to call). The integration plan is in
+  `docs/FRONTEND_INTEGRATION_PLAN.md`.
