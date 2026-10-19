@@ -96,3 +96,28 @@ def test_the_flat_build_still_works_without_sprints(tmp_path, monkeypatch, capsy
     code = cli.build(["build", str(meeting), "--plain", "--no-agile", "--no-memory", "--run-id", "r1", "--repair-rounds", "0"])
     out = capsys.readouterr().out
     assert code == 0 and "3/3 features merged" in out and "sprint(s)" not in out
+
+
+def test_the_repository_from_the_start_form_is_the_one_the_team_builds_on(tmp_path):
+    from argparse import Namespace
+
+    from council.pipeline import carry_repo
+    from meetings.models import MeetingInput
+
+    meeting = tmp_path / "meeting"
+    meeting.mkdir()
+    repo = tmp_path / "existing"
+    repo.mkdir()
+    (meeting / "input.json").write_text(MeetingInput(project_name="X", problem="p", repo_path=str(repo), output_dir=str(tmp_path)).model_dump_json(), encoding="utf-8")
+    args = Namespace(repo=None)
+    carry_repo(args, meeting)
+    assert args.repo == str(repo)
+    explicit = Namespace(repo="  other  ")
+    carry_repo(explicit, meeting)
+    assert explicit.repo == "other"  # a flag wins over the form
+    greenfield = tmp_path / "green"
+    greenfield.mkdir()
+    (greenfield / "input.json").write_text(MeetingInput(project_name="Y", problem="p", output_dir=str(tmp_path)).model_dump_json(), encoding="utf-8")
+    none = Namespace(repo=None)
+    carry_repo(none, greenfield)
+    assert none.repo is None
