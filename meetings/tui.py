@@ -31,6 +31,7 @@ from textual.widgets import (
 )
 
 from meetings import questions as questions_mod
+from meetings.clipboard import CopyOnSelect, SelectableLog
 from meetings.config import Settings
 from meetings.gemini_client import LLM, LLMError, LLMEvent
 from meetings.meeting import (
@@ -236,29 +237,35 @@ class StartScreen(ModalScreen[MeetingInput]):
 # --------------------------------------------------------------------------- app
 
 
-class CouncilApp(App):
+class CouncilApp(CopyOnSelect, App):
     TITLE = "Engineering Council"
     CSS = """
-    #side { width: 38; border-right: solid $primary-darken-2; padding: 0 1; }
+    #side { width: 28%; min-width: 32; max-width: 42; border-right: solid $primary-darken-2; padding: 0 1; }
+    #tabs { width: 1fr; }
+    .compact #side { display: none; }
+    .compact.show-side #side { display: block; width: 100%; max-width: 100%; min-width: 0; border-right: none; }
+    .compact.show-side #tabs { display: none; }
     .side-title { text-style: bold; color: $accent; margin-top: 1; }
     #stages { height: auto; }
     #agents { height: auto; max-height: 12; }
     .stream { padding: 0 1; }
     #docs-view { padding: 0 1; }
     QuestionScreen, StartScreen { align: center middle; }
-    #dialog { width: 86%; max-width: 110; height: auto; max-height: 90%; border: thick $accent; background: $surface; padding: 1 2; }
+    #dialog { width: 94%; max-width: 110; height: auto; max-height: 94%; overflow-y: auto; border: thick $accent; background: $surface; padding: 1 2; }
     #q-count { color: $accent; text-style: bold; }
     #q-text { text-style: bold; margin: 1 0; }
     #q-why { color: $text-muted; margin-bottom: 1; }
     #q-options { height: auto; max-height: 12; margin-bottom: 1; }
     #q-hint { color: $text-muted; margin-top: 1; }
-    #start-form { width: 90%; max-width: 110; height: 90%; border: thick $accent; background: $surface; padding: 1 2; }
+    #start-form { width: 94%; max-width: 110; height: 94%; border: thick $accent; background: $surface; padding: 1 2; }
     #start-title { text-style: bold; color: $accent; margin-bottom: 1; }
     #f-problem { height: 8; }
     #start-note { color: $text-muted; margin: 1 0; }
     """
     BINDINGS = [
         Binding("q", "quit_app", "Quit"),
+        Binding("ctrl+c", "copy_selection", "Copy", show=False, priority=True),
+        Binding("b", "toggle_side", "Panels"),
         Binding("f", "tab('feed')", "Feed"),
         Binding("1", "tab('DEV_1')", "Dev 1"),
         Binding("2", "tab('DEV_2')", "Dev 2"),
@@ -313,13 +320,13 @@ class CouncilApp(App):
                 yield Static("Starting…", id="status")
             with TabbedContent(id="tabs", initial="feed"):
                 with TabPane("Feed", id="feed"):
-                    yield RichLog(id="feed-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                    yield SelectableLog(id="feed-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 for a in ACTORS:
                     with TabPane(TAB_TITLES[a], id=a):
                         with VerticalScroll(id=f"scroll-{a}"):
                             yield Static(Text("Waiting for this member to speak…", style="dim"), id=f"stream-{a}", classes="stream")
                 with TabPane("Activity", id="activity"):
-                    yield RichLog(id="activity-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                    yield SelectableLog(id="activity-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Documents", id="docs"):
                     with VerticalScroll(id="docs-scroll"):
                         yield Markdown("*Documents appear here when the meeting finishes. Press p / t / d / m / v.*", id="docs-view")
@@ -327,9 +334,9 @@ class CouncilApp(App):
 
     def on_mount(self) -> None:
         table = self.query_one("#agents", DataTable)
-        table.add_column("Member", key="who", width=20)
-        table.add_column("State", key="state", width=14)
-        table.add_column("Out", key="chars", width=6)
+        table.add_column("Member", key="who")
+        table.add_column("State", key="state")
+        table.add_column("Out", key="chars")
         for a in ACTORS:
             table.add_row(Text(TAB_TITLES[a], style=f"bold {_color(a)}"), "idle", "0", key=a)
         self._render_stages()
@@ -536,6 +543,19 @@ class CouncilApp(App):
 
     def action_tab(self, tab_id: str) -> None:
         self.query_one("#tabs", TabbedContent).active = tab_id
+
+    COMPACT_BELOW = 100  # columns
+
+    def on_resize(self, event) -> None:
+        """A narrow terminal gets the single-column layout (the side panel is tucked away; b brings it up)."""
+        narrow = event.size.width < self.COMPACT_BELOW
+        self.set_class(narrow, "compact")
+        if not narrow:
+            self.remove_class("show-side")
+
+    def action_toggle_side(self) -> None:
+        if self.has_class("compact") and not isinstance(self.screen, (QuestionScreen, StartScreen)):
+            self.toggle_class("show-side")
 
     def action_quit_app(self) -> None:
         if isinstance(self.screen, (QuestionScreen, StartScreen)):

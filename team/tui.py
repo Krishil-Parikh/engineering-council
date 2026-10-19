@@ -14,6 +14,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, RichLog, Static, TabbedContent, TabPane
 
+from meetings.clipboard import CopyOnSelect, SelectableLog
 from team.events import describe, describe_talk
 from team.tui_desk import ApprovalScreen, InterruptScreen, NoteScreen
 
@@ -25,10 +26,15 @@ SPRINT_EVENTS = {"sprint-planned", "standup", "impediment", "sprint-review", "sp
                  "approval-requested", "approval-answered", "interrupted", "directive-handled", "resumed", "note", "agile-warning"}
 
 
-class TeamApp(App):
+class TeamApp(CopyOnSelect, App):
     TITLE = "Engineering Council — team build"
     CSS = """
-    #side { width: 62; border-right: solid $primary-darken-2; }
+    #side { width: 32%; min-width: 34; max-width: 62; border-right: solid $primary-darken-2; }
+    /* narrow terminals: the side panel is tucked away (press b to bring it up), so the main area gets the whole width */
+    #tabs { width: 1fr; }
+    .compact #side { display: none; }
+    .compact.show-side #side { display: block; width: 100%; max-width: 100%; min-width: 0; border-right: none; }
+    .compact.show-side #tabs { display: none; }
     .side-title { background: $primary-darken-2; padding: 0 1; text-style: bold; }
     #status { padding: 0 1; height: auto; }
     #features { height: 1fr; }
@@ -36,7 +42,7 @@ class TeamApp(App):
     """
     BINDINGS = [
         Binding("q", "quit_build", "Quit"),
-        Binding("ctrl+c", "quit_build", "Quit", show=False),
+        Binding("ctrl+c", "copy_or_quit", "Copy", show=False, priority=True),
         Binding("a", "tab('activity')", "Activity"),
         Binding("c", "tab('talk')", "Conversations"),
         Binding("g", "tab('git')", "Git"),
@@ -45,6 +51,7 @@ class TeamApp(App):
         Binding("i", "interrupt", "Interrupt / speak"),
         Binding("n", "note", "Note"),
         Binding("p", "approvals", "Decisions waiting"),
+        Binding("b", "toggle_side", "Panels"),
     ]
 
     def __init__(self, project: str = "") -> None:
@@ -73,23 +80,23 @@ class TeamApp(App):
                 yield Static("Starting…", id="status")
             with TabbedContent(id="tabs", initial="activity"):
                 with TabPane("Activity", id="activity"):
-                    yield RichLog(id="activity-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                    yield SelectableLog(id="activity-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Sprint", id="sprint"):
-                    yield RichLog(id="sprint-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                    yield SelectableLog(id="sprint-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Conversations", id="talk"):
-                    yield RichLog(id="talk-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                    yield SelectableLog(id="talk-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Git", id="git"):
-                    yield RichLog(id="git-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
+                    yield SelectableLog(id="git-log", wrap=True, markup=False, highlight=False, auto_scroll=True)
                 with TabPane("Summary", id="summary"):
-                    yield RichLog(id="summary-log", wrap=True, markup=False, highlight=False, auto_scroll=False)
+                    yield SelectableLog(id="summary-log", wrap=True, markup=False, highlight=False, auto_scroll=False)
         yield Footer()
 
     def on_mount(self) -> None:
         table = self.query_one("#features", DataTable)
-        table.add_column("Feature", key="id", width=22)
-        table.add_column("Owner", key="owner", width=8)
-        table.add_column("Status", key="status", width=9)
-        table.add_column("Now", key="now", width=18)
+        table.add_column("Feature", key="id")
+        table.add_column("Owner", key="owner")
+        table.add_column("Status", key="status")
+        table.add_column("Now", key="now")
         self.sub_title = self.project
         self.set_interval(1.0, self._tick)
         if self.engine is not None:
@@ -217,6 +224,8 @@ class TeamApp(App):
             lines.append("i: interrupt and speak · n: leave a note")
         if self.finished:
             lines.append("press q to leave, s for the summary")
+        if self.has_class("compact"):  # the status panel is hidden, so the headline goes in the title bar
+            self.sub_title = f"{self.project} · {lines[0]} · {lines[1]}"
         try:
             self.query_one("#status", Static).update("\n".join(lines))
         except Exception:  # noqa: BLE001 - before the screen is built
@@ -235,6 +244,21 @@ class TeamApp(App):
         for w in r.warnings:
             log.write(Text(f"  ! {w}", style="yellow"))
         self.log_line("ok" if r.passed else "warn", "build finished — press s for the summary")
+
+    # ---- responsive layout
+    COMPACT_BELOW = 100  # columns
+
+    def on_resize(self, event: Any) -> None:
+        """A narrow terminal gets the single-column layout; a wide one shows the side panel next to the tabs."""
+        narrow = event.size.width < self.COMPACT_BELOW
+        self.set_class(narrow, "compact")
+        if not narrow:
+            self.remove_class("show-side")
+        self._tick()
+
+    def action_toggle_side(self) -> None:
+        if self.has_class("compact"):
+            self.toggle_class("show-side")
 
     # ---- the human
     def agile_desk(self) -> Any:
@@ -296,6 +320,11 @@ class TeamApp(App):
     # ---- actions
     def action_tab(self, name: str) -> None:
         self.query_one("#tabs", TabbedContent).active = name
+
+    async def action_copy_or_quit(self) -> None:
+        """Ctrl+C copies the selection; with nothing selected it stops the build, as before."""
+        if not self.copy_selection():
+            await self.action_quit_build()
 
     async def action_quit_build(self) -> None:
         if self._worker is not None and not self.finished:

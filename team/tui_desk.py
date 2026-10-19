@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from rich.text import Text
+from meetings.clipboard import SelectableLog
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -110,7 +111,7 @@ class InterruptScreen(ModalScreen):
             yield Static("The team is paused", id="dialog-title")
             with VerticalScroll(id="dialog-body"):
                 yield Static(Text(self.describe()), id="dialog-detail")
-            yield RichLog(id="dialog-log", wrap=True, markup=False)
+            yield SelectableLog(id="dialog-log", wrap=True, markup=False)
             yield Input(placeholder="Tell the team (Enter to send). Prefix /note, /scope or /rethink to say what kind, or just write.", id="spoken")
             with Horizontal():
                 yield Button("Resume work (Esc)", variant="success", id="resume")

@@ -79,3 +79,33 @@ def test_tui_reports_failure_and_resume_hint(tmp_path):
     app = CouncilApp(SETTINGS, FakeLLM(fail_stages=("proposal:",)), make_input(tmp_path), base_output=str(tmp_path), auto_answers=True)
     asyncio.run(drive(app))
     assert app.result is None and app.error and "quorum" in app.error
+
+
+def test_selecting_text_in_a_log_copies_it_when_the_button_is_released(monkeypatch):
+    import meetings.clipboard as clipboard
+    from textual.geometry import Offset
+    from textual.selection import Selection
+
+    monkeypatch.setattr(clipboard, "native_copy", lambda text: None)
+    from textual.app import App
+
+    class Mini(clipboard.CopyOnSelect, App):
+        def compose(self):
+            yield clipboard.SelectableLog(id="log")
+
+    async def mini():
+        mini_app = Mini()
+        async with mini_app.run_test(size=(80, 20)) as pilot:
+            log = mini_app.query_one("#log")
+            log.write("first line of the transcript")
+            log.write("second line, the interesting one")
+            await pilot.pause(0.2)
+            mini_app.screen.selections = {log: Selection(Offset(0, 1), Offset(11, 1))}
+            assert mini_app.screen.get_selected_text() == "second line"
+            await pilot.mouse_up("#log", offset=(11, 1))
+            await pilot.pause(0.3)
+            assert mini_app.clipboard == "second line"
+            mini_app.screen.selections = {log: Selection(Offset(0, 0), Offset(6, 1))}
+            assert mini_app.screen.get_selected_text() == "first line of the transcript\nsecond"  # a selection can span lines
+
+    asyncio.run(mini())

@@ -371,3 +371,145 @@ def test_keyboard_shortcuts_decide_even_while_the_feedback_box_has_focus():
             assert desk.answers[-1] == ("APP-002", True, "")
 
     asyncio.run(main())
+
+
+# ---------------------------------------------------------------------------------------------- responsive layout
+
+
+def visible(app, selector):
+    widget = app.query_one(selector)
+    return widget.display and widget.region.width > 0 and widget.region.height > 0
+
+
+def test_a_wide_terminal_shows_the_side_panel_next_to_the_tabs():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(200, 50)) as pilot:
+            await pilot.pause(0.2)
+            assert not app.has_class("compact") and visible(app, "#side") and visible(app, "#tabs")
+            side, tabs = app.query_one("#side").region, app.query_one("#tabs").region
+            assert side.width <= 62 and side.width + tabs.width <= 200 and tabs.width > side.width
+
+    asyncio.run(main())
+
+
+def test_a_narrow_terminal_gives_the_whole_width_to_the_tabs_and_b_brings_up_the_panels():
+    async def main():
+        app = TeamApp("Todo")
+        async with app.run_test(size=(70, 22)) as pilot:
+            await pilot.pause(0.2)
+            assert app.has_class("compact") and not visible(app, "#side")
+            assert app.query_one("#tabs").region.width >= 60
+            app.handle("sprint-planned", {"sprint": 1, "goal": "Ship storage", "features": ["db"], "tasks": 2, "carried": []})
+            assert "sprint 1" in app.sub_title  # the headline moves to the title bar while the status panel is hidden
+            await pilot.press("b")
+            await pilot.pause(0.2)
+            assert visible(app, "#side") and not visible(app, "#tabs") and app.query_one("#side").region.width >= 60
+            await pilot.press("b")
+            await pilot.pause(0.2)
+            assert visible(app, "#tabs") and not visible(app, "#side")
+
+    asyncio.run(main())
+
+
+def test_resizing_a_running_screen_switches_layouts_both_ways():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(160, 40)) as pilot:
+            await pilot.pause(0.2)
+            assert not app.has_class("compact")
+            await pilot.resize_terminal(80, 24)
+            await pilot.pause(0.3)
+            assert app.has_class("compact") and not visible(app, "#side")
+            await pilot.press("b")
+            await pilot.pause(0.2)
+            await pilot.resize_terminal(170, 40)  # wide again: the panel returns beside the tabs and the toggle state is cleared
+            await pilot.pause(0.3)
+            assert not app.has_class("compact") and not app.has_class("show-side") and visible(app, "#side") and visible(app, "#tabs")
+
+    asyncio.run(main())
+
+
+def test_dialogs_fit_small_terminals():
+    async def main():
+        for size in ((60, 20), (80, 24), (120, 30)):
+            app = TeamApp()
+            async with app.run_test(size=size) as pilot:
+                desk = with_desk(app)
+                app.handle("approval-requested", {**ASK, "detail": "Read these:\n" + "\n".join(f"- doc {i}" for i in range(80))})
+                await pilot.pause(0.3)
+                region = app.screen.region
+                for button in ("#approve", "#decline", "#later"):
+                    r = app.screen.query_one(button).region
+                    assert r.width > 0 and region.contains_region(r), (size, button)
+                await pilot.press("ctrl+y")
+                await pilot.pause(0.2)
+                assert desk.answers and desk.answers[0][1] is True
+
+    asyncio.run(main())
+
+
+# ---------------------------------------------------------------------------------------------- select and copy
+
+
+def test_dragging_over_text_copies_it_the_moment_the_button_is_released(monkeypatch):
+    import meetings.clipboard as clipboard
+
+    system = []
+    monkeypatch.setattr(clipboard, "native_copy", lambda text: system.append(text))
+
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(140, 40)) as pilot:
+            app.handle("feature-started", {"feature": "db", "owner": "DEV_6", "detail": "DEV_6"})
+            await pilot.pause(0.3)
+            from textual.geometry import Offset
+            from textual.selection import Selection
+
+            log = app.query_one("#activity-log")
+            # Textual tracks the drag itself; what is tested here is what happens when the button comes up with text selected
+            app.screen.selections = {log: Selection(Offset(0, 0), Offset(30, 0))}
+            await pilot.mouse_up("#activity-log", offset=(30, 0))
+            await pilot.pause(0.4)
+            assert "db" in app.clipboard and "DEV_6" in app.clipboard  # copied to the terminal's clipboard
+            assert system and system[-1] == app.clipboard  # and to the system clipboard
+
+    asyncio.run(main())
+
+
+def test_ctrl_c_copies_a_selection_and_stops_the_build_only_when_nothing_is_selected(monkeypatch):
+    import meetings.clipboard as clipboard
+
+    monkeypatch.setattr(clipboard, "native_copy", lambda text: None)
+
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(140, 40)) as pilot:
+            app.handle("feature-started", {"feature": "db", "owner": "DEV_6", "detail": "DEV_6"})
+            await pilot.pause(0.3)
+            app.screen.text_select_all()
+            await pilot.press("ctrl+c")
+            await pilot.pause(0.3)
+            assert app.is_running and "team build" in app.clipboard  # a selection: copied, still running
+            app.screen.clear_selection()
+            app._last_copied = ""
+            await pilot.press("ctrl+c")
+            await pilot.pause(0.3)
+        assert not app.is_running  # nothing selected: ctrl+c quits, as before
+
+    asyncio.run(main())
+
+
+def test_the_same_selection_is_not_announced_twice():
+    async def main():
+        app = TeamApp()
+        async with app.run_test(size=(140, 40)) as pilot:
+            app.handle("feature-started", {"feature": "db", "owner": "DEV_6", "detail": "DEV_6"})
+            await pilot.pause(0.3)
+            app.screen.text_select_all()
+            first = app.copy_selection()
+            notices = len(app._notifications)
+            second = app.copy_selection()
+            assert first and second and len(app._notifications) == notices
+
+    asyncio.run(main())
