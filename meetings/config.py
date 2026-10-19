@@ -16,7 +16,7 @@ class ConfigError(Exception):
 @dataclass(frozen=True)
 class Settings:
     api_key: str = field(default="", repr=False)  # repr=False keeps the key out of logs
-    model: str = "gemini-3.5-flash-lite"
+    model: str = "gemini-3.1-flash-lite"
     request_timeout_s: float = 600.0  # large structured outputs on big models can be slow
     max_attempts: int = 6  # per call: transient errors and malformed output share this budget
     max_quota_waits: int = 8  # separate budget for 429s, which are waited out rather than failed

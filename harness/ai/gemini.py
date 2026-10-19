@@ -349,7 +349,7 @@ def classify_sdk_error(exc: BaseException) -> AIError:
 
 class GeminiClient:
     def __init__(
-        self, api_key: str, model: str = "gemini-3.5-flash-lite", *, timeout_s: float = 600.0, thoughts: bool = True,
+        self, api_key: str, model: str = "gemini-3.1-flash-lite", *, timeout_s: float = 600.0, thoughts: bool = True,
         client: Any = None, temperature: Optional[float] = None,
     ) -> None:
         from google import genai
