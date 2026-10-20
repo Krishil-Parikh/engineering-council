@@ -142,7 +142,7 @@ export class FakeStandupApi implements StandupApi {
   }
 }
 
-export function renderStandup(api: StandupApi | undefined, ui: ReactElement = <StandupScreen />) {
+export function renderStandup(api: StandupApi | undefined, ui: ReactElement = <StandupScreen initialLayout="panels" />) {
   const repository = new LiveFakeRepository(idleLiveWorkspace(WORKSPACE));
   (repository as unknown as { standup?: StandupApi }).standup = api;
   const result = render(<WorkspaceProvider workspaceId={WORKSPACE} repository={repository}>{ui}</WorkspaceProvider>);

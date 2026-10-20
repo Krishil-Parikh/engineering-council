@@ -1,0 +1,46 @@
+/* Animations of the call screen. Everything is driven by the classes of the tile, so a character moves only when its state says so.
+   The idea (characters that blink, nod and open their mouth while they speak) is Agent Standup's (MIT, see THIRD_PARTY_NOTICES.md); the drawing and the code are our own. */
+.su-fig { transform-origin: 50px 76px; animation: su-bob 4.4s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.su-tile[data-speaking='true'] .su-fig { animation: su-talk 0.46s ease-in-out infinite; }
+.su-head { transform-origin: 50px 46px; }
+.su-tile[data-speaking='true'] .su-head { animation: su-nod 0.6s ease-in-out infinite; }
+.su-eye { transform-box: fill-box; transform-origin: center; animation: su-blink 4.6s infinite; animation-delay: var(--d, 0s); }
+.su-brow { transform-box: fill-box; transform-origin: center; transition: transform 0.25s; }
+.su-tile[data-state='blocked'] .su-brow.l { transform: rotate(14deg) translateY(0.6px); }
+.su-tile[data-state='blocked'] .su-brow.r { transform: rotate(-14deg) translateY(0.6px); }
+.su-mouth-talk, .su-laptop, .su-hands, .su-sparks, .su-hand-up, .su-hourglass, .su-bang, .su-eyes-happy { display: none; }
+.su-tile[data-speaking='true'] .su-mouth-talk { display: inline; }
+.su-tile[data-speaking='true'] .su-mouth-idle { display: none; }
+.su-tile[data-state='reviewing'] .su-laptop, .su-tile[data-state='reviewing'] .su-hands { display: inline; }
+.su-tile[data-state='finished'] .su-sparks, .su-tile[data-state='finished'] .su-eyes-happy { display: inline; }
+.su-tile[data-state='finished'] .su-eyes-open { display: none; }
+.su-tile[data-state='blocked'] .su-hand-up { display: inline; animation: su-handup 0.7s ease-in-out infinite; transform-origin: 74px 62px; }
+.su-tile[data-state='waiting'] .su-hourglass { display: inline; animation: su-tick 2.4s ease-in-out infinite; transform-origin: 18px 50px; }
+.su-tile[data-state='needs_sme'] .su-bang { display: inline; animation: su-pulse 1s ease-in-out infinite; }
+.su-hand { animation: su-type 0.34s ease-in-out infinite; }
+.su-hand.r { animation-delay: -0.17s; }
+.su-tw { animation: su-tw 3.2s ease-in-out infinite; }
+.su-drift { animation: su-drift 24s ease-in-out infinite alternate; }
+.su-tile[data-state='blocked'] { animation: su-slowp 1.2s ease-in-out infinite; }
+.su-tile[data-state='needs_sme'] { animation: su-slowp-red 1.2s ease-in-out infinite; }
+.su-join { animation: su-join 0.35s ease; }
+.su-bubble-in { animation: su-fadein 0.25s ease; }
+
+@keyframes su-bob { 50% { transform: translateY(-0.9px); } }
+@keyframes su-talk { 50% { transform: scale(1.025, 0.985) translateY(-0.5px); } }
+@keyframes su-nod { 35% { transform: rotate(-0.4deg) translateY(-0.2px); } 75% { transform: rotate(0.3deg); } }
+@keyframes su-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.08); } }
+@keyframes su-type { 50% { transform: translateY(-1.3px); } }
+@keyframes su-tw { 50% { opacity: 0.25; } }
+@keyframes su-drift { to { transform: translateX(9px); } }
+@keyframes su-handup { 50% { transform: rotate(-22deg) translateY(-2px); } }
+@keyframes su-tick { 50% { transform: rotate(180deg); } }
+@keyframes su-pulse { 50% { opacity: 0.35; } }
+@keyframes su-join { from { opacity: 0; transform: scale(0.9); } }
+@keyframes su-fadein { from { opacity: 0; } }
+@keyframes su-slowp { 50% { box-shadow: 0 0 0 4px rgba(255, 159, 28, 0.35); } }
+@keyframes su-slowp-red { 50% { box-shadow: 0 0 0 4px rgba(230, 0, 0, 0.35); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .su-fig, .su-head, .su-eye, .su-hand, .su-tw, .su-drift, .su-tile, .su-hand-up, .su-hourglass, .su-bang, .su-join, .su-bubble-in { animation: none !important; }
+}

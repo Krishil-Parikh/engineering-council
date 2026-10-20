@@ -591,7 +591,7 @@ describe('using it without a mouse, or with a screen reader', () => {
     const api = new FakeStandupApi().with(makeView({ status: 'waiting_for_sme', open_questions: [q] }), [wire(1, 'meeting_created')]);
     api.rows = [row({ open_questions: 1, status: 'waiting_for_sme' })];
     await shown(api);
-    const first = screen.getByRole('button', { name: /Discovery: Jarvis/ });
+    const first = within(screen.getByTestId('meeting-picker')).getByRole('button', { name: /Discovery: Jarvis/ });
     first.focus();
     await userEvent.keyboard('{Enter}');
     const answer = screen.getByLabelText('Your answer');

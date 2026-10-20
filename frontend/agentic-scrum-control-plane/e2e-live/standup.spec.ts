@@ -20,7 +20,7 @@ async function phase(request: APIRequestContext) {
 }
 
 async function openStandup(page: Page) {
-  await page.goto('/');
+  await page.goto('/?layout=panels');
   await page.getByRole('tab', { name: 'Standup' }).click();
   await expect(page.getByTestId('standup-view')).toBeVisible();
 }

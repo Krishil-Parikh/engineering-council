@@ -4,7 +4,7 @@ test.describe('Standup in demo mode', () => {
   test.beforeEach(async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto('/');
+    await page.goto('/?layout=panels');
     await page.waitForFunction(() => !document.body.textContent?.includes('Loading workspace…'));
     (page as unknown as { __errors: string[] }).__errors = errors;
     await page.getByRole('tab', { name: 'Standup' }).click();

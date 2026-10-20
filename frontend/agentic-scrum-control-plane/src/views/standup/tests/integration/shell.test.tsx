@@ -10,7 +10,8 @@ import { MockStandupApi } from '../../adapters/mockStandupApi';
 let api: MockStandupApi;
 afterEach(() => api?.dispose());
 
-async function openStandup(options = { stepMs: 5, autopilotMs: 60 }) {
+async function openStandup(options = { stepMs: 5, autopilotMs: 60 }, layout = 'panels') {
+  window.history.replaceState(null, '', `/?layout=${layout}`);
   const repository = new MockWorkspaceRepository(createDemoWorkspaceSnapshot('workspace-demo'));
   api = new MockStandupApi(options);
   (repository as unknown as { standup: MockStandupApi }).standup = api;
