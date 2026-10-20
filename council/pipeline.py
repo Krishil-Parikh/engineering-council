@@ -38,7 +38,7 @@ def kickoff(args: argparse.Namespace) -> Optional[Path]:
     if not args.plain and _interactive_terminal():
         from meetings.tui import run_tui
 
-        app = run_tui(settings, GeminiClient(settings), input_from_args(args), base_output=args.output, auto_answers=args.yes, a2a=not args.no_a2a)
+        app = run_tui(settings, GeminiClient(settings), input_from_args(args), base_output=args.output, auto_answers=args.yes, a2a=not args.no_a2a, on_explored=explore_hook(args, settings))
         if app.result is None:
             if app.error:
                 print(f"\nThe meeting did not finish: {app.error}", file=sys.stderr)
@@ -49,9 +49,18 @@ def kickoff(args: argparse.Namespace) -> Optional[Path]:
         return app.result.out_dir
     inp = gather_input(args)
     confirm(inp, settings, args.yes)
-    result = asyncio.run(run_meeting(inp, settings, GeminiClient(settings), Reporter(args.verbose), interactive=not args.yes, a2a=not args.no_a2a))
+    result = asyncio.run(run_meeting(inp, settings, GeminiClient(settings), Reporter(args.verbose), interactive=not args.yes, a2a=not args.no_a2a, on_explored=explore_hook(args, settings)))
     print_summary(result)
     return result.out_dir
+
+
+def explore_hook(args: argparse.Namespace, settings: Any):
+    """What the pod learns by reading the repository at kickoff becomes the start of the team's memory (unless memory is off)."""
+    if getattr(args, "no_memory", False):
+        return None
+    from team.explore_memory import make_hook
+
+    return make_hook(api_key=getattr(settings, "api_key", None), model=getattr(settings, "model", None))
 
 
 def carry_repo(args: argparse.Namespace, meeting: Path) -> None:

@@ -11,7 +11,7 @@ from typing import Callable
 
 from pydantic import BaseModel
 
-from meetings import conversation, design_review, documents, prompts, questions, repository, synthesis, verification
+from meetings import conversation, design_review, documents, exploration, prompts, questions, repository, synthesis, verification
 from meetings import questions as _questions
 from meetings.formatting import format_reconsideration
 from meetings.config import Settings
@@ -152,8 +152,10 @@ async def run_meeting(
     resume: bool = False,
     input_fn: Callable[[str], str] = input,
     a2a: bool = False,
+    on_explored: exploration.Hook | None = None,
 ) -> MeetingResult:
-    """`a2a=True` carries every developer's model call over A2A (gRPC): each developer and the scrum master is an agent with its own server."""
+    """`a2a=True` carries every developer's model call over A2A (gRPC): each developer and the scrum master is an agent with its own server.
+    `on_explored` is called with what the pod learned by reading the repository (the team turns it into its memory)."""
     out_dir = meeting_dir(inp)
     if (out_dir / "meeting.json").exists() and not resume:
         raise MeetingError(f"{out_dir} already holds a meeting. Use `resume` to continue it or pick another project name.")
@@ -165,7 +167,7 @@ async def run_meeting(
 
         llm = await serve_meeting(inner, audit_path=out_dir / "a2a-audit.jsonl")
     try:
-        return await _run(inp, settings, llm, reporter, store, interactive, input_fn)
+        return await _run(inp, settings, llm, reporter, store, interactive, input_fn, on_explored)
     except (KeyboardInterrupt, asyncio.CancelledError):
         store.finish("failed", "Interrupted by user")
         raise
@@ -180,7 +182,7 @@ async def run_meeting(
 
 async def _run(
     inp: MeetingInput, settings: Settings, llm: LLM, rep: Reporter, store: MeetingStore,
-    interactive: bool, input_fn: Callable[[str], str],
+    interactive: bool, input_fn: Callable[[str], str], on_explored: exploration.Hook | None = None,
 ) -> MeetingResult:
     # 1 ---- inspect -------------------------------------------------------------------------
     rep.stage(1, "Inspecting repository..." if (inp.repo_path or inp.github_url) else "Preparing context (greenfield project)...")
@@ -188,8 +190,21 @@ async def _run(
     store.save("input.json", inp)
     store.save_text("input.md", input_markdown(inp))
     snap = store.load("repo_snapshot.json", RepoSnapshot) or _inspect(inp, settings, rep, store)
+    repo_text = repository.snapshot_for_prompt(snap)
+    if snap.mode == "existing" and snap.root and Path(snap.root).is_dir():
+        # the whole pod reads the whole repository first: what they know about it is the base of everything that follows (and of the team's memory)
+        found = await exploration.explore(Path(snap.root), snap.tree, settings, llm, store, rep, repo_text)
+        if found.notes:
+            repo_text += "\n\n" + exploration.digest(found)
+            if on_explored is not None:
+                try:
+                    done = on_explored(found, store.root)
+                    if asyncio.iscoroutine(done):
+                        await done
+                except Exception as exc:  # noqa: BLE001 - memory is a help; the meeting goes on
+                    rep.warn(f"What the pod learned could not be saved to memory: {exc}")
     store.complete("inspect")
-    ctx = prompts.context_block(inp, repository.snapshot_for_prompt(snap))
+    ctx = prompts.context_block(inp, repo_text)
 
     # 2 ---- blind thinking, then every developer picks a skill ------------------------------------
     rep.stage(2, "Developers think about the problem blind, then each picks a skill...")
@@ -312,7 +327,7 @@ def _inspect(inp: MeetingInput, settings: Settings, rep: Reporter, store: Meetin
         except FileNotFoundError as exc:
             raise MeetingError(str(exc)) from exc
     elif inp.github_url:
-        snap, warning = repository.clone_github(inp.github_url, settings)
+        snap, warning = repository.clone_github(inp.github_url, settings, keep_at=store.root / "source")
         if warning:
             store.warn(warning)
             rep.warn(warning)

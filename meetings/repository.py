@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from collections import Counter
@@ -96,7 +97,7 @@ def inspect_local(path: str | Path, settings: Settings) -> RepoSnapshot:
     if not root.is_dir():
         raise FileNotFoundError(f"Repository path is not a directory: {path}")
     root = root.resolve()
-    snap = RepoSnapshot(mode="existing", source=str(path))
+    snap = RepoSnapshot(mode="existing", source=str(path), root=str(root))
     langs: Counter[str] = Counter()
     candidates: list[tuple[int, Path]] = []  # (priority, path)
     seen_files = 0
@@ -156,12 +157,17 @@ def inspect_local(path: str | Path, settings: Settings) -> RepoSnapshot:
     return snap
 
 
-def clone_github(url: str, settings: Settings) -> tuple[RepoSnapshot, str | None]:
-    """Shallow-clone a public repo into a temp dir and inspect it. Returns (snapshot, warning)."""
+def clone_github(url: str, settings: Settings, keep_at: Path | None = None) -> tuple[RepoSnapshot, str | None]:
+    """Shallow-clone a repo and inspect it. Returns (snapshot, warning). With `keep_at` the clone stays there (the pod reads its files);
+    otherwise it is made in a temp dir and removed."""
     if not GITHUB_URL_RE.match(url.strip()):
         return RepoSnapshot(), f"Not a valid https://github.com/<owner>/<repo> URL: {url!r}"
     with tempfile.TemporaryDirectory(prefix="council-clone-") as tmp:
-        dest = Path(tmp) / "repo"
+        dest = Path(keep_at) if keep_at is not None and not Path(keep_at).exists() else Path(tmp) / "repo"
+        if keep_at is not None and Path(keep_at).exists() and (Path(keep_at) / ".git").exists():  # already cloned (the build step makes the same clone)
+            snap = inspect_local(Path(keep_at), settings)
+            snap.source = url
+            return snap, None
         cmd = [
             "git", "-c", "core.hooksPath=NUL" if os.name == "nt" else "core.hooksPath=/dev/null",
             "-c", "filter.lfs.smudge=", "-c", "filter.lfs.process=", "-c", "filter.lfs.required=false",
@@ -178,10 +184,14 @@ def clone_github(url: str, settings: Settings) -> tuple[RepoSnapshot, str | None
         except subprocess.TimeoutExpired:
             return RepoSnapshot(), f"Clone timed out after {settings.clone_timeout_s}s; continuing without repository."
         if proc.returncode != 0:
+            if dest == keep_at:
+                shutil.rmtree(dest, ignore_errors=True)  # a half clone must not be mistaken for a finished one
             reason = (proc.stderr or "unknown error").strip().splitlines()[-1][:200]
             return RepoSnapshot(), f"Could not clone {url}: {reason}. Continuing without repository context."
         snap = inspect_local(dest, settings)
         snap.source = url
+        if dest != keep_at:
+            snap.root = ""  # the temp folder is gone when this returns
         return snap, None
 
 

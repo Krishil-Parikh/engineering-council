@@ -292,10 +292,12 @@ class CouncilApp(CopyOnSelect, App):
         auto_answers: bool = False,
         resume: bool = False,
         a2a: bool = False,
+        on_explored=None,
     ) -> None:
         super().__init__()
         self.settings, self.llm, self.inp = settings, llm, inp
         self.base_output, self.auto_answers, self.resume, self.a2a = base_output, auto_answers, resume, a2a
+        self.on_explored = on_explored
         self.reporter = TuiReporter(self, auto_answers)
         self.result: Optional[MeetingResult] = None
         self.error: Optional[str] = None
@@ -363,7 +365,7 @@ class CouncilApp(CopyOnSelect, App):
     async def _go(self, inp: MeetingInput) -> None:
         try:
             self.result = await run_meeting(
-                inp, self.settings, self.llm, self.reporter, interactive=not self.auto_answers, resume=self.resume, a2a=self.a2a
+                inp, self.settings, self.llm, self.reporter, interactive=not self.auto_answers, resume=self.resume, a2a=self.a2a, on_explored=self.on_explored
             )
             ok = self.result.report.passed
             self.feed_rule("MEETING COMPLETE" if ok else "MEETING FINISHED — VERIFICATION FAILED")
@@ -564,7 +566,7 @@ class CouncilApp(CopyOnSelect, App):
         self.exit()
 
 
-def run_tui(settings: Settings, llm: LLM, inp: Optional[MeetingInput], *, base_output: str, auto_answers: bool, resume: bool = False, a2a: bool = False) -> CouncilApp:
-    app = CouncilApp(settings, llm, inp, base_output=base_output, auto_answers=auto_answers, resume=resume, a2a=a2a)
+def run_tui(settings: Settings, llm: LLM, inp: Optional[MeetingInput], *, base_output: str, auto_answers: bool, resume: bool = False, a2a: bool = False, on_explored=None) -> CouncilApp:
+    app = CouncilApp(settings, llm, inp, base_output=base_output, auto_answers=auto_answers, resume=resume, a2a=a2a, on_explored=on_explored)
     app.run()
     return app

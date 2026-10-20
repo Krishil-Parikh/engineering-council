@@ -119,6 +119,68 @@ class TeamMemory:
                 self.project.link(("file", rel), "imports", ("file", target))
         return len(parsed)
 
+    def ingest_exploration(self, data: dict[str, Any]) -> dict[str, int]:
+        """What the pod learned by reading the repository at kickoff (see meetings.exploration; passed as plain data). Each file becomes a memory in the project graph
+        with what it is for and what it offers, linked to the files it depends on; its conventions and traps become memories of their own. Each developer's private
+        memory gets the files that developer read. The scrum master's overview adds the layers, the rules, what already exists and what must not be re-created."""
+        notes = [n for n in (data.get("notes") or []) if n.get("path")]
+        overview = data.get("overview") or {}
+        paths = {n["path"] for n in notes}
+        used_by: dict[str, int] = {}
+        for n in notes:
+            for dep in n.get("depends_on") or []:
+                if dep in paths and dep != n["path"]:
+                    used_by[dep] = used_by.get(dep, 0) + 1
+        made = {"files": 0, "conventions": 0, "traps": 0, "layers": 0, "capabilities": 0, "rules": 0}
+        for n in notes:
+            path, dev = n["path"], (n.get("reader") or None)
+            offers, convs, traps = list(n.get("offers") or []), list(n.get("conventions") or []), list(n.get("watch_out") or [])
+            text = " ".join(filter(None, [n.get("purpose", ""), ("Offers: " + "; ".join(offers[:8]) + ".") if offers else ""]))
+            importance = min(9.0, 4.5 + 0.5 * used_by.get(path, 0))  # the files many others rely on are the ones to remember first
+            self.project.node("file", path, text, dev, ["code", "explored"], importance)
+            made["files"] += 1
+            for dep in n.get("depends_on") or []:
+                if dep in paths and dep != path:
+                    self.project.link(("file", path), "depends_on", ("file", dep), owner=dev)
+            for kind, items, key in (("convention", convs, "conventions"), ("pitfall", traps, "traps")):
+                for item in items[:4]:
+                    name = f"{path}: {item[:70]}"
+                    self.project.node(kind, name, item[:400], dev, ["explored"], 6.5 if kind == "convention" else 7.0)
+                    self.project.link((kind, name), "about", ("file", path), owner=dev)
+                    made[key] += 1
+            if dev:
+                self.agent(dev).node("file", path, "I read this at kickoff. " + text, dev, ["read"], max(4.0, importance - 0.5))
+                self.agent(dev).link(("agent", dev), "read", ("file", path), owner=dev)
+        for dev, files in (data.get("assignments") or {}).items():
+            shown = ", ".join(files[:12]) + (" ..." if len(files) > 12 else "")
+            self.agent(dev).node("note", "What I read at kickoff", f"I read {len(files)} files of the repository whole: {shown}. I know these best.", dev, ["kickoff"], 6.5)
+        arch = (overview.get("architecture") or "").strip()
+        if arch:
+            self.project.node("note", "Architecture of the repository", arch[:1500], None, ["explored", "architecture"], 9.0)
+        for layer in overview.get("layers") or []:
+            if layer.get("name"):
+                self.project.node("module", layer["name"], layer.get("role", "")[:400], None, ["explored", "layer"], 7.5)
+                for p in (layer.get("paths") or [])[:12]:
+                    for f in (f for f in paths if f == p or f.startswith(p.rstrip("/") + "/")):
+                        self.project.link(("module", layer["name"]), "contains", ("file", f))
+                made["layers"] += 1
+        for rule in (overview.get("rules") or [])[:14]:
+            self.project.node("convention", rule[:90], rule[:400], None, ["explored", "rule"], 8.5)
+            made["rules"] += 1
+        for cap in overview.get("capabilities") or []:
+            if cap.get("name"):
+                self.project.node("api", cap["name"], f"{cap.get('what', '')} (in {cap.get('where', '')})"[:400], None, ["explored", "exists"], 8.0)
+                if cap.get("where") in paths:
+                    self.project.link(("api", cap["name"]), "defined_in", ("file", cap["where"]))
+                made["capabilities"] += 1
+        for sentence in (overview.get("do_not_recreate") or [])[:14]:
+            self.project.node("pitfall", sentence[:90], sentence[:400], None, ["explored", "exists"], 9.0)
+        for sentence in (overview.get("watch_out") or [])[:10]:
+            self.project.node("pitfall", sentence[:90], sentence[:400], None, ["explored"], 8.0)
+        for point in (overview.get("extension_points") or [])[:10]:
+            self.project.node("how-to", point[:90], point[:400], None, ["explored", "extend"], 7.0)
+        return made
+
     def ingest_task(self, dev: str, feature: str, task: str, files: Iterable[str], summary: str = "", ok: bool = True) -> None:
         """A task is done (or failed): what it was, who did it, which files it touched. Goes to the project graph, and to the agent's own."""
         files = list(files)[:40]

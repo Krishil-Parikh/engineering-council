@@ -62,6 +62,7 @@ class RepoFile(BaseModel):
 class RepoSnapshot(BaseModel):
     mode: Literal["greenfield", "existing"] = "greenfield"
     source: str = ""
+    root: str = ""  # a folder on disk that holds the repository's files, when there is one (the pod reads them at kickoff)
     tree: list[str] = Field(default_factory=list)
     languages: dict[str, int] = Field(default_factory=dict)
     technologies: list[str] = Field(default_factory=list)

@@ -75,6 +75,7 @@ class WorkspaceRun:
         self.terminals = AgentTerminals()
         self.engine: Any = None
         self._reopened: Any = None
+        self.explore_memory: Any = None  # the memory the pod starts at kickoff, before the team exists
         self.meeting_dir: Optional[Path] = None
         self.project_name = ""
         self.document_accepted = False
@@ -113,6 +114,8 @@ class WorkspaceRun:
         engine = self.engine
         if engine is not None and getattr(engine, "memory", None) is not None:
             return engine.memory
+        if self.explore_memory is not None:
+            return self.explore_memory
         if self._reopened is None and self.memory_pointer.exists():
             root = Path(self.memory_pointer.read_text(encoding="utf-8").strip())
             if (root / "project.sqlite").exists():
@@ -144,6 +147,7 @@ class WorkspaceRun:
         self.questions = Questions(self.narrator)
         self.terminals = AgentTerminals()
         self._reopened = None  # the previous project's memory is not this project's
+        self.explore_memory = None
         try:
             self.memory_pointer.unlink(missing_ok=True)
         except OSError:
@@ -216,7 +220,17 @@ class WorkspaceRun:
 
         settings = self.deps.meeting_settings()
         bridge = MeetingBridge(self)
-        result = await run_meeting(inp, settings, self.deps.meeting_llm(settings), bridge, interactive=True, a2a=getattr(self.settings, "a2a", True))
+        hook = None
+        if getattr(self.settings, "memory", True):
+            from team.explore_memory import make_hook
+
+            def opened(memory: Any) -> None:
+                self.explore_memory = memory
+                self.remember_memory_location(memory)
+                log.info("memory started at kickoff: the pod's notes on the repository are in %s", memory.root)
+
+            hook = make_hook(api_key=getattr(settings, "api_key", None), model=getattr(settings, "model", None), on_memory=opened)
+        result = await run_meeting(inp, settings, self.deps.meeting_llm(settings), bridge, interactive=True, a2a=getattr(self.settings, "a2a", True), on_explored=hook)
         self.meeting_dir = result.out_dir
         bridge.finished(result.report.passed)
         publish_documents(self, "draft")
