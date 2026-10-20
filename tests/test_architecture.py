@@ -3,6 +3,7 @@
   harness      the coding agent engine (sessions, compaction, memory/instructions, tools, permissions, git)   imports: itself only
   council_a2a  Agent2Agent protocol over gRPC (official a2a-sdk)                                              imports: itself only
   memory       project memory and cross-project memory                                                         imports: itself only
+  standup      formal Scrum meetings as a replayable event stream (contract, state, stores, transcript, view)   imports: itself only
   meetings     planning mode: the multi-agent meeting, documents, verification, TUI                            imports: council_a2a
   team         agent mode: autonomous developers, branches, merges, design meetings                            imports: harness, council_a2a, meetings, memory
   council      the application entry point that wires the modules together                                     imports: anything
@@ -17,10 +18,11 @@ ALLOWED = {
     "harness": {"harness"},
     "council_a2a": {"council_a2a"},
     "memory": {"memory"},
+    "standup": {"standup"},
     "meetings": {"meetings", "council_a2a"},
     "team": {"team", "harness", "council_a2a", "meetings", "memory"},
-    "council": {"council", "harness", "council_a2a", "memory", "meetings", "team"},
-    "gateway": {"gateway", "council", "harness", "council_a2a", "memory", "meetings", "team"},
+    "council": {"council", "harness", "council_a2a", "memory", "meetings", "team", "standup"},
+    "gateway": {"gateway", "council", "harness", "council_a2a", "memory", "meetings", "team", "standup"},
 }
 OURS = set(ALLOWED)
 
