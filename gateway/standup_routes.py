@@ -46,7 +46,8 @@ def register(app: FastAPI, workspace: Callable[[Request, str], tuple[Optional[Wo
             rows = []
             for m in await asyncio.to_thread(svc.meetings):
                 st = svc.state(m.meeting_id)
-                rows.append({**m.model_dump(mode="json"), "open_questions": len(st.open_questions()), "decisions": len(st.decisions), "action_items": len(st.actions),
+                waiting = len(st.open_questions()) + len([a for a in st.approvals.values() if a.open])  # everything that waits for the Business SME: questions and approvals
+                rows.append({**m.model_dump(mode="json"), "open_questions": waiting, "decisions": len(st.decisions), "action_items": len(st.actions),
                              "participants": len([p for p in st.participants.values() if p.status.value != "left"]), "last_sequence": st.last_sequence})
         except StandupError as exc:
             return fail(exc)
@@ -102,7 +103,7 @@ def register(app: FastAPI, workspace: Callable[[Request, str], tuple[Optional[Wo
             return error
         assert run is not None
         header = request.headers.get("last-event-id", "")
-        resume = after if after is not None else (int(header) if header.isdigit() else 0)
+        resume = max(after or 0, int(header) if header.isdigit() else 0)  # a browser that reconnects sends where it got to; that beats the address it first asked for
         hub = run.standup
         try:
             hub.service.state(meeting_id)

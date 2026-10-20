@@ -84,3 +84,18 @@ A developer's conversation is compacted automatically (a checkpoint replaces the
 - `pytest tests/gateway` (contract and end-to-end over HTTP, scripted models)
 - `npm run test` in the frontend (mock and live-mode screens)
 - `npm run test:e2e:live` (real browser + real gateway + scripted models, about 1.5 minutes)
+
+## Standup: the formal meetings
+
+The **Standup** tab shows the meetings the team holds (the kickoff, the document review, sprint planning, the daily standups, the review, the retrospective) as they happen, and lets you replay
+any of them afterwards. It records only these meetings, never tool calls or merge talk. Each one is kept as a structured event stream next to the gateway's data
+(`.gateway/<workspace>/standup/<record>/...`, with a readable `transcript.txt`), so it is still there after a restart; a new project starts a new record and the old ones stay readable.
+
+- **Answer the team** in the Questions panel (an option or your own words). The first documents and every decision that needs approval are approved in the Documents panel; nothing approves them for you.
+- **Interrupt or redirect** with the box under the conversation; it reaches the team like a directive.
+- **Autopilot SME**: when you step away, switch to *Autopilot SME*. It answers the team's *product questions* in your voice (after a short pause), and the record says so. It never approves documents
+  or decisions. Switch back with *I answer* and it stops at once.
+- **Replay**: *Replay this meeting*, then play, step, change the speed, drag the scrubber, or jump to the next decision, question or intervention.
+
+Details for developers: `standup/README.md`.
+

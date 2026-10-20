@@ -104,6 +104,20 @@ def test_approvals_are_recorded_as_the_sme_approving_or_declining(run):
     assert run.standup.service.state("decisions").status == MeetingStatus.ACTIVE  # nothing is waiting any more
 
 
+def test_the_list_counts_everything_that_waits_for_the_sme_questions_and_approvals(client, run):
+    run.narrator.meet("01", "Kickoff meeting: Jarvis", "live")
+    run.narrator.meet("decisions", "Decisions waiting for you", "live")
+    run.questions.open("01", "meeting", "Memory only?", "", ["Yes", "No"], "No", lambda t: None)
+    approval = run.questions.open("decisions", "approval", "Add a dependency?", "", ["Approve", "Decline"], None, lambda t: None)
+    run.standup.flush()
+    rows = {m["meeting_id"]: m for m in client.get(f"{BASE}/meetings").json()["meetings"]}
+    assert rows["kickoff"]["open_questions"] == 1 and rows["decisions"]["open_questions"] == 1  # an approval is something waiting for you too
+    run.questions.answer("Approve", approval)
+    run.standup.flush()
+    rows = {m["meeting_id"]: m for m in client.get(f"{BASE}/meetings").json()["meetings"]}
+    assert rows["decisions"]["open_questions"] == 0 and rows["kickoff"]["open_questions"] == 1
+
+
 def test_a_ceremony_marked_complete_keeps_taking_talk_and_a_late_line_goes_to_a_follow_up(run):
     run.narrator.meet("s1-planning", "Sprint 1 planning", "live")
     say(run, "s1-planning", "scrum-master", "Sprint 1 planned: storage")

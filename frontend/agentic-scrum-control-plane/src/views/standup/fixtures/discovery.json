@@ -1,0 +1,5770 @@
+{
+ "events": [
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00002",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00001",
+   "event_type": "meeting_created",
+   "idempotency_key": "create:discovery",
+   "meeting_id": "discovery",
+   "payload": {
+    "control_mode": "human",
+    "created_by": "scrum-master",
+    "duration_limit_seconds": 3600,
+    "meeting_type": "discovery",
+    "title": "Discovery: Jarvis timers and reminders"
+   },
+   "schema_version": 1,
+   "sequence_number": 1,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00004",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00003",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Business SME",
+    "participant_id": "sme",
+    "participant_type": "business_sme"
+   },
+   "schema_version": 1,
+   "sequence_number": 2,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00006",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00005",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Scrum Master",
+    "participant_id": "sm",
+    "participant_type": "scrum_master"
+   },
+   "schema_version": 1,
+   "sequence_number": 3,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00008",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00007",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Developer 01",
+    "participant_id": "dev-1",
+    "participant_type": "developer"
+   },
+   "schema_version": 1,
+   "sequence_number": 4,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00010",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00009",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Developer 02",
+    "participant_id": "dev-2",
+    "participant_type": "developer"
+   },
+   "schema_version": 1,
+   "sequence_number": 5,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00012",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00011",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Developer 03",
+    "participant_id": "dev-3",
+    "participant_type": "developer"
+   },
+   "schema_version": 1,
+   "sequence_number": 6,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00014",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00013",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Developer 04",
+    "participant_id": "dev-4",
+    "participant_type": "developer"
+   },
+   "schema_version": 1,
+   "sequence_number": 7,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00016",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00015",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Developer 05",
+    "participant_id": "dev-5",
+    "participant_type": "developer"
+   },
+   "schema_version": 1,
+   "sequence_number": 8,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00018",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00017",
+   "event_type": "participant_joined",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "display_name": "Developer 06",
+    "participant_id": "dev-6",
+    "participant_type": "developer"
+   },
+   "schema_version": 1,
+   "sequence_number": 9,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00020",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00019",
+   "event_type": "meeting_started",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {},
+   "schema_version": 1,
+   "sequence_number": 10,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00022",
+   "elapsed_seconds": 0.0,
+   "event_id": "evt-00021",
+   "event_type": "topic_started",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "topic": "What are we building, and for whom?"
+   },
+   "schema_version": 1,
+   "sequence_number": 11,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:00Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-1",
+   "causation_id": null,
+   "correlation_id": "cor-00024",
+   "elapsed_seconds": 8.0,
+   "event_id": "evt-00023",
+   "event_type": "statement",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "Jarvis is a voice assistant. Timers and reminders must fit its router, its session loop and its plugin rules."
+   },
+   "schema_version": 1,
+   "sequence_number": 12,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:08Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-2",
+   "causation_id": null,
+   "correlation_id": "cor-00026",
+   "elapsed_seconds": 19.0,
+   "event_id": "evt-00025",
+   "event_type": "brainstorm",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "Keep timers in a small plugin driven by a heartbeat, so the core never learns about timers."
+   },
+   "schema_version": 1,
+   "sequence_number": 13,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:19Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-3",
+   "causation_id": null,
+   "correlation_id": "cor-00028",
+   "elapsed_seconds": 33.0,
+   "event_id": "evt-00027",
+   "event_type": "proposal",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "One timer plugin, one Tick event, one fake clock for tests."
+   },
+   "schema_version": 1,
+   "sequence_number": 14,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:33Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-4",
+   "causation_id": null,
+   "correlation_id": "cor-00030",
+   "elapsed_seconds": 42.0,
+   "event_id": "evt-00029",
+   "event_type": "challenge",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "A heartbeat per second drifts. Compare against the clock, never count ticks."
+   },
+   "schema_version": 1,
+   "sequence_number": 15,
+   "target_id": "dev-3",
+   "timestamp": "2026-03-02T09:30:42Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-3",
+   "causation_id": null,
+   "correlation_id": "cor-00032",
+   "elapsed_seconds": 58.0,
+   "event_id": "evt-00031",
+   "event_type": "counterargument",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "Agreed: the plugin stores deadlines and checks them on each tick."
+   },
+   "schema_version": 1,
+   "sequence_number": 16,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:30:58Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-5",
+   "causation_id": null,
+   "correlation_id": "cor-00034",
+   "elapsed_seconds": 70.0,
+   "event_id": "evt-00033",
+   "event_type": "risk_raised",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "risk_id": "risk-1",
+    "severity": "high",
+    "text": "An alert could talk over the user."
+   },
+   "schema_version": 1,
+   "sequence_number": 17,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:31:10Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-5",
+   "causation_id": null,
+   "correlation_id": "cor-00036",
+   "elapsed_seconds": 70.0,
+   "event_id": "evt-00035",
+   "event_type": "dependency_identified",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "dependency_id": "dep-1",
+    "from": "dev-3",
+    "text": "The alert needs the session's speaking state.",
+    "to": "dev-6"
+   },
+   "schema_version": 1,
+   "sequence_number": 18,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:31:10Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00038",
+   "elapsed_seconds": 80.0,
+   "event_id": "evt-00037",
+   "event_type": "facilitator_intervention",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "Let us settle the alert rule before we split the work."
+   },
+   "schema_version": 1,
+   "sequence_number": 19,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:31:20Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-2",
+   "causation_id": null,
+   "correlation_id": "cor-00040",
+   "elapsed_seconds": 86.0,
+   "event_id": "evt-00039",
+   "event_type": "clarification_requested",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "options": [
+     "Yes, persist them",
+     "No, memory only"
+    ],
+    "question_id": "q-1",
+    "recommended": "No, memory only",
+    "text": "Should timers survive a restart?"
+   },
+   "schema_version": 1,
+   "sequence_number": 20,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:31:26Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sme",
+   "causation_id": null,
+   "correlation_id": "cor-00042",
+   "elapsed_seconds": 126.0,
+   "event_id": "evt-00041",
+   "event_type": "clarification_answered",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "answer": "No, memory only",
+    "question_id": "q-1",
+    "source": "human"
+   },
+   "schema_version": 1,
+   "sequence_number": 21,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:06Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-6",
+   "causation_id": null,
+   "correlation_id": "cor-00044",
+   "elapsed_seconds": 133.0,
+   "event_id": "evt-00043",
+   "event_type": "decision_proposed",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "alternatives": [
+     "wait",
+     "interrupt"
+    ],
+    "decision_id": "dec-1",
+    "title": "Alerts wait while Jarvis speaks or listens"
+   },
+   "schema_version": 1,
+   "sequence_number": 22,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:13Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sme",
+   "causation_id": null,
+   "correlation_id": "cor-00046",
+   "elapsed_seconds": 138.0,
+   "event_id": "evt-00045",
+   "event_type": "decision_accepted",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "decision_id": "dec-1",
+    "selected_option": "wait"
+   },
+   "schema_version": 1,
+   "sequence_number": 23,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:18Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00048",
+   "elapsed_seconds": 138.0,
+   "event_id": "evt-00047",
+   "event_type": "action_item_created",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "action_item_id": "act-1",
+    "description": "Write the timer plugin against the clock port",
+    "due_reference": "sprint 1",
+    "owner_id": "dev-3"
+   },
+   "schema_version": 1,
+   "sequence_number": 24,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:18Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00050",
+   "elapsed_seconds": 138.0,
+   "event_id": "evt-00049",
+   "event_type": "action_item_created",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "action_item_id": "act-2",
+    "description": "Expose the speaking state to the plugin",
+    "due_reference": "sprint 1",
+    "owner_id": "dev-6"
+   },
+   "schema_version": 1,
+   "sequence_number": 25,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:18Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "dev-6",
+   "causation_id": null,
+   "correlation_id": "cor-00052",
+   "elapsed_seconds": 138.0,
+   "event_id": "evt-00051",
+   "event_type": "action_item_updated",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "action_item_id": "act-2",
+    "status": "in_progress"
+   },
+   "schema_version": 1,
+   "sequence_number": 26,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:18Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00054",
+   "elapsed_seconds": 158.0,
+   "event_id": "evt-00053",
+   "event_type": "document_created",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "path": "PRD.md"
+   },
+   "schema_version": 1,
+   "sequence_number": 27,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:38Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00056",
+   "elapsed_seconds": 158.0,
+   "event_id": "evt-00055",
+   "event_type": "document_review_started",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "path": "PRD.md",
+    "reviewer_id": "sme"
+   },
+   "schema_version": 1,
+   "sequence_number": 28,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:32:38Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sme",
+   "causation_id": null,
+   "correlation_id": "cor-00058",
+   "elapsed_seconds": 183.0,
+   "event_id": "evt-00057",
+   "event_type": "document_changes_requested",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "comments": [
+     "List the refusals: zero, negative, over 24 hours."
+    ],
+    "path": "PRD.md"
+   },
+   "schema_version": 1,
+   "sequence_number": 29,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:03Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00060",
+   "elapsed_seconds": 183.0,
+   "event_id": "evt-00059",
+   "event_type": "document_review_started",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "path": "PRD.md",
+    "reviewer_id": "sme"
+   },
+   "schema_version": 1,
+   "sequence_number": 30,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:03Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00062",
+   "elapsed_seconds": 201.0,
+   "event_id": "evt-00061",
+   "event_type": "sme_approval_requested",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "kind": "documents",
+    "request_id": "req-1",
+    "subject": "Accept the PRD"
+   },
+   "schema_version": 1,
+   "sequence_number": 31,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:21Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sme",
+   "causation_id": null,
+   "correlation_id": "cor-00064",
+   "elapsed_seconds": 213.0,
+   "event_id": "evt-00063",
+   "event_type": "sme_approved",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "comment": "Approve",
+    "request_id": "req-1"
+   },
+   "schema_version": 1,
+   "sequence_number": 32,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:33Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sme",
+   "causation_id": null,
+   "correlation_id": "cor-00066",
+   "elapsed_seconds": 213.0,
+   "event_id": "evt-00065",
+   "event_type": "document_approved",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "path": "PRD.md"
+   },
+   "schema_version": 1,
+   "sequence_number": 33,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:33Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00068",
+   "elapsed_seconds": 213.0,
+   "event_id": "evt-00067",
+   "event_type": "topic_completed",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "topic": "What are we building, and for whom?"
+   },
+   "schema_version": 1,
+   "sequence_number": 34,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:33Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "sm",
+   "causation_id": null,
+   "correlation_id": "cor-00070",
+   "elapsed_seconds": 219.0,
+   "event_id": "evt-00069",
+   "event_type": "summary_generated",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {
+    "text": "Timers live in a plugin driven by Tick events and an injected clock. Alerts wait for speech. Memory only. PRD approved."
+   },
+   "schema_version": 1,
+   "sequence_number": 35,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:39Z",
+   "workspace_id": "workspace-demo"
+  },
+  {
+   "actor_id": "system",
+   "causation_id": null,
+   "correlation_id": "cor-00072",
+   "elapsed_seconds": 219.0,
+   "event_id": "evt-00071",
+   "event_type": "meeting_ended",
+   "idempotency_key": null,
+   "meeting_id": "discovery",
+   "payload": {},
+   "schema_version": 1,
+   "sequence_number": 36,
+   "target_id": null,
+   "timestamp": "2026-03-02T09:33:39Z",
+   "workspace_id": "workspace-demo"
+  }
+ ],
+ "meeting": {
+  "action_items": 2,
+  "control_mode": "human",
+  "created_by": "scrum-master",
+  "current_topic": null,
+  "decisions": 1,
+  "duration_limit_seconds": 3600.0,
+  "ended_at": "2026-03-02T09:33:39Z",
+  "last_sequence": 36,
+  "meeting_id": "discovery",
+  "meeting_type": "discovery",
+  "open_questions": 0,
+  "participants": 8,
+  "sprint_id": null,
+  "started_at": "2026-03-02T09:30:00Z",
+  "status": "completed",
+  "title": "Discovery: Jarvis timers and reminders",
+  "version": 36,
+  "workspace_id": "workspace-demo"
+ },
+ "timeline": [
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "meeting_created",
+   "kind": "standup.meeting_created",
+   "sequence": 1,
+   "text": "Meeting created: Discovery: Jarvis timers and reminders (discovery, human control)",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 2,
+   "text": "Business SME joined as business_sme",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 3,
+   "text": "Scrum Master joined as scrum_master",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 4,
+   "text": "Developer 01 joined as developer",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 5,
+   "text": "Developer 02 joined as developer",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 6,
+   "text": "Developer 03 joined as developer",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 7,
+   "text": "Developer 04 joined as developer",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 8,
+   "text": "Developer 05 joined as developer",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "participant_joined",
+   "kind": "standup.participant_joined",
+   "sequence": 9,
+   "text": "Developer 06 joined as developer",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:00:00",
+   "event_type": "meeting_started",
+   "kind": "standup.meeting_started",
+   "sequence": 10,
+   "text": "Meeting started",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:00:00",
+   "event_type": "topic_started",
+   "kind": "standup.topic_started",
+   "sequence": 11,
+   "text": "Topic: What are we building, and for whom?",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "dev-1",
+   "actor_name": "Developer 01",
+   "elapsed": "00:00:08",
+   "event_type": "statement",
+   "kind": "standup.statement",
+   "sequence": 12,
+   "text": "Jarvis is a voice assistant. Timers and reminders must fit its router, its session loop and its plugin rules.",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "dev-2",
+   "actor_name": "Developer 02",
+   "elapsed": "00:00:19",
+   "event_type": "brainstorm",
+   "kind": "standup.brainstorm",
+   "sequence": 13,
+   "text": "Keep timers in a small plugin driven by a heartbeat, so the core never learns about timers.",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "dev-3",
+   "actor_name": "Developer 03",
+   "elapsed": "00:00:33",
+   "event_type": "proposal",
+   "kind": "standup.proposal",
+   "sequence": 14,
+   "text": "One timer plugin, one Tick event, one fake clock for tests.",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "dev-4",
+   "actor_name": "Developer 04",
+   "elapsed": "00:00:42",
+   "event_type": "challenge",
+   "kind": "standup.challenge",
+   "sequence": 15,
+   "text": "to Developer 03: A heartbeat per second drifts. Compare against the clock, never count ticks.",
+   "tone": "warn"
+  },
+  {
+   "actor_id": "dev-3",
+   "actor_name": "Developer 03",
+   "elapsed": "00:00:58",
+   "event_type": "counterargument",
+   "kind": "standup.counterargument",
+   "sequence": 16,
+   "text": "Agreed: the plugin stores deadlines and checks them on each tick.",
+   "tone": "warn"
+  },
+  {
+   "actor_id": "dev-5",
+   "actor_name": "Developer 05",
+   "elapsed": "00:01:10",
+   "event_type": "risk_raised",
+   "kind": "standup.risk_raised",
+   "sequence": 17,
+   "text": "Risk (high): An alert could talk over the user.",
+   "tone": "warn"
+  },
+  {
+   "actor_id": "dev-5",
+   "actor_name": "Developer 05",
+   "elapsed": "00:01:10",
+   "event_type": "dependency_identified",
+   "kind": "standup.dependency_identified",
+   "sequence": 18,
+   "text": "Dependency: The alert needs the session's speaking state.",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:01:20",
+   "event_type": "facilitator_intervention",
+   "kind": "standup.facilitator_intervention",
+   "sequence": 19,
+   "text": "Let us settle the alert rule before we split the work.",
+   "tone": "info"
+  },
+  {
+   "actor_id": "dev-2",
+   "actor_name": "Developer 02",
+   "elapsed": "00:01:26",
+   "event_type": "clarification_requested",
+   "kind": "standup.clarification_requested",
+   "sequence": 20,
+   "text": "Should timers survive a restart?",
+   "tone": "ask"
+  },
+  {
+   "actor_id": "sme",
+   "actor_name": "Business SME",
+   "elapsed": "00:02:06",
+   "event_type": "clarification_answered",
+   "kind": "standup.clarification_answered",
+   "sequence": 21,
+   "text": "No, memory only",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "dev-6",
+   "actor_name": "Developer 06",
+   "elapsed": "00:02:13",
+   "event_type": "decision_proposed",
+   "kind": "standup.decision_proposed",
+   "sequence": 22,
+   "text": "Decision proposed: Alerts wait while Jarvis speaks or listens (options: wait; interrupt)",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sme",
+   "actor_name": "Business SME",
+   "elapsed": "00:02:18",
+   "event_type": "decision_accepted",
+   "kind": "standup.decision_accepted",
+   "sequence": 23,
+   "text": "Decision accepted: Alerts wait while Jarvis speaks or listens -> wait",
+   "tone": "success"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:02:18",
+   "event_type": "action_item_created",
+   "kind": "standup.action_item_created",
+   "sequence": 24,
+   "text": "Action item for Developer 03: Write the timer plugin against the clock port",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:02:18",
+   "event_type": "action_item_created",
+   "kind": "standup.action_item_created",
+   "sequence": 25,
+   "text": "Action item for Developer 06: Expose the speaking state to the plugin",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "dev-6",
+   "actor_name": "Developer 06",
+   "elapsed": "00:02:18",
+   "event_type": "action_item_updated",
+   "kind": "standup.action_item_updated",
+   "sequence": 26,
+   "text": "Action item act-2 is now in_progress",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:02:38",
+   "event_type": "document_created",
+   "kind": "standup.document_created",
+   "sequence": 27,
+   "text": "Document created: PRD.md",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:02:38",
+   "event_type": "document_review_started",
+   "kind": "standup.document_review_started",
+   "sequence": 28,
+   "text": "Review of PRD.md started",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sme",
+   "actor_name": "Business SME",
+   "elapsed": "00:03:03",
+   "event_type": "document_changes_requested",
+   "kind": "standup.document_changes_requested",
+   "sequence": 29,
+   "text": "Changes requested on PRD.md: List the refusals: zero, negative, over 24 hours.",
+   "tone": "danger"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:03:03",
+   "event_type": "document_review_started",
+   "kind": "standup.document_review_started",
+   "sequence": 30,
+   "text": "Review of PRD.md started",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:03:21",
+   "event_type": "sme_approval_requested",
+   "kind": "standup.sme_approval_requested",
+   "sequence": 31,
+   "text": "Approval requested from the Business SME: Accept the PRD",
+   "tone": "ask"
+  },
+  {
+   "actor_id": "sme",
+   "actor_name": "Business SME",
+   "elapsed": "00:03:33",
+   "event_type": "sme_approved",
+   "kind": "standup.sme_approved",
+   "sequence": 32,
+   "text": "Business SME approved req-1: Approve",
+   "tone": "success"
+  },
+  {
+   "actor_id": "sme",
+   "actor_name": "Business SME",
+   "elapsed": "00:03:33",
+   "event_type": "document_approved",
+   "kind": "standup.document_approved",
+   "sequence": 33,
+   "text": "Document approved: PRD.md",
+   "tone": "success"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:03:33",
+   "event_type": "topic_completed",
+   "kind": "standup.topic_completed",
+   "sequence": 34,
+   "text": "Topic done: What are we building, and for whom?",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "sm",
+   "actor_name": "Scrum Master",
+   "elapsed": "00:03:39",
+   "event_type": "summary_generated",
+   "kind": "standup.summary_generated",
+   "sequence": 35,
+   "text": "Summary: Timers live in a plugin driven by Tick events and an injected clock. Alerts wait for speech. Memory only. PRD approved.",
+   "tone": "plain"
+  },
+  {
+   "actor_id": "system",
+   "actor_name": "Meeting",
+   "elapsed": "00:03:39",
+   "event_type": "meeting_ended",
+   "kind": "standup.meeting_ended",
+   "sequence": 36,
+   "text": "Meeting ended",
+   "tone": "plain"
+  }
+ ],
+ "transcript": "09:30:00Z [00:00:00] Meeting created: Discovery: Jarvis timers and reminders (discovery, human control)\n09:30:00Z [00:00:00] Business SME joined as business_sme\n09:30:00Z [00:00:00] Scrum Master joined as scrum_master\n09:30:00Z [00:00:00] Developer 01 joined as developer\n09:30:00Z [00:00:00] Developer 02 joined as developer\n09:30:00Z [00:00:00] Developer 03 joined as developer\n09:30:00Z [00:00:00] Developer 04 joined as developer\n09:30:00Z [00:00:00] Developer 05 joined as developer\n09:30:00Z [00:00:00] Developer 06 joined as developer\n09:30:00Z [00:00:00] Meeting started\n09:30:00Z [00:00:00] Scrum Master — Topic: What are we building, and for whom?\n09:30:08Z [00:00:08] Developer 01 — Statement:\nJarvis is a voice assistant. Timers and reminders must fit its router, its session loop and its plugin rules.\n09:30:19Z [00:00:19] Developer 02 — Brainstorm:\nKeep timers in a small plugin driven by a heartbeat, so the core never learns about timers.\n09:30:33Z [00:00:33] Developer 03 — Proposal:\nOne timer plugin, one Tick event, one fake clock for tests.\n09:30:42Z [00:00:42] Developer 04 — Challenge to Developer 03:\nA heartbeat per second drifts. Compare against the clock, never count ticks.\n09:30:58Z [00:00:58] Developer 03 — Counterargument:\nAgreed: the plugin stores deadlines and checks them on each tick.\n09:31:10Z [00:01:10] Developer 05 — Risk (high): An alert could talk over the user.\n09:31:10Z [00:01:10] Developer 05 — Dependency: The alert needs the session's speaking state.\n09:31:20Z [00:01:20] Scrum Master — Facilitator:\nLet us settle the alert rule before we split the work.\n09:31:26Z [00:01:26] Developer 02 — Clarification requested:\nShould timers survive a restart?\n09:32:06Z [00:02:06] Business SME — Answer:\nNo, memory only\n09:32:13Z [00:02:13] Developer 06 — Decision proposed: Alerts wait while Jarvis speaks or listens (options: wait; interrupt)\n09:32:18Z [00:02:18] Business SME — Decision accepted: Alerts wait while Jarvis speaks or listens -> wait\n09:32:18Z [00:02:18] Scrum Master — Action item for Developer 03: Write the timer plugin against the clock port\n09:32:18Z [00:02:18] Scrum Master — Action item for Developer 06: Expose the speaking state to the plugin\n09:32:18Z [00:02:18] Developer 06 — Action item act-2 is now in_progress\n09:32:38Z [00:02:38] Scrum Master — Document created: PRD.md\n09:32:38Z [00:02:38] Scrum Master — Review of PRD.md started\n09:33:03Z [00:03:03] Business SME — Changes requested on PRD.md: List the refusals: zero, negative, over 24 hours.\n09:33:03Z [00:03:03] Scrum Master — Review of PRD.md started\n09:33:21Z [00:03:21] Scrum Master — Approval requested from the Business SME: Accept the PRD\n09:33:33Z [00:03:33] Business SME — Business SME approved req-1: Approve\n09:33:33Z [00:03:33] Business SME — Document approved: PRD.md\n09:33:33Z [00:03:33] Scrum Master — Topic done: What are we building, and for whom?\n09:33:39Z [00:03:39] Scrum Master — Summary: Timers live in a plugin driven by Tick events and an injected clock. Alerts wait for speech. Memory only. PRD approved.\n09:33:39Z [00:03:39] Meeting ended\n",
+ "views": {
+  "1": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 1,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "created",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "10": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 10,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "11": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 11,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "12": {
+   "action_items": [],
+   "active_speaker": "dev-1",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:08",
+   "elapsed_seconds": 8.0,
+   "last_sequence": 12,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3592.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "13": {
+   "action_items": [],
+   "active_speaker": "dev-2",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:19",
+   "elapsed_seconds": 19.0,
+   "last_sequence": 13,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3581.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "14": {
+   "action_items": [],
+   "active_speaker": "dev-3",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:33",
+   "elapsed_seconds": 33.0,
+   "last_sequence": 14,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3567.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "15": {
+   "action_items": [],
+   "active_speaker": "dev-4",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:42",
+   "elapsed_seconds": 42.0,
+   "last_sequence": 15,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3558.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "16": {
+   "action_items": [],
+   "active_speaker": "dev-3",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:58",
+   "elapsed_seconds": 58.0,
+   "last_sequence": 16,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3542.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "17": {
+   "action_items": [],
+   "active_speaker": "dev-3",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:01:10",
+   "elapsed_seconds": 70.0,
+   "last_sequence": 17,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3530.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "18": {
+   "action_items": [],
+   "active_speaker": "dev-3",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:01:10",
+   "elapsed_seconds": 70.0,
+   "last_sequence": 18,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3530.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "19": {
+   "action_items": [],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:01:20",
+   "elapsed_seconds": 80.0,
+   "last_sequence": 19,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3520.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "2": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 2,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "20": {
+   "action_items": [],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:01:26",
+   "elapsed_seconds": 86.0,
+   "last_sequence": 20,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [
+    {
+     "answer": null,
+     "answered_at": null,
+     "answered_by": null,
+     "asked_at": "2026-03-02T09:31:26Z",
+     "asked_by": "dev-2",
+     "meeting_id": "discovery",
+     "options": [
+      "Yes, persist them",
+      "No, memory only"
+     ],
+     "question_id": "q-1",
+     "recommended": "No, memory only",
+     "status": "open",
+     "target": "business_sme",
+     "text": "Should timers survive a restart?"
+    }
+   ],
+   "participants": [
+    {
+     "badge": "needs you",
+     "display_name": "Business SME",
+     "needs_sme": true,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "needs_sme"
+    },
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "waiting for an answer",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "waiting"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": {
+    "answer": null,
+    "answered_at": null,
+    "answered_by": null,
+    "asked_at": "2026-03-02T09:31:26Z",
+    "asked_by": "dev-2",
+    "meeting_id": "discovery",
+    "options": [
+     "Yes, persist them",
+     "No, memory only"
+    ],
+    "question_id": "q-1",
+    "recommended": "No, memory only",
+    "status": "open",
+    "target": "business_sme",
+    "text": "Should timers survive a restart?"
+   },
+   "recent": [],
+   "remaining_seconds": 3514.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "waiting_for_sme",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "21": {
+   "action_items": [],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:06",
+   "elapsed_seconds": 126.0,
+   "last_sequence": 21,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3474.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "22": {
+   "action_items": [],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": null,
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": null,
+     "status": "proposed",
+     "timestamp": "2026-03-02T09:32:13Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:13",
+   "elapsed_seconds": 133.0,
+   "last_sequence": 22,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3467.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "23": {
+   "action_items": [],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:18",
+   "elapsed_seconds": 138.0,
+   "last_sequence": 23,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3462.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "24": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:18",
+   "elapsed_seconds": 138.0,
+   "last_sequence": 24,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3462.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "25": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "open"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:18",
+   "elapsed_seconds": 138.0,
+   "last_sequence": 25,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3462.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "26": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:18",
+   "elapsed_seconds": 138.0,
+   "last_sequence": 26,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3462.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "27": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:38",
+   "elapsed_seconds": 158.0,
+   "last_sequence": 27,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3442.0,
+   "reviews": [],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "28": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:02:38",
+   "elapsed_seconds": 158.0,
+   "last_sequence": 28,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3442.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": null,
+     "reviewer_id": "sme",
+     "status": "in_review"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "reviewing",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "29": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:03",
+   "elapsed_seconds": 183.0,
+   "last_sequence": 29,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3417.0,
+   "reviews": [
+    {
+     "comments": [
+      "List the refusals: zero, negative, over 24 hours."
+     ],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": "2026-03-02T09:33:03Z",
+     "reviewer_id": "sme",
+     "status": "changes_requested"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "3": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 3,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "30": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:03",
+   "elapsed_seconds": 183.0,
+   "last_sequence": 30,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3417.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": null,
+     "reviewer_id": "sme",
+     "status": "in_review"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "reviewing",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "31": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [
+    {
+     "approved": null,
+     "comment": "",
+     "extra": {
+      "kind": "documents"
+     },
+     "open": true,
+     "request_id": "req-1",
+     "requested_by": "sm",
+     "subject": "Accept the PRD"
+    }
+   ],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:21",
+   "elapsed_seconds": 201.0,
+   "last_sequence": 31,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3399.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": null,
+     "reviewer_id": "sme",
+     "status": "in_review"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "awaiting_approval",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "32": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:33",
+   "elapsed_seconds": 213.0,
+   "last_sequence": 32,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3387.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": null,
+     "reviewer_id": "sme",
+     "status": "in_review"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "reviewing",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "33": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": "What are we building, and for whom?",
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:33",
+   "elapsed_seconds": 213.0,
+   "last_sequence": 33,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3387.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": "2026-03-02T09:33:33Z",
+     "reviewer_id": "sme",
+     "status": "approved"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "34": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:33",
+   "elapsed_seconds": 213.0,
+   "last_sequence": 34,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3387.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": "2026-03-02T09:33:33Z",
+     "reviewer_id": "sme",
+     "status": "approved"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "35": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": "sm",
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:39",
+   "elapsed_seconds": 219.0,
+   "last_sequence": 35,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "speaking",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": true,
+     "status": "speaking"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "listening",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "listening"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3381.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": "2026-03-02T09:33:33Z",
+     "reviewer_id": "sme",
+     "status": "approved"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "active",
+   "summary": "Timers live in a plugin driven by Tick events and an injected clock. Alerts wait for speech. Memory only. PRD approved.",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "36": {
+   "action_items": [
+    {
+     "action_item_id": "act-1",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Write the timer plugin against the clock port",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-3",
+     "status": "open"
+    },
+    {
+     "action_item_id": "act-2",
+     "completed_at": null,
+     "created_at": "2026-03-02T09:32:18Z",
+     "description": "Expose the speaking state to the plugin",
+     "due_reference": "sprint 1",
+     "meeting_id": "discovery",
+     "owner_id": "dev-6",
+     "status": "in_progress"
+    }
+   ],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [
+    {
+     "alternatives": [
+      "wait",
+      "interrupt"
+     ],
+     "context": "",
+     "decided_by": "sme",
+     "decision_id": "dec-1",
+     "meeting_id": "discovery",
+     "proposed_by": "dev-6",
+     "reason": "",
+     "selected_option": "wait",
+     "status": "accepted",
+     "timestamp": "2026-03-02T09:32:18Z",
+     "title": "Alerts wait while Jarvis speaks or listens"
+    }
+   ],
+   "dependencies": [
+    {
+     "dependency_id": "dep-1",
+     "from_id": "dev-3",
+     "identified_by": "dev-5",
+     "text": "The alert needs the session's speaking state.",
+     "to_id": "dev-6"
+    }
+   ],
+   "elapsed": "00:03:39",
+   "elapsed_seconds": 219.0,
+   "last_sequence": 36,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "finished"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3381.0,
+   "reviews": [
+    {
+     "comments": [],
+     "document_path": "PRD.md",
+     "meeting_id": "discovery",
+     "reviewed_at": "2026-03-02T09:33:33Z",
+     "reviewer_id": "sme",
+     "status": "approved"
+    }
+   ],
+   "risks": [
+    {
+     "raised_by": "dev-5",
+     "risk_id": "risk-1",
+     "severity": "high",
+     "text": "An alert could talk over the user."
+    }
+   ],
+   "started_at": "2026-03-02T09:30:00Z",
+   "status": "completed",
+   "summary": "Timers live in a plugin driven by Tick events and an injected clock. Alerts wait for speech. Memory only. PRD approved.",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "4": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 4,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "5": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 5,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "6": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 6,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "7": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 7,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "8": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 8,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  },
+  "9": {
+   "action_items": [],
+   "active_speaker": null,
+   "approvals_open": [],
+   "control_mode": "human",
+   "current_topic": null,
+   "decisions": [],
+   "dependencies": [],
+   "elapsed": "00:00:00",
+   "elapsed_seconds": 0.0,
+   "last_sequence": 9,
+   "meeting_id": "discovery",
+   "meeting_type": "discovery",
+   "open_questions": [],
+   "participants": [
+    {
+     "badge": "",
+     "display_name": "Business SME",
+     "needs_sme": false,
+     "participant_id": "sme",
+     "participant_type": "business_sme",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 01",
+     "needs_sme": false,
+     "participant_id": "dev-1",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 02",
+     "needs_sme": false,
+     "participant_id": "dev-2",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 03",
+     "needs_sme": false,
+     "participant_id": "dev-3",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 04",
+     "needs_sme": false,
+     "participant_id": "dev-4",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 05",
+     "needs_sme": false,
+     "participant_id": "dev-5",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Developer 06",
+     "needs_sme": false,
+     "participant_id": "dev-6",
+     "participant_type": "developer",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    },
+    {
+     "badge": "",
+     "display_name": "Scrum Master",
+     "needs_sme": false,
+     "participant_id": "sm",
+     "participant_type": "scrum_master",
+     "role": null,
+     "skill": null,
+     "speaking": false,
+     "status": "joined"
+    }
+   ],
+   "paused": false,
+   "pending_question": null,
+   "recent": [],
+   "remaining_seconds": 3600.0,
+   "reviews": [],
+   "risks": [],
+   "started_at": null,
+   "status": "waiting_for_participants",
+   "summary": "",
+   "title": "Discovery: Jarvis timers and reminders"
+  }
+ },
+ "waiting_at": null
+}

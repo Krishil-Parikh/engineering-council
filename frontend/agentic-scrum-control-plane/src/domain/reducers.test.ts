@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyWorkspaceEvent } from './reducers';
-import type { WorkspaceSnapshot } from './types';
+import type { WorkspaceEvent, WorkspaceSnapshot } from './types';
 
 const snapshot: WorkspaceSnapshot = {
   workspaceId: 'workspace-1',
@@ -150,5 +150,25 @@ describe('applyWorkspaceEvent', () => {
       type: 'message.created', payload: message,
     });
     expect(duplicate.messages).toHaveLength(1);
+  });
+});
+
+describe('events that carry no workspace state', () => {
+  const base = { workspaceId: 'workspace-1', occurredAt: '2026-09-24T00:00:00Z' };
+  it('moves the version on for a standup event and changes nothing else', () => {
+    const before = snapshot;
+    const next = applyWorkspaceEvent(before, { ...base, eventId: 'e-standup', version: before.version + 1, type: 'standup.event', payload: { event_type: 'statement' } });
+    expect(next.version).toBe(before.version + 1);
+    expect(next.agents).toBe(before.agents);
+    expect(next.messages).toBe(before.messages);
+    expect(next.processedEventIds).toContain('e-standup');
+  });
+
+  it('does not crash on an event kind it has never heard of (a newer gateway)', () => {
+    const before = snapshot;
+    const next = applyWorkspaceEvent(before, { ...base, eventId: 'e-future', version: before.version + 1, type: 'hologram.started', payload: {} } as unknown as WorkspaceEvent);
+    expect(next).toBeDefined();
+    expect(next.agents).toBe(before.agents);
+    expect(next.version).toBe(before.version + 1);
   });
 });

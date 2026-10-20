@@ -130,8 +130,9 @@ export function WorkspaceShell() {
             <ActiveView />
           </React.Suspense>
         )}
-        {live && status !== 'loading' && (
+        {live && status !== 'loading' && mode !== 'standup' && (
           // The GenUI screens show their own questions (the meeting's, the documents'); anything else the team needs from you appears here, in any view.
+          // The Standup screen has panels for all of it, and this card would sit on top of them.
           <PendingDecisions
             questions={selectOpenQuestions(snapshot)}
             kinds={mode === 'genui' ? ['approval'] : ['approval', 'meeting', 'documents']}

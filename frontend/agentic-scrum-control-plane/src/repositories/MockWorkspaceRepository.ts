@@ -3,8 +3,11 @@ import { validateWorkspaceCommand } from '../domain/commands';
 import type { WorkspaceEvent, WorkspaceSnapshot } from '../domain/types';
 import type { WorkspaceRepository } from './WorkspaceRepository';
 import { applyWorkspaceEvent } from '../domain/reducers';
+import { MockStandupApi } from '../views/standup/adapters/mockStandupApi';
+import type { StandupApi } from '../views/standup/models/standup';
 
 export class MockWorkspaceRepository implements WorkspaceRepository {
+  readonly standup: StandupApi = new MockStandupApi();
   private readonly listeners = new Set<(event: WorkspaceEvent) => void>();
   private snapshot: WorkspaceSnapshot;
   private readonly initial: WorkspaceSnapshot;

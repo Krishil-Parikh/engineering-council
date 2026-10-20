@@ -1,4 +1,6 @@
 import type { MemoryApi, MemoryGraphData, MemoryHit } from '../domain/memory';
+import { HttpStandupApi } from '../views/standup/adapters/workspaceRepository';
+import type { StandupApi } from '../views/standup/models/standup';
 import type { WorkspaceCommand, CommandResult } from '../domain/commands';
 import { validateWorkspaceCommand } from '../domain/commands';
 import type { WorkspaceEvent, WorkspaceSnapshot } from '../domain/types';
@@ -37,6 +39,7 @@ export class HttpWorkspaceRepository implements WorkspaceRepository {
       return data.hits;
     },
   };
+  readonly standup: StandupApi = new HttpStandupApi(this.baseUrl, (input, init) => this.fetcher(input, init), (url) => this.eventSourceFactory(url));
   private readonly timeoutMs: number;
   private readonly maxReconnectAttempts: number;
   private readonly reconnectBaseMs: number;

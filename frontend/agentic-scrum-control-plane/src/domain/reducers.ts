@@ -55,5 +55,9 @@ export function applyWorkspaceEvent(snapshot: WorkspaceSnapshot, event: Workspac
         ...next, phaseId: 'kickoff', agents: [], messages: [], skills: [], artifacts: [], meets: [], sprints: [], edges: [],
         metrics: { totalMessagesToday: 0, totalPRs: 0, prHistory: [] },
       };
+    case 'standup.event':
+      return next; // the Standup screen follows its own stream; here the event only moves the version on
+    default:
+      return next; // a kind this version has never heard of (a newer gateway): ignored, never a crash
   }
 }

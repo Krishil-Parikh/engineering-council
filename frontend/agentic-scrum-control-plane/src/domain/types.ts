@@ -138,6 +138,8 @@ export type WorkspaceEvent =
   | (WorkspaceEventBase & { type: 'sprint.updated'; payload: WorkspaceSprint })
   | (WorkspaceEventBase & { type: 'edge.updated'; payload: WorkspaceEdge })
   /** A new project starts: the previous one's agents, messages, documents and sprints leave the screen. */
-  | (WorkspaceEventBase & { type: 'workspace.reset'; payload: Record<string, never> });
+  | (WorkspaceEventBase & { type: 'workspace.reset'; payload: Record<string, never> })
+  /** A formal-meeting event for the Standup screen. It carries no workspace state: the screen reads its own stream. */
+  | (WorkspaceEventBase & { type: 'standup.event'; payload: Record<string, unknown> });
 
 export const PHASE_IDS: PhaseId[] = ['kickoff', 'brainstorm', 'prd', 'build', 'review', 'ship'];

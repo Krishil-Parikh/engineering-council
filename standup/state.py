@@ -308,7 +308,7 @@ class MeetingState:
             recommended=p.get("recommended"), asked_at=e.timestamp,
         )
         asker = self.participants.get(e.actor_id or "")
-        if asker is not None and target in SME_TARGETS and asker.status != ParticipantStatus.LEFT:
+        if asker is not None and target in SME_TARGETS and asker.status not in (ParticipantStatus.LEFT, ParticipantStatus.BLOCKED):  # a blocker stays visible
             asker.status = ParticipantStatus.WAITING
             if self.speaker == asker.participant_id:
                 self.speaker = None

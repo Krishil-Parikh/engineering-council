@@ -328,3 +328,13 @@ def test_an_event_of_a_kind_this_version_does_not_know_is_kept_and_ignored():
     assert fresh.unknown_events == 1 and fresh.last_sequence == future.sequence_number and fresh.status == MeetingStatus.ACTIVE
     with pytest.raises(InvalidEvent):
         svc.publish(mid, "hologram_started", {}, actor_id="dev-1")  # but nobody may publish it here
+
+
+def test_asking_a_question_does_not_hide_a_blocker():
+    svc, _ = make_service()
+    mid = open_meeting(svc, devs=2)
+    svc.publish(mid, "participant_blocked", {"participant_id": "dev-1", "reason": "needs a decision"}, actor_id="dev-1")
+    svc.publish(mid, "clarification_requested", {"question_id": "q1", "text": "Which one?"}, actor_id="dev-1")
+    assert svc.state(mid).participants["dev-1"].status == ParticipantStatus.BLOCKED
+    svc.publish(mid, "clarification_answered", {"question_id": "q1", "answer": "This one"}, actor_id="sme")
+    assert svc.state(mid).participants["dev-1"].status == ParticipantStatus.BLOCKED  # still blocked until someone unblocks them
