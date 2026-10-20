@@ -1,9 +1,12 @@
 import type { WorkspaceCommand, CommandResult } from '../domain/commands';
 import type { WorkspaceEvent, WorkspaceSnapshot } from '../domain/types';
+import type { MemoryApi } from '../domain/memory';
 
 export interface WorkspaceRepository {
   /** True for a repository backed by a real backend. Views use it to drop demo choreography (timers, canned text) that only makes sense for the mock. */
   readonly live?: boolean;
+  /** The team's memory (project and per agent). Only a real backend has one. */
+  readonly memory?: MemoryApi;
   getSnapshot(workspaceId: string): Promise<WorkspaceSnapshot>;
   execute(command: WorkspaceCommand): Promise<CommandResult>;
   subscribe(

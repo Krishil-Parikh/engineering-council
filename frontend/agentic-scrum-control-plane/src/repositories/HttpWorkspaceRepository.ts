@@ -1,3 +1,4 @@
+import type { MemoryApi, MemoryGraphData, MemoryHit } from '../domain/memory';
 import type { WorkspaceCommand, CommandResult } from '../domain/commands';
 import { validateWorkspaceCommand } from '../domain/commands';
 import type { WorkspaceEvent, WorkspaceSnapshot } from '../domain/types';
@@ -23,6 +24,19 @@ export function mapSnapshotHttpError(status: number): Error {
 
 export class HttpWorkspaceRepository implements WorkspaceRepository {
   readonly live = true;
+
+  readonly memory: MemoryApi = {
+    graph: async (workspaceId, scope, limit = 400) => {
+      const data = await this.fetchJson(`${this.baseUrl}/workspace/${encodeURIComponent(workspaceId)}/memory?scope=${encodeURIComponent(scope)}&limit=${limit}`);
+      return data as MemoryGraphData;
+    },
+    search: async (workspaceId, scope, query, deep = false) => {
+      const data = (await this.fetchJson(
+        `${this.baseUrl}/workspace/${encodeURIComponent(workspaceId)}/memory/search?scope=${encodeURIComponent(scope)}&q=${encodeURIComponent(query)}&k=12&rerank=${deep}`,
+      )) as { hits: MemoryHit[] };
+      return data.hits;
+    },
+  };
   private readonly timeoutMs: number;
   private readonly maxReconnectAttempts: number;
   private readonly reconnectBaseMs: number;

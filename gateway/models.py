@@ -40,6 +40,7 @@ class Agent(_Model):
     activeBranch: Optional[str] = None
     contextUsagePercent: Optional[float] = None
     avatarColor: Optional[str] = None
+    terminal: Optional[list[str]] = None  # the agent's recent tool calls and output, newest last (the browser's live terminal)
 
 
 class Question(_Model):

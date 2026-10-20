@@ -171,7 +171,7 @@ export const RevealDrawer: React.FC<RevealDrawerProps> = ({
               live ? <SprintsPanel sprints={sprints} totalMerged={totalPRs} /> : <PRSparkline data={prData} totalPRs={totalPRs} />
             )}
             {activeTab === 'roster' && (
-              <RosterPanel agents={agents} skills={skills} />
+              <RosterPanel agents={agents} skills={skills} live={live} />
             )}
             {activeTab === 'artifacts' && <ArtifactsPanel artifacts={artifacts} />}
             {activeTab === 'transcript' && (

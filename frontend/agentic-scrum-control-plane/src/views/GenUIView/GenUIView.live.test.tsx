@@ -140,6 +140,21 @@ describe('GenUIView with a real backend', () => {
     expect(await screen.findByText('1 of 2 working')).toBeInTheDocument();
   });
 
+  it('opens the live terminal of an agent from its card on the build screen', async () => {
+    const repository = renderLive();
+    await screen.findByLabelText('Project brief');
+    act(() => {
+      repository.agent(developer(1, { status: 'active', activeTask: 'storage: write the JSON file', activeBranch: 'feature/storage', terminal: ['10:00:01 $ git status', '10:00:03   exit 0'] }));
+      repository.phase('build');
+    });
+    fireEvent.click(await screen.findByText('DEV_1'));
+    const terminal = await screen.findByRole('log', { name: 'Live terminal: DEV_1' });
+    expect(terminal).toHaveTextContent('$ git status');
+    expect(screen.queryByText(/% utilized/)).not.toBeInTheDocument(); // the backend reports no such figure
+    act(() => repository.agent(developer(1, { status: 'active', terminal: ['10:00:01 $ git status', '10:00:03   exit 0', '10:00:09 $ pytest -q'] })));
+    await waitFor(() => expect(screen.getByRole('log', { name: 'Live terminal: DEV_1' })).toHaveTextContent('$ pytest -q'));
+  });
+
   it('ends on a page about the real result and starts a new project with phase.advance kickoff', async () => {
     const repository = renderLive();
     await screen.findByLabelText('Project brief');
@@ -149,7 +164,9 @@ describe('GenUIView with a real backend', () => {
       repository.message({ id: 'm-final', kind: 'system', text: 'The final branch final/20261019-1 is ready for you to review. Nothing has been merged into main.' });
       repository.phase('ship');
     });
+    act(() => repository.message({ id: 'm-push', kind: 'system', text: 'Pushed final/20261019-1, integration/20261019-1, feature/db to https://github.com/me/habitly' }));
     expect(await screen.findByText('The team has finished')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Pushed final/20261019-1, integration/20261019-1, feature/db to https://github.com/me/habitly');
     expect(screen.getByText('final/20261019-1')).toBeInTheDocument();
     expect(screen.getByText(/6\/6 features merged/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Start a new project/ }));

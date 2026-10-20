@@ -61,6 +61,8 @@ class TeamRepo:
         self.origin = self.root / "origin.git"
         self.sandboxes = self.root / "sandboxes"
         self.seed_notes: list[str] = []  # what was special about the starting point (for the report)
+        self.mirror: Optional[str] = None  # the project's own remote (e.g. its GitHub URL): every branch the team pushes is pushed there too, never a protected one
+        self.mirror_log: list[tuple[str, bool, str]] = []  # (branch, worked, detail) for the engine to report; written from worker threads, so only appended to
 
     @staticmethod
     def detect_main(source: Optional[Path]) -> str:
@@ -82,7 +84,20 @@ class TeamRepo:
             if origin_file.is_file() and not origin_file.is_symlink():
                 target = seed / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(origin_file, target)
+                data = origin_file.read_bytes()
+                if target.is_file():
+                    old = target.read_bytes()
+                    if b"\0" in data[:8000] or b"\0" in old[:8000]:  # binary: compare as it is
+                        if data == old:
+                            continue
+                    else:
+                        # A Windows checkout has CRLF line endings while the committed files have LF. That is not a change: without this every file
+                        # in the repository would be "edited" by the team's very first commit, and every diff afterwards would be noise.
+                        if data.replace(b"\r\n", b"\n") == old.replace(b"\r\n", b"\n"):
+                            continue
+                        if b"\r\n" not in old:  # a real edit: keep the repository's own line endings
+                            data = data.replace(b"\r\n", b"\n")
+                target.write_bytes(data)
         for rel in deleted:
             try:
                 (seed / rel).unlink()
@@ -204,12 +219,41 @@ class TeamRepo:
         self._git(path, "commit", "-q", "-m", message)
         return True
 
+    def checkpoint(self, dev: str, feature: str = "", task: str = "", note: str = "") -> Optional[str]:
+        """Saves what the developer has done so far as a small commit with a message built from what changed (see team/checkpoint.py), the way a person
+        commits a function or a test at a time. Returns the commit's subject, or None when nothing changed (or git was busy: it is tried again later)."""
+        from team.checkpoint import build_message, parse_name_status
+
+        path = self.sandbox(dev)
+        if self._git(path, "add", "-A", check=False).code != 0:
+            return None
+        listing = self._git(path, "diff", "--cached", "--name-status", check=False)
+        message = build_message(parse_name_status(listing.text), feature, task, note) if listing.code == 0 else None
+        if message is None:
+            return None
+        subject, body = message
+        return subject if self._git(path, "commit", "-q", "-m", subject, "-m", body, check=False).code == 0 else None
+
     def push(self, dev: str, branch: Optional[str] = None, force: bool = False) -> None:
         path = self.sandbox(dev)
         branch = branch or self.current_branch(dev)
         result = self._git(path, "push", "-q", *(["--force-with-lease"] if force else []), "origin", f"{branch}:refs/heads/{branch}", check=False)
         if result.code != 0:
             raise RepoError(f"push of {branch} refused: {result.err.strip()}")
+        self._mirror(path, branch)
+
+    def mirror_branch(self, dev: str, branch: str) -> None:
+        """Pushes a branch the developer's sandbox already has to the project's own remote (the start of live publishing)."""
+        self._mirror(self.sandbox(dev), branch)
+
+    def _mirror(self, sandbox: Path, branch: str) -> None:
+        """Like a person pushing to GitHub right after pushing to the team: each branch appears there as it is created and as it grows. A failure here never
+        stops the team (GitHub being unreachable must not stop the build); it is reported and the end-of-run publish tries again."""
+        if not self.mirror or branch in self.protected:
+            return
+        result = self._git(sandbox, "push", "-q", self.mirror, f"{branch}:refs/heads/{branch}", check=False)
+        detail = "" if result.code == 0 else (result.err.strip() or result.text.strip())[-300:]
+        self.mirror_log.append((branch, result.code == 0, detail))
 
     def push_to(self, dev: str, url: str, branch: str) -> None:
         """Publishes one branch to a repository outside the team (the project's own remote). A protected branch is refused here as well as by

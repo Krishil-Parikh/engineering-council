@@ -88,6 +88,7 @@ export function GenUIView() {
         activeBranch: agent.activeBranch ?? 'main',
         contextUsagePercent: agent.contextUsagePercent ?? 0,
         avatarColor: agent.avatarColor ?? '#5B5B5B',
+        terminal: agent.terminal,
       }));
     return [...base, ...addedAgents.filter((agent) => !removed.has(agent.id))];
   }, [snapshot.agents, addedAgents, removedAgentIds]);

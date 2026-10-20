@@ -11,6 +11,8 @@ import { CanvasTab } from './components/tabs/CanvasTab';
 import { MeetTab } from './components/tabs/MeetTab';
 import { ArtifactsTab } from './components/tabs/ArtifactsTab';
 import { TimelineTab } from './components/tabs/TimelineTab';
+import { MemoryTab } from './components/tabs/MemoryTab';
+import type { MemoryApi } from '../../domain/memory';
 import { SmeInterventionModal } from './components/modals/SmeInterventionModal';
 import type { WorkspaceSnapshot } from '../../domain/types';
 import type { CommandResult, WorkspaceCommand } from '../../domain/commands';
@@ -47,12 +49,13 @@ const MainLayout: React.FC = () => {
               {activeTab === 'meet' && <MeetTab />}
               {activeTab === 'artifacts' && <ArtifactsTab />}
               {activeTab === 'timeline' && <TimelineTab />}
+              {activeTab === 'memory' && <MemoryTab />}
             </motion.div>
           </AnimatePresence>
         </main>
 
         {/* Right Inspector Panel (320px) */}
-        <RightInspector />
+        {activeTab !== 'memory' && <RightInspector />}
       </div>
 
       {/* 3. Persistent Bottom Strip (40px) */}
@@ -64,9 +67,9 @@ const MainLayout: React.FC = () => {
   );
 };
 
-export default function ControlPlaneView({ workspaceSnapshot, executeCommand, live = false }: { workspaceSnapshot?: WorkspaceSnapshot; executeCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean }) {
+export default function ControlPlaneView({ workspaceSnapshot, executeCommand, live = false, memoryApi }: { workspaceSnapshot?: WorkspaceSnapshot; executeCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean; memoryApi?: MemoryApi }) {
   return (
-    <ScrumProvider sharedWorkspace={workspaceSnapshot} sharedExecuteCommand={executeCommand} live={live}>
+    <ScrumProvider sharedWorkspace={workspaceSnapshot} sharedExecuteCommand={executeCommand} live={live} memoryApi={memoryApi}>
       <MainLayout />
     </ScrumProvider>
   );

@@ -134,3 +134,107 @@ def test_building_on_an_existing_repo_starts_from_its_uncommitted_work_and_keeps
     assert any("uncommitted change" in w for w in result.warnings)
     assert "trunk" in repo.branches("viewer") and repo.file_at("viewer", "origin/trunk", "db.py") is None
     assert "final/r1" in branches_of(src) and result.published_to == str(src.resolve())
+
+
+def kinds_with(events, kind):
+    return [d for k, d in events if k == kind]
+
+
+def test_every_branch_reaches_the_repository_while_the_team_works_not_only_at_the_end(tmp_path):
+    target = bare_target(tmp_path)
+    eng, events, _ = engine(tmp_path, base_llm(), publish=str(target), publish_all=True)
+    asyncio.run(eng.run())
+    order = [k for k, _ in events]
+    pushed = [d["branch"] for d in kinds_with(events, "mirrored")]
+    assert "integration/r1" in pushed and {"feature/db", "feature/ui", "feature/api"} <= set(pushed)
+    assert order.index("mirroring") < order.index("mirrored") < order.index("final")  # the first push happened long before the run ended
+    assert "main" not in pushed and "main" not in branches_of(target)  # never main
+    first_feature_push = next(i for i, (k, d) in enumerate(events) if k == "mirrored" and d["branch"].startswith("feature/"))
+    assert first_feature_push < order.index("final")
+
+
+def test_each_feature_gets_a_pull_request_into_the_integration_branch_like_a_person_would_open(tmp_path):
+    target = bare_target(tmp_path)
+    calls = []
+
+    def fake_gh(args, cwd):
+        calls.append(args)
+        return 0, f"https://github.com/acme/app/pull/{len(calls)}\n"
+
+    eng, events, _ = engine(tmp_path, base_llm(), publish=str(target), publish_all=True)
+    eng.run_gh = fake_gh
+    asyncio.run(eng.run())
+    heads = {c[c.index("--head") + 1]: c[c.index("--base") + 1] for c in calls}
+    assert {"feature/db", "feature/ui", "feature/api"} <= set(heads) and set(heads.values()) == {"integration/r1"}  # never main
+    assert len(calls) == len(heads)  # one pull request per feature, not one per push
+    assert len(kinds_with(events, "feature-pr")) == len(heads)
+
+
+def test_an_unreachable_repository_does_not_stop_the_build_and_live_pushing_gives_up(tmp_path):
+    eng, events, _ = engine(tmp_path, base_llm(), publish=str(tmp_path / "does-not-exist.git"), publish_all=True)
+    eng.run_gh = lambda args, cwd: (1, "no")
+    result = asyncio.run(eng.run())
+    assert result.passed and all(f.status == "merged" for f in result.features)
+    assert len(kinds_with(events, "mirror-failed")) == 3  # then it stops trying for the rest of the run
+    assert any("no more live pushes this run" in w for w in result.warnings)
+
+
+def test_live_publishing_can_be_turned_off_and_the_end_of_run_publish_still_happens(tmp_path):
+    target = bare_target(tmp_path)
+    eng, events, _ = engine(tmp_path, base_llm(), publish=str(target), publish_all=True, live_publish=False)
+    asyncio.run(eng.run())
+    assert not kinds_with(events, "mirrored") and not kinds_with(events, "mirroring")
+    assert {"final/r1", "integration/r1", "feature/db"} <= branches_of(target)
+
+
+def test_without_the_github_cli_pull_requests_are_given_up_after_one_try_but_pushing_goes_on(tmp_path):
+    target = bare_target(tmp_path)
+    tries = []
+    eng, events, _ = engine(tmp_path, base_llm(), publish=str(target), publish_all=True)
+    eng.run_gh = lambda args, cwd: tries.append(args) or (127, "gh: command not found")
+    result = asyncio.run(eng.run())
+    assert len(tries) == 1 and result.passed
+    assert {"feature/db", "feature/ui"} <= {d["branch"] for d in kinds_with(events, "mirrored")}
+
+
+def stepwise_llm():
+    """A developer who builds one task in several steps: a module, another module, then its tests."""
+    llm = TeamLLM()
+    llm.on(r"Turn the agreed specification", [("text", json.dumps(one_feature()))])
+    llm.on(r"Task: write core", [
+        write("jarvis/core/registry.py", "REGISTRY = {}\n"), write("jarvis/core/clock.py", "NOW = 0\n"),
+        write("tests/test_registry.py", "def test_registry():\n    assert True\n"), ("text", "Registry, clock and tests are in."),
+    ])
+    return llm
+
+
+def subjects(tmp_path, dev="DEV_2"):
+    """The subjects of the commits the developer made, oldest first (after the merge they are part of the integration branch)."""
+    out = subprocess.run(["git", "--git-dir", str(tmp_path / "team" / "remote" / "origin.git"), "log", "--reverse", "--format=%s", f"--author={dev}", "integration/r1"], capture_output=True, text=True)
+    return [line for line in out.stdout.splitlines() if line]
+
+
+def test_a_task_is_saved_as_several_small_commits_with_messages_from_what_changed(tmp_path):
+    eng, events, _ = engine(tmp_path, stepwise_llm(), checkpoint_interval=0.0, push_interval=0.0)
+    result = asyncio.run(eng.run())
+    assert [f.status for f in result.features] == ["merged"]
+    log = subjects(tmp_path)
+    assert len(log) >= 2, log  # not one commit for the whole task (steps here take milliseconds, so several are saved together; real ones take seconds)
+    assert any(s.startswith("feat(core): add") and "registry.py" in s for s in log) and any(s.startswith("test(registry)") for s in log), log
+    assert all(len(s) <= 72 for s in log) and kinds_with(events, "checkpoint")
+
+
+def test_one_commit_per_task_is_still_available(tmp_path):
+    eng, events, _ = engine(tmp_path, stepwise_llm(), checkpoint_commits=False)
+    asyncio.run(eng.run())
+    assert subjects(tmp_path) == ["core: write core"] and not kinds_with(events, "checkpoint")
+
+
+def test_the_branch_is_pushed_to_the_repository_many_times_as_the_work_goes_on_not_once(tmp_path):
+    target = bare_target(tmp_path)
+    eng, events, _ = engine(tmp_path, stepwise_llm(), publish=str(target), publish_all=True, checkpoint_interval=0.0, push_interval=0.0)
+    asyncio.run(eng.run())
+    pushes = [d["branch"] for d in kinds_with(events, "mirrored")]
+    assert pushes.count("feature/core") >= 2, pushes  # after the commits, after the task, and at the end of the feature, not once
+    on_github = subprocess.run(["git", "--git-dir", str(target), "log", "--format=%s", f"--author=DEV_2", "integration/r1"], capture_output=True, text=True).stdout.splitlines()
+    assert len(on_github) >= 2 and any(s.startswith("feat(core)") for s in on_github), on_github  # the small commits are on the user's repository too

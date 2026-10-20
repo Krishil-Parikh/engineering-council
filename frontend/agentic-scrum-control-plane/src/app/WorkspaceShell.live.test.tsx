@@ -100,6 +100,18 @@ describe('the control plane with a real team', () => {
     expect(screen.getByText('2 features merged')).toBeInTheDocument();
   });
 
+  it('shows the live terminal of the agent you click, and it keeps updating', async () => {
+    const repository = renderLiveShell();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Control Plane' }));
+    await screen.findByTitle('Inject an architectural challenge into the active meet');
+    fireEvent.click(screen.getAllByText('DEV_1')[0]);
+    expect(await screen.findByRole('log', { name: 'Live terminal: DEV_1' })).toHaveTextContent('Waiting for DEV_1');
+    act(() => repository.agent({ id: 'agent-01', name: 'DEV_1', role: 'Backend Developer', status: 'active', terminal: ['10:00:01 $ pytest -q'] }));
+    await waitFor(() => expect(screen.getByRole('log', { name: 'Live terminal: DEV_1' })).toHaveTextContent('$ pytest -q'));
+    act(() => repository.agent({ id: 'agent-01', name: 'DEV_1', role: 'Backend Developer', status: 'active', terminal: ['10:00:01 $ pytest -q', '10:00:09   exit 0'] }));
+    await waitFor(() => expect(screen.getByRole('log', { name: 'Live terminal: DEV_1' })).toHaveTextContent('exit 0'));
+  });
+
   it('keeps the demo loop controls in the demo', async () => {
     render(
       <WorkspaceProvider workspaceId="workspace-demo" repository={new MockWorkspaceRepository(activeSprintWorkspace('workspace-demo'))}>

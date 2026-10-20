@@ -156,6 +156,32 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
             log.warning("   refused (409): %s", exc)
             return problem(409, "conflict", str(exc))
 
+    @app.get("/workspace/{workspace_id}/memory")
+    async def memory(request: Request, workspace_id: str, scope: str = "project", limit: int = 400):
+        """The team's memory as a graph: the shared project memory, or one agent's own (scope = the agent's name)."""
+        run, error = workspace(request, workspace_id)
+        if error is not None:
+            return error
+        assert run is not None
+        mem = run.team_memory()
+        if mem is None:
+            return {"available": False, "scope": scope, "nodes": [], "edges": [], "stats": {}, "agents": [], "overview": {}}
+        data = await asyncio.to_thread(mem.export, scope, max(10, min(limit, 1000)))
+        return {"available": True, "agents": mem.agents(), "overview": await asyncio.to_thread(mem.overview), **data}
+
+    @app.get("/workspace/{workspace_id}/memory/search")
+    async def memory_search(request: Request, workspace_id: str, q: str, scope: str = "project", k: int = 10, rerank: bool = False):
+        """What a search of the memory finds, in order, with the reasons each hit is there (words, meaning, links, recency, importance)."""
+        run, error = workspace(request, workspace_id)
+        if error is not None:
+            return error
+        assert run is not None
+        mem = run.team_memory()
+        if mem is None or not q.strip():
+            return {"query": q, "scope": scope, "hits": []}
+        hits = await asyncio.to_thread(mem.search, scope, q, max(1, min(k, 40)), rerank)
+        return {"query": q, "scope": scope, "hits": [h.public() for h in hits]}
+
     @app.get("/workspace/{workspace_id}/events")
     async def events(request: Request, workspace_id: str):
         run, error = workspace(request, workspace_id)

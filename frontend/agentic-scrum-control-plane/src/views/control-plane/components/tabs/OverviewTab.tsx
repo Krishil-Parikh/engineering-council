@@ -102,7 +102,7 @@ export const OverviewTab: React.FC = () => {
         </div>
 
         {/* Tile 4: Time in Phase */}
-        <div className="h-[96px] p-4 bg-[#FCFCFB]/90 backdrop-blur-md rounded-[16px] border border-[#E2E0D9] shadow-[0_1px_2px_rgba(22,22,22,0.04)] flex flex-col justify-between">
+        <div title={live ? "Merged by the team. With a repository, every branch and pull request is pushed to GitHub as it happens (never main)." : undefined} className="h-[96px] p-4 bg-[#FCFCFB]/90 backdrop-blur-md rounded-[16px] border border-[#E2E0D9] shadow-[0_1px_2px_rgba(22,22,22,0.04)] flex flex-col justify-between">
           <div className="flex items-center justify-between text-[10.5px] font-bold tracking-wider uppercase text-[#5B5B5B]">
             <span>{live ? 'FEATURES MERGED' : 'TIME IN PHASE'}</span>
             <span className="text-[10px] mono text-[#161616] font-semibold">{live ? sprintLabel : 'Sprint 03'}</span>

@@ -13,6 +13,8 @@ export interface WorkspaceAgent {
   activeBranch?: string;
   contextUsagePercent?: number;
   avatarColor?: string;
+  /** The agent's recent tool calls and output, newest last (a real team only): its live terminal. */
+  terminal?: string[];
 }
 
 /** Something the backend is waiting for the human to decide. It travels on a message (a "question card") so it needs no new event type. */

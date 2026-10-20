@@ -5,9 +5,11 @@ import { Cpu, GitBranch, CheckCircle2 } from 'lucide-react';
 interface RosterPanelProps {
   agents: Agent[];
   skills: Skill[];
+  /** A real backend is attached: no invented context percentage. */
+  live?: boolean;
 }
 
-export const RosterPanel: React.FC<RosterPanelProps> = ({ agents, skills }) => {
+export const RosterPanel: React.FC<RosterPanelProps> = ({ agents, skills, live = false }) => {
   return (
     <div className="w-full h-full flex flex-col justify-between py-1">
       <div className="flex items-center justify-between pb-3 border-b border-[#E7E6DF]">
@@ -57,7 +59,7 @@ export const RosterPanel: React.FC<RosterPanelProps> = ({ agents, skills }) => {
 
             <div className="mt-2 pt-2 border-t border-[#E7E6DF] flex items-center justify-between text-[10px] font-mono text-[#8E8E8E]">
               <span className="truncate">{agent.activeBranch}</span>
-              <span>{agent.contextUsagePercent}%</span>
+              {!live && <span>{agent.contextUsagePercent}%</span>}
             </div>
           </div>
         ))}

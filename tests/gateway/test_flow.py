@@ -68,6 +68,19 @@ def test_a_brief_becomes_documents_you_accept_and_then_a_built_project(client):
     assert developers and all(a["status"] in ("idle", "complete") for a in developers)  # nobody is left "working" when it is over
     texts = " ".join(m["text"] for m in snap["messages"])
     assert "final/" in texts and "nothing was merged into main" in texts.lower()
+    assert "Nothing was pushed to GitHub" in texts  # no repository was given: the page says where the branches are instead of claiming a push
+
+    # what the team learned is there to look at: the project's memory, each agent's own, and a search that says why it found what it found
+    memory = client.get(f"/workspace/{WORKSPACE}/memory").json()
+    assert memory["available"] is True and memory["nodes"] and memory["edges"] and memory["scope"] == "project"
+    kinds = {n["kind"] for n in memory["nodes"]}
+    assert {"task", "feature", "agent"} <= kinds
+    assert "DEV_1" in memory["agents"] and memory["overview"]["project"]["nodes"] == memory["stats"]["nodes"]
+    own = client.get(f"/workspace/{WORKSPACE}/memory", params={"scope": "DEV_1"}).json()
+    assert own["scope"] == "DEV_1" and own["nodes"] and all(n["owner"] in (None, "DEV_1") for n in own["nodes"] if n["kind"] != "agent")
+    found = client.get(f"/workspace/{WORKSPACE}/memory/search", params={"q": "storage task"}).json()
+    assert found["hits"] and {"score", "signals", "kind", "name"} <= set(found["hits"][0]) and "bm25" in found["hits"][0]["signals"]
+    assert client.get(f"/workspace/{WORKSPACE}/memory/search", params={"q": " "}).json()["hits"] == []
 
     # the stream is consistent with the snapshot
     events = stream_events(client, 40)

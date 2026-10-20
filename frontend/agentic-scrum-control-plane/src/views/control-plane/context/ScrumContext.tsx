@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Agent, Artifact, Meet, Message, Sprint, TabType, DelegationEdge } from '../types';
 import type { WorkspaceSnapshot } from '../../../domain/types';
 import type { CommandResult, WorkspaceCommand } from '../../../domain/commands';
+import type { MemoryApi } from '../../../domain/memory';
 import type { WorkspaceAgent, WorkspaceMessage, WorkspaceMeet, WorkspaceArtifact, WorkspaceSprint, WorkspaceEdge, WorkspaceSkill } from '../../../domain/types';
 
 interface ScrumContextType {
@@ -30,6 +31,9 @@ interface ScrumContextType {
   stepSimulation: () => void;
   /** A real backend is attached: the demo loop and the canned debate text are not offered. */
   live: boolean;
+  /** The team's memory (a real backend only) and the workspace it belongs to. */
+  memoryApi?: MemoryApi;
+  workspaceKey: string;
   triggerDebate: () => void;
   triggerSmeIntervention: (directive: string) => void;
   isSmeModalOpen: boolean;
@@ -107,6 +111,7 @@ function toRichAgent(item: WorkspaceAgent, live = false): Agent {
     confidenceScore: item.confidenceScore ?? (live ? 0 : 95),
     recentTools: [],
     activeBranch: item.activeBranch,
+    terminal: item.terminal,
   };
 }
 
@@ -276,11 +281,14 @@ const roleOfIn = (workspace: WorkspaceSnapshot) => {
   return (id: string) => roles.get(id);
 };
 
-export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspace?: WorkspaceSnapshot; sharedExecuteCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean }> = ({ children, sharedWorkspace, sharedExecuteCommand, live = false }) => {
+export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspace?: WorkspaceSnapshot; sharedExecuteCommand?: (command: WorkspaceCommand) => Promise<CommandResult>; live?: boolean; memoryApi?: MemoryApi }> = ({ children, sharedWorkspace, sharedExecuteCommand, live = false, memoryApi }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [autopilot, setAutopilot] = useState<boolean>(false);
   const [agents, setAgents] = useState<Agent[]>(() => (sharedWorkspace ? sharedWorkspace.agents.map(item => toRichAgent(item, live)) : []));
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  // The chosen agent is remembered by id and looked up on every render, so what it shows (its live terminal) keeps changing as the team works.
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgent = agents.find(a => a.id === selectedAgentId) ?? null;
+  const setSelectedAgent = useCallback((agent: Agent | null) => setSelectedAgentId(agent ? agent.id : null), []);
   const [meets, setMeets] = useState<Meet[]>(() => (sharedWorkspace ? sharedWorkspace.meets.map(item => toRichMeet(item, live)) : []));
   const [selectedMeetId, setSelectedMeetId] = useState<string>(live ? '' : 'meet-04');
   const [messages, setMessages] = useState<Message[]>(() => (sharedWorkspace ? sharedWorkspace.messages.map(item => toRichMessage(item, roleOfIn(sharedWorkspace))) : []));
@@ -305,12 +313,12 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
   const activeAgent = agents.find(a => a.isLive) || agents[0] || EMPTY_AGENT;
 
   useEffect(() => {
-    if (!selectedAgent && agents.length > 0) {
-      setSelectedAgent(agents[0]);
-    } else if (selectedAgent && !agents.some(a => a.id === selectedAgent.id)) {
-      setSelectedAgent(agents[0] ?? null);
+    if (agents.length > 0 && !agents.some(a => a.id === selectedAgentId)) {
+      setSelectedAgentId(agents[0].id);
+    } else if (agents.length === 0 && selectedAgentId !== null) {
+      setSelectedAgentId(null);
     }
-  }, [agents, selectedAgent]);
+  }, [agents, selectedAgentId]);
 
   useEffect(() => {
     if (!sharedWorkspace) return;
@@ -319,7 +327,7 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
       return sharedWorkspace.agents.map(item => {
         const existing = previous.get(item.id);
         const rich = toRichAgent(item, live);
-        return existing ? { ...existing, activeBranch: rich.activeBranch, activeTask: rich.activeTask, confidenceScore: rich.confidenceScore, isLive: rich.isLive, status: rich.status, name: rich.name, roleTitle: rich.roleTitle } : rich;
+        return existing ? { ...existing, activeBranch: rich.activeBranch, terminal: rich.terminal, activeTask: rich.activeTask, confidenceScore: rich.confidenceScore, isLive: rich.isLive, status: rich.status, name: rich.name, roleTitle: rich.roleTitle } : rich;
       });
     });
     setMessages(prev => {
@@ -465,6 +473,8 @@ export const ScrumProvider: React.FC<{ children: React.ReactNode; sharedWorkspac
         toggleSimulation: () => setIsSimulating(!isSimulating),
         stepSimulation,
         live,
+        memoryApi,
+        workspaceKey: workspaceId,
         triggerDebate,
         triggerSmeIntervention,
         isSmeModalOpen,

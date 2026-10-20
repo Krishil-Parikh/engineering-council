@@ -54,6 +54,16 @@ def describe(kind: str, d: dict) -> Optional[tuple[str, str]]:
         return "ok", f"[final]   {d['branch']} is ready for you to review"
     if kind == "published":
         return "ok", f"[publish] {', '.join(d['branches'])} pushed to {d['target']}"
+    if kind == "checkpoint":
+        return "info", f"[commit]  {d['dev']} on {d.get('branch', '')}: {d['subject']}"
+    if kind == "mirroring":
+        return "info", f"[github]  every branch is pushed to {d['target']} as the team works (never main)"
+    if kind == "mirrored":
+        return "ok", f"[github]  pushed {d['branch']}"
+    if kind == "mirror-failed":
+        return "warn", f"[github]  could not push {d['branch']}: {d.get('detail', '')[:160]}"
+    if kind == "feature-pr":
+        return "ok", f"[pr]      pull request for {d['branch']}: {d['url']}"
     if kind == "pull-request":
         return "ok", f"[pr]      pull request opened: {d['url']}"
     return _agile(kind, d)

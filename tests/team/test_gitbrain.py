@@ -194,13 +194,17 @@ def test_when_nothing_works_the_failure_is_reported_with_its_history(tmp_path):
 
 # ------------------------------------------------------------------ inside a real run
 
-def flaky_remote(eng, branch):
-    """The remote refuses the first push of `branch` ('server is busy') and accepts later ones."""
+def flaky_remote(eng, branch, refusals=1):
+    """The remote refuses the first `refusals` pushes of `branch` ('server is busy') and accepts later ones."""
     hook = eng.repo.origin / "hooks" / "update"
     marker = (eng.repo.origin / "flaky_seen").as_posix()
-    hook.write_bytes(
-        f'#!/bin/sh\nif [ "$1" = "refs/heads/{branch}" ] && [ ! -f "{marker}" ]; then\n  touch "{marker}"\n  echo "remote: server is busy, try again" >&2\n  exit 1\nfi\nexit 0\n'.encode()
+    script = (
+        "#!/bin/sh" + chr(10) + f'n=$(cat "{marker}" 2>/dev/null || echo 0)' + chr(10)
+        + f'if [ "$1" = "refs/heads/{branch}" ] && [ "$n" -lt {refusals} ]; then' + chr(10)
+        + f'  echo $((n+1)) > "{marker}"' + chr(10)
+        + '  echo "remote: server is busy, try again" >&2' + chr(10) + "  exit 1" + chr(10) + "fi" + chr(10) + "exit 0" + chr(10)
     )
+    hook.write_bytes(script.encode())
     os.chmod(hook, 0o755)
 
 
@@ -231,7 +235,8 @@ def test_if_the_developer_does_not_push_the_engines_brain_gets_it_published(tmp_
     llm.on(r"Task: write flaky", [write("flaky.py", "x = 2\n"), ("text", "done, but I forgot to push")])
     llm.on(r"A git step failed", [shell("git push origin feature/flaky"), ("text", "The server was busy; I pushed again.")])
     eng = build(tmp_path, llm)
-    flaky_remote(eng, "feature/flaky")
+    eng.cfg.checkpoint_commits = False  # only the engine's own pushes: the one after the task (quietly retried later) and the one that has to succeed
+    flaky_remote(eng, "feature/flaky", refusals=2)
     result = run(eng.run())
     assert [f.status for f in result.features] == ["merged"]
     assert [a.fixed_by for a in eng.brain.history] == ["agent"] and "server is busy" in eng.brain.history[0].error

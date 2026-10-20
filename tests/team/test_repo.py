@@ -279,3 +279,49 @@ def test_a_shallow_source_that_cannot_be_completed_still_seeds_main(tmp_path):
     r.init(clone)
     assert r.branches("ana") == ["main"]
     assert (r.sandbox("ana") / "f2.txt").exists()
+
+
+def test_a_windows_checkout_with_crlf_line_endings_is_not_a_change(tmp_path):
+    """The user's working copy has CRLF, the committed files have LF: the team's starting point must not rewrite every file."""
+    src = tmp_path / "existing"
+    src.mkdir()
+
+    def git(*args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=src, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "core.autocrlf", "false")
+    put(src / "a.txt", "one\ntwo\n")
+    put(src / "b.txt", "alpha\nbeta\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "first")
+    (src / "a.txt").write_bytes(b"one\r\ntwo\r\n")  # same text, Windows line endings
+    (src / "b.txt").write_bytes(b"alpha\r\nbeta\r\ngamma\r\n")  # a real edit, also with CRLF
+    r = TeamRepo(tmp_path / "team")
+    r.init(src)
+    log = subprocess.run(["git", "--git-dir", str(r.origin), "log", "--format=%s", "--name-only", "-1", "main"], capture_output=True, text=True).stdout
+    assert "Working tree of the repository when the team started" in log
+    changed = [line for line in log.splitlines() if line.endswith(".txt")]
+    assert changed == ["b.txt"]  # only the real edit; a.txt differs in line endings only
+    blob = subprocess.run(["git", "--git-dir", str(r.origin), "show", "main:b.txt"], capture_output=True).stdout
+    assert blob == b"alpha\nbeta\ngamma\n"  # the repository's own (LF) line endings are kept
+
+
+def test_a_working_tree_that_differs_only_in_line_endings_adds_no_commit(tmp_path):
+    src = tmp_path / "existing"
+    src.mkdir()
+
+    def git(*args):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=src, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "core.autocrlf", "false")
+    put(src / "a.txt", "one\ntwo\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "first")
+    (src / "a.txt").write_bytes(b"one\r\ntwo\r\n")
+    r = TeamRepo(tmp_path / "team")
+    r.init(src)
+    subjects = subprocess.run(["git", "--git-dir", str(r.origin), "log", "--format=%s", "main"], capture_output=True, text=True).stdout.split("\n")
+    assert subjects[0] == "first"
+    assert not r.seed_notes

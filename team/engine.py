@@ -27,16 +27,21 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from harness.app import Harness
+from harness.session import compaction as Compaction
 from harness.shell import select as ShellSelect
 from meetings.errors import MeetingError
 from meetings.models import Roster, Spec
 from meetings.storage import write_text
+from memory import extract as MX
+from memory.models import default_model
+from memory.team import TeamMemory
 from memory import CHECKPOINT_PROMPT, DISTILL_PROMPT, LessonStore, ProjectLog, RunFacts, describe_events, facts_to_lessons, parse_lessons, relevant, update_codemap
 from team.agile.ceremonies import AgileConfig
 from team.build import GITIGNORE, agents_md
 from team.channel import Channel, LocalChannel
 from team.design import Decision, DesignBoard, design_change_tool
 from team.gitbrain import GitBrain
+from team.memory_tools import memory_tools
 from team.throttle import ThrottledLLM
 from team.persona import agent_id, developer_agent, rules_for
 from team.plan import DISCUSS_PROMPT, PLAN_PROMPT, Feature, Plan, PlanError, fallback_plan
@@ -64,6 +69,15 @@ class TeamConfig:
     max_llm_concurrency: int = 4  # model requests in flight at once, shared by every developer
     publish: Optional[str] = None  # where to push the finished branches: a URL or path, or 'source' for the repository the project was built on
     publish_all: bool = False  # publish every feature branch too, not only the final one
+    context_window: int = 150_000  # tokens a developer's conversation may grow to before it is compacted (a checkpoint replaces the older part), whatever the model's own window
+    context_keep: int = 20_000  # tokens of the most recent conversation kept word for word beside the checkpoint
+    team_memory: bool = True  # a project memory every agent writes to and reads from, and a private memory per agent (see memory/team.py)
+    memory_model: Any = None  # the model memory uses to extract, rewrite questions and rerank; None: Gemini when a key is known (never in tests), else words and the graph alone
+    checkpoint_commits: bool = True  # save a developer's work as small commits while it happens (each with a message from what changed), not one commit per task
+    checkpoint_interval: float = 8.0  # at least this many seconds between two such commits of one developer
+    push_interval: float = 30.0  # at least this many seconds between two pushes of one developer's branch while the work goes on (a push also follows every task)
+    live_publish: bool = True  # with publish_all and a repository to publish to: push every branch there as it is created and merged, not only at the end
+    feature_pull_requests: bool = True  # with live_publish: open a pull request for each feature branch into the integration branch (needs the GitHub CLI)
     pull_request: bool = False  # open a pull request for the final branch (needs the GitHub CLI); the human still does the merging
     git_fix_rounds: int = 2  # how many times a failed git step is diagnosed and fixed before the feature gives up
     plan_discussion_rounds: int = 1  # rounds of group discussion among the developers before the scrum master writes the plan (0 = none)
@@ -142,7 +156,13 @@ class TeamEngine:
         self.llm, self.api_key, self.model = llm, api_key, model
         self._shared_llm: Optional[ThrottledLLM] = None
         self.run_gh: Callable[[list[str], Path], tuple[int, str]] = _run_gh  # replaceable in tests
-        self.on_event = on_event or (lambda kind, data: None)
+        outer = on_event or (lambda kind, data: None)
+
+        def watched(kind: str, data: dict) -> None:
+            self._watch(kind, data)
+            outer(kind, data)
+
+        self.on_event = watched  # every event passes here first: the playbook's approvals reach the engine this way as well as its own _emit
         self.repo = TeamRepo(self.root / "remote", main_branch=TeamRepo.detect_main(source))  # an existing repository's trunk keeps its own name
         self.integration = f"integration/{self.cfg.run_id}"
         self.final = f"final/{self.cfg.run_id}"
@@ -158,10 +178,24 @@ class TeamEngine:
         self.board = DesignBoard(self.channel, [*self.developers, INTEGRATOR], self.repo.sandbox_path, INTEGRATOR)
         self.result = TeamResult(self.cfg.run_id, self.root, self.integration)
         self.conflict_counts: dict[str, int] = {}
+        self.mirror_failures = 0  # consecutive failed pushes to the project's own remote
+        self._mirror_target: Optional[str] = None  # where branches are mirrored once mirroring starts
+        self._mirror_pending = False  # mirroring should start at the next git step
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._last_text: dict[str, str] = {}  # what each developer last said (the note on their next checkpoint commit)
+        self._ckpt_at: dict[str, float] = {}
+        self._push_at: dict[str, float] = {}
+        self._ckpt_tasks: dict[str, asyncio.Task] = {}
+        self._ckpt_again: set[str] = set()  # developers whose step ended while a checkpoint was being made
+        self.feature_prs: dict[str, str] = {}  # feature branch -> pull request url ('' when it could not be opened)
+        self._pr_disabled = False
         self.plan: Optional[Plan] = None
         self.conflict_log: list[dict] = []
         self.brain = GitBrain(self.repo, self.harness, agent_id, rounds=self.cfg.git_fix_rounds, timeout=self.cfg.task_timeout, emit=self._emit)
         self.lessons = LessonStore(self.cfg.memory_dir) if self.cfg.memory_dir else None
+        self.memory: Optional[TeamMemory] = TeamMemory(self.root / "memory", self._memory_model()) if self.cfg.team_memory else None
+        self._memory_tasks: set[asyncio.Task] = set()  # memories being written in the background (a model call each); the end of the run waits for them
+        self._decisions_seen = 0
         self.project_log = ProjectLog(self.repo.sandbox_path(INTEGRATOR), self.spec.project_name)
         self.current: dict[str, dict[str, Any]] = {}  # what each developer is doing right now (feature, task, session), for the standups
         self.briefings: dict[str, list[str]] = {}  # messages waiting for a developer's next task
@@ -184,6 +218,7 @@ class TeamEngine:
             sandbox, llm=self.shared_llm(), model=self.model, data_root=data, home=self.root / "home", db_path=data / "sessions.db",
             snapshots=self.cfg.snapshots, plugins=False, agents=[agent], rules=rules_for(dev, integrator=(dev == INTEGRATOR), protected=self.repo.protected), default_agent=agent.id,
             on_event=lambda kind, d, dev=dev: self.on_event(f"{dev}:{kind}", d),
+            compaction=Compaction.Settings(auto=True, keep=self.cfg.context_keep, window=self.cfg.context_window),
         )
 
     def shared_llm(self) -> ThrottledLLM:
@@ -207,6 +242,9 @@ class TeamEngine:
             agent = developer_agent(dev, skill, experience) if dev != INTEGRATOR else _integrator_agent()
             h = self._factory(dev, sandbox, agent)
             h.registry.add(design_change_tool(h.deps, self.board, dev))
+            if self.memory is not None:
+                for tool in memory_tools(self.memory, dev):  # recall (what does the team already know?) and remember (the team should know this)
+                    h.registry.add(tool)
             if self.gate is not None and dev != INTEGRATOR:
                 h.runner.before_step = self.gate.before_step
             self.harnesses[dev] = h
@@ -258,11 +296,212 @@ class TeamEngine:
             raise
 
     async def _git(self, fn, *args, **kw):
-        return await asyncio.to_thread(fn, *args, **kw)
+        try:
+            return await asyncio.to_thread(fn, *args, **kw)
+        finally:
+            await self._report_mirror()
 
     async def git(self, dev: str, goal: str, fn, *args, branch=None):
         """A git step that may fail: if it does, the team works out why, fixes it and tries again (see team/gitbrain.py)."""
-        return await self.brain.run(dev, goal, fn, *args, branch=branch)
+        try:
+            return await self.brain.run(dev, goal, fn, *args, branch=branch)
+        finally:
+            await self._report_mirror()
+
+    def _schedule_checkpoint(self, dev: str) -> None:
+        """A step of a developer's task just ended: if there is something to save, save it now as its own small commit (and push it now and then).
+        This runs on the event's thread, so the work itself is handed to the engine's loop."""
+        current = self.current.get(dev)
+        if not self.cfg.checkpoint_commits or self._loop is None or not current or not current.get("in_task"):
+            return
+        if time.monotonic() - self._ckpt_at.get(dev, 0.0) < self.cfg.checkpoint_interval and dev not in self._ckpt_tasks:
+            return
+
+        def start() -> None:
+            if dev in self._ckpt_tasks:
+                self._ckpt_again.add(dev)  # a step ended while the last one was being saved: save again when that is done
+            else:
+                self._ckpt_tasks[dev] = asyncio.ensure_future(self._checkpoint(dev))
+
+        self._loop.call_soon_threadsafe(start)
+
+    async def _checkpoint(self, dev: str) -> None:
+        try:
+            while True:
+                self._ckpt_again.discard(dev)
+                current = self.current.get(dev)
+                if not current:
+                    return
+                subject = await asyncio.to_thread(self.repo.checkpoint, dev, current["feature"], current["title"], self._last_text.get(dev, ""))
+                self._ckpt_at[dev] = time.monotonic()
+                if subject:
+                    self._emit("checkpoint", dev=dev, feature=current["feature"], branch=current.get("branch", ""), subject=subject)
+                    await self._push_progress(dev, current.get("branch"))
+                if dev not in self._ckpt_again:
+                    return
+        except Exception:  # noqa: BLE001 - saving progress must never stop the work; the end of the task commits and pushes what is left
+            pass
+        finally:
+            self._ckpt_tasks.pop(dev, None)
+
+    async def _finish_checkpoint(self, dev: str) -> None:
+        task = self._ckpt_tasks.get(dev)
+        if task is not None:
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def _push_progress(self, dev: str, branch: Optional[str], force: bool = False) -> None:
+        """Pushes the developer's branch (to the team, and from there to the project's own remote), at most once per push_interval unless forced."""
+        if not branch or (not force and time.monotonic() - self._push_at.get(dev, 0.0) < self.cfg.push_interval):
+            return
+        self._push_at[dev] = time.monotonic()
+        try:
+            await asyncio.to_thread(self.repo.push, dev, branch)
+        except Exception:  # noqa: BLE001 - the push at the end of the task tries again, with the team's help if it fails
+            return
+        finally:
+            await self._report_mirror()
+
+    # ------------------------------------------------------------------ memory: what the team learns as it works
+
+    def _memory_model(self):
+        if self.cfg.memory_model is not None:
+            return self.cfg.memory_model
+        if self.llm is not None:  # a model was injected (tests): memory does not reach for a real one
+            return None
+        return default_model(self.api_key or os.environ.get("GEMINI_API_KEY"), self.model or os.environ.get("GEMINI_MODEL"))
+
+    def _spawn_memory(self, coro) -> None:
+        async def guarded():
+            try:
+                await coro
+            except Exception:  # noqa: BLE001 - memory is a help, never a reason to stop the build
+                pass
+
+        task = asyncio.ensure_future(guarded())
+        self._memory_tasks.add(task)
+        task.add_done_callback(self._memory_tasks.discard)
+
+    async def _recall(self, dev: str, feature: Feature, task: Any) -> str:
+        """What the project and this developer already know about the task, for the start of the prompt (a few seconds: the question is rewritten, searched three ways, followed through the graph and reranked)."""
+        if self.memory is None:
+            return ""
+        query = f"{feature.title}. {feature.summary} {task.title}. {task.details}"
+        try:
+            text = await asyncio.wait_for(self.memory.recall(dev, query), 60)
+        except Exception:  # noqa: BLE001
+            return ""
+        return f"\n\n{text}" if text else ""
+
+    async def _remember_task(self, dev: str, feature: Feature, task: Any, ok: bool, summary: str) -> None:
+        if self.memory is None:
+            return
+        files: list[str] = []
+        try:
+            files = await self._git(self.repo.changed_files, dev, self.integration)
+            await asyncio.to_thread(self.memory.ingest_task, dev, feature.id, task.title, files, summary, ok)
+        except Exception:  # noqa: BLE001
+            pass
+        self._spawn_memory(self.memory.learn(MX.Event("task_done" if ok else "task_failed", dev, f"{feature.id}: {task.title}", summary, feature.id, list(files)[:30])))
+        for decision in self.board.decisions[self._decisions_seen:]:
+            self._decisions_seen += 1
+            reason = "; ".join(f"{v.voter}: {v.comment}" for v in decision.votes if v.comment)
+            await asyncio.to_thread(self.memory.ingest_decision, decision.title, decision.approved, decision.proposer, reason, "; ".join(decision.amendments))
+            self._spawn_memory(self.memory.learn(MX.Event("design_decision", decision.proposer, decision.title, f"{'Approved' if decision.approved else 'Rejected'}. {reason}. Amendments: {'; '.join(decision.amendments)}", feature.id)))
+
+    async def _remember_conflict(self, feature: Feature, files: list[str], resolved: bool) -> None:
+        if self.memory is None:
+            return
+        await asyncio.to_thread(self.memory.ingest_conflict, feature.id, files, resolved, feature.owner or "")
+        if resolved:
+            self._spawn_memory(self.memory.learn(MX.Event("conflict", feature.owner or "integrator", f"merge conflict in {', '.join(files)}", f"{feature.title} conflicted with work already merged in {', '.join(files)}; it was resolved by conversation.", feature.id, files)))
+
+    async def _remember_merge(self, feature: Feature, files: list[str], sandbox: Path) -> None:
+        if self.memory is None:
+            return
+        try:
+            await asyncio.to_thread(self.memory.ingest_codemap, sandbox)  # the code as it is now: modules, what they define, who imports whom
+            await asyncio.to_thread(self.memory.ingest_feature, feature.owner or "integrator", feature.id, feature.title, "merged", feature.summary or "")
+        except Exception:  # noqa: BLE001
+            return
+        self._spawn_memory(self.memory.learn(MX.Event("feature_merged", feature.owner or "integrator", f"Merged {feature.title}", f"{feature.title} is merged into {self.integration}. {feature.summary or ''}", feature.id, list(files)[:30])))
+
+    async def _after_sprint(self, data: dict) -> None:
+        if self.memory is None:
+            return
+        actions = "; ".join(str(a) for a in data.get("actions", []))
+        await self.memory.learn(MX.Event("retrospective", "scrum-master", f"Sprint {data.get('sprint')} retrospective", f"Working agreements and actions for the next sprint: {actions}"))
+        await self.memory.reflect()  # the project's own insights
+        for dev in self.developers:
+            await self.memory.reflect(dev)
+
+    async def _finish_memory(self) -> None:
+        """The end of a run: let the memories still being written finish, reflect once more, and leave a readable copy next to the report."""
+        if self.memory is None:
+            return
+        if self._memory_tasks:
+            await asyncio.wait(list(self._memory_tasks), timeout=120)
+        try:
+            await self.memory.reflect()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            write_text(self.meeting_dir / "team_memory.md", self.memory.report())
+        except OSError:
+            pass
+
+    async def _report_mirror(self) -> None:
+        """Tells what was pushed to the project's own remote since the last look, and opens a pull request for each new feature branch there."""
+        if self._mirror_pending and self._mirror_target:
+            self._mirror_pending = False
+            self.repo.mirror = self._mirror_target  # never main: the repository refuses protected branches
+            self._emit("mirroring", target=self._mirror_target)
+            # the integration branch (with the signed-off documents) goes first: every feature's pull request needs it as its base
+            await asyncio.to_thread(self.repo.mirror_branch, INTEGRATOR, self.integration)
+        log, self.repo.mirror_log = self.repo.mirror_log, []
+        for branch, worked, detail in log:
+            if not worked:
+                self.mirror_failures += 1
+                self.result.warnings.append(f"could not push {branch} to {self.repo.mirror}: {detail}")
+                self._emit("mirror-failed", branch=branch, target=self.repo.mirror, detail=detail)
+                if self.mirror_failures >= 3 and self.repo.mirror:  # unreachable or refused: stop slowing the build; the end-of-run publish tries again
+                    self.result.warnings.append("pushing to the project's repository failed three times; no more live pushes this run")
+                    self.repo.mirror = None
+                continue
+            self.mirror_failures = 0
+            self._emit("mirrored", branch=branch, target=self.repo.mirror)
+            if self.cfg.feature_pull_requests and self.plan is not None and not self._pr_disabled:
+                feature = next((f for f in self.plan.features if f.branch == branch), None)
+                if feature is not None and branch not in self.feature_prs:
+                    await self._open_feature_pr(feature)
+
+    async def _open_feature_pr(self, feature) -> None:
+        cwd = Path(self.source) if self.source is not None and (Path(self.source) / ".git").exists() else self.root
+        body = (f"{feature.title}\n\nOwner: {feature.owner}. Opened by the team as {feature.owner} started this feature; the integrator merges it into "
+                f"{self.integration}, which GitHub then shows as merged. Nothing here touches {self.repo.main}.")
+        args = ["pr", "create", "--base", self.integration, "--head", feature.branch, "--title", f"{feature.id}: {feature.title}", "--body", body]
+        code, out = await asyncio.to_thread(self.run_gh, args, cwd)
+        if code == 0:
+            url = out.strip().splitlines()[-1] if out.strip() else ""
+            self.feature_prs[feature.branch] = url
+            self._emit("feature-pr", branch=feature.branch, url=url)
+        else:
+            self.feature_prs[feature.branch] = ""
+            self.result.warnings.append(f"could not open a pull request for {feature.branch}: {out.strip()[:300]}")
+            lowered = out.lower()
+            if code == 127 or "auth" in lowered or "not logged" in lowered or "known github host" in lowered or "none of the git remotes" in lowered:
+                self._pr_disabled = True  # no GitHub CLI, not signed in, or the remote is not a GitHub repository: do not try again for every feature
+
+    def _watch(self, kind: str, data: dict) -> None:
+        if kind == "sprint-retro" and self.memory is not None and self._loop is not None:  # a retrospective: its actions are memories, and the sprint is worth reflecting on
+            self._loop.call_soon_threadsafe(lambda: self._spawn_memory(self._after_sprint(data)))
+        who, _, event = kind.partition(":")
+        if event and who in self.roster:  # a developer's harness event
+            if event == "text.ended":
+                self._last_text[who] = str(data.get("text", ""))
+            elif event == "step.ended":
+                self._schedule_checkpoint(who)
+        if kind == "approval-answered" and data.get("approved") and "documents" in str(data.get("title", "")).lower() and self._mirror_target:
+            self._mirror_pending = True  # the human accepted the documents: from here every branch goes to the project's own remote too
 
     def _emit(self, kind: str, **data: Any) -> None:
         self.on_event(kind, data)
@@ -272,6 +511,11 @@ class TeamEngine:
     async def setup(self) -> None:
         await self._git(self.repo.init, self.source)
         self.result.warnings.extend(self.repo.seed_notes)
+        if self.cfg.publish and self.cfg.live_publish and self.cfg.publish_all:
+            self._mirror_target = self.publish_target()
+            if self._mirror_target and self.cfg.agile is None:  # nothing to wait for in a flat run
+                self._mirror_pending = True
+            # with sprints, mirroring starts when you accept the documents (see _emit): a draft is not published before it is signed off
         await self.git(INTEGRATOR, f"check out the integration branch {self.integration}", self.repo.checkout_branch, INTEGRATOR, self.integration, branch=self.integration)
         sandbox = self.repo.sandbox(INTEGRATOR)
         docs = sandbox / "docs"
@@ -359,8 +603,9 @@ class TeamEngine:
             other = [f"{f.owner}: {f.title}" for f in (self.plan.features if self.plan else []) if f.id != feature.id]
             for index, task in enumerate(feature.tasks, 1):
                 self._emit("task", feature=feature.id, owner=dev, index=index, total=len(feature.tasks), title=task.title)
-                self.current[dev] = {"feature": feature.id, "index": index, "total": len(feature.tasks), "title": task.title, "session": session.id, "in_task": True}
-                prompt = task_prompt(self.spec, feature, task, index, other, self.memory_for(dev, feature, task))
+                self.current[dev] = {"feature": feature.id, "index": index, "total": len(feature.tasks), "title": task.title, "session": session.id, "in_task": True, "branch": feature.branch}
+                recalled = await self._recall(dev, feature, task)
+                prompt = task_prompt(self.spec, feature, task, index, other, self.memory_for(dev, feature, task) + recalled)
                 try:
                     result = await self._timed(dev, h.prompt(prompt, session_id=session.id), self.cfg.task_timeout)
                 except asyncio.TimeoutError:
@@ -370,7 +615,10 @@ class TeamEngine:
                     await h.sessions.interrupt(session.id)
                     raise
                 self.current[dev]["in_task"] = False
+                await self._finish_checkpoint(dev)  # a checkpoint commit that is still being made finishes before the task's own commit
                 await self.git(dev, "commit whatever the developer left uncommitted", self.repo.commit_all, dev, f"{feature.id}: {task.title}")
+                await self._push_progress(dev, feature.branch, force=True)  # every finished task is pushed, as a person pushes when a piece of work is done
+                await self._remember_task(dev, feature, task, result.outcome == "succeeded", result.text)
                 if result.outcome != "succeeded":
                     return FeatureOutcome(False, f"task '{task.title}' did not finish ({result.outcome}): {result.error or result.text[:200]}")
                 if self.agile is not None:
@@ -418,10 +666,12 @@ class TeamEngine:
                 self.conflict_counts[feature.id] = self.conflict_counts.get(feature.id, 0) + 1
                 self._emit("conflict", feature=feature.id, files=merge.files)
                 self.conflict_log.append({"feature": feature.id, "files": list(merge.files), "with": [], "resolved": False})
+                await self._remember_conflict(feature, list(merge.files), False)
                 if not await self.resolve_conflict(feature, branch):
                     await self._git(self.repo.abort_merge, INTEGRATOR)
                     return False, f"merge conflict in {', '.join(merge.files)} could not be resolved"
                 self.conflict_log[-1]["resolved"] = True
+                await self._remember_conflict(feature, list(merge.files), True)
             await self.remember_merge(feature, branch, before)
             await self.git(INTEGRATOR, f"publish {self.integration} to the team remote with the merge of {branch}", self.repo.push, INTEGRATOR, self.integration, branch=self.integration)
         return True, f"merged {branch}" + (" after resolving a conflict" if feature.id in self.conflict_counts else "")
@@ -475,6 +725,7 @@ class TeamEngine:
         files = await self._git(self.repo.files_between, INTEGRATOR, before, "HEAD")
         sandbox = self.repo.sandbox_path(INTEGRATOR)
         await asyncio.to_thread(update_codemap, sandbox, self.spec.project_name)
+        await self._remember_merge(feature, files, sandbox)
         lines = [f"owner {feature.owner}", f"branch {branch}", "files: " + (", ".join(files[:12]) + (" …" if len(files) > 12 else "") if files else "(none)")]
         if feature.summary:
             lines.append(feature.summary[:160])
@@ -576,6 +827,7 @@ class TeamEngine:
                 self._network = None
 
     async def _run(self) -> TeamResult:
+        self._loop = asyncio.get_running_loop()
         try:
             await self.setup()
             if self.agile is not None:
@@ -611,6 +863,7 @@ class TeamEngine:
             await self.verify_and_repair()
             await self.finish()
             await self.learn()
+            await self._finish_memory()
             self.result.usage = self.usage()
             await self.publish()
         finally:

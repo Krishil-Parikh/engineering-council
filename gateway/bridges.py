@@ -223,6 +223,7 @@ class TeamBridge:
         self.run, self.n = run, run.narrator
         self.sprint_phase: dict[int, str] = {}
         self.merges: dict[str, int] = {}
+        self.announced: set[str] = set()  # branches already announced in the transcript as pushed to GitHub
         self.verifying = False
 
     # -- helpers
@@ -292,6 +293,13 @@ class TeamBridge:
     def handle(self, kind: str, data: dict) -> None:
         if ":" in kind and kind.split(":", 1)[0].upper().startswith(("DEV_", "INTEGRATOR")):
             log.debug("%s %s", kind, one_line(data, 200))  # a developer's harness chatter (every message and tool call): shown with --log-level DEBUG
+            who, _, event = kind.partition(":")
+            try:  # the browser shows it as that agent's live terminal
+                lines = self.run.terminals.feed(who, event, data)
+                if lines is not None:
+                    self.n.agent(who, terminal=lines)
+            except Exception:  # noqa: BLE001 - a display problem must never stop the build
+                log.exception("could not update the terminal of %s", who)
             return  # the ceremonies and tasks are what the browser shows
         self._log(kind, data)
         try:
@@ -396,9 +404,25 @@ class TeamBridge:
             run.set_phase("review")
             n.system("team", f"Final verification: {d['failing']} failing command(s) (attempt {d['attempt'] + 1})")
         elif kind == "final":
-            run.set_phase("ship")
+            # the finished page appears when the run is really over, after the push to your repository has been tried (see WorkspaceRun._build)
             n.system("team", f"The final branch {d['branch']} is ready for you to review. Nothing has been merged into main.")
+        elif kind == "mirroring":
+            n.system("team", f"GitHub: every branch is pushed to {d['target']} as the team works, with a pull request per feature. main is never touched.")
+        elif kind == "checkpoint":  # a small commit made while a developer works: in that developer's terminal, not the transcript
+            log.info("team: %s committed on %s: %s", d["dev"], d.get("branch", ""), d["subject"])
+            n.agent(d["dev"], terminal=run.terminals.note(d["dev"], "$ git commit -m " + json.dumps(d["subject"])))
+        elif kind == "mirrored":
+            log.info("pushed %s to GitHub", d["branch"])
+            if d["branch"] not in self.announced:  # the transcript says it once per branch; every later push is in the log
+                self.announced.add(d["branch"])
+                n.system("team", f"GitHub: pushed {d['branch']} (it is updated there as the work goes on)")
+        elif kind == "mirror-failed":
+            log.warning("could not push %s to %s: %s", d["branch"], d["target"], d.get("detail", ""))
+            n.system("team", f"GitHub: could not push {d['branch']} ({clip(d.get('detail', ''), 200)}). It will be tried again at the end.")
+        elif kind == "feature-pr":
+            n.system("team", f"GitHub: pull request for {d['branch']}: {d['url']}")
         elif kind == "published":
+            log.info("pushed %s to %s", ", ".join(d["branches"]), d["target"])
             n.system("team", f"Pushed {', '.join(d['branches'])} to {d['target']}")
         elif kind == "pull-request":
             n.system("team", f"Pull request opened: {d['url']}")

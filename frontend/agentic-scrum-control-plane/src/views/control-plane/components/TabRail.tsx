@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LayoutDashboard, Network, MessageSquare, FileText, Activity } from 'lucide-react';
+import { LayoutDashboard, Network, MessageSquare, FileText, Activity, Brain } from 'lucide-react';
 import { useScrum } from '../context/ScrumContext';
 import { TabType } from '../types';
 
@@ -16,17 +16,18 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'canvas', label: 'Canvas — Agent Delegation Graph', icon: Network },
   { id: 'meet', label: 'Meet — Live Transcript & Debate', icon: MessageSquare, badge: 'LIVE' },
   { id: 'artifacts', label: 'Artifacts — PRD & Architecture Diffs', icon: FileText },
-  { id: 'timeline', label: 'Timeline — Sprints & Standups', icon: Activity }
+  { id: 'timeline', label: 'Timeline — Sprints & Standups', icon: Activity },
+  { id: 'memory', label: 'Memory — Project & Agent Knowledge', icon: Brain },
 ];
 
 export const TabRail: React.FC = () => {
-  const { activeTab, setActiveTab } = useScrum();
+  const { activeTab, setActiveTab, memoryApi } = useScrum();
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
   return (
     <aside className="w-[64px] bg-[#FFFFFF] border-r border-[#E2E0D9] flex flex-col items-center py-4 shrink-0 z-20 select-none">
       <div className="flex flex-col gap-2.5 w-full items-center">
-        {NAV_ITEMS.map(item => {
+        {NAV_ITEMS.filter(item => item.id !== 'memory' || memoryApi).map(item => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           const isHovered = hoveredTab === item.id;

@@ -15,6 +15,7 @@ import {
   Share2
 } from 'lucide-react';
 import { Odometer } from './common/Odometer';
+import { LiveTerminal } from '../../../components/common/LiveTerminal';
 
 export const RightInspector: React.FC = () => {
   const {
@@ -165,6 +166,17 @@ export const RightInspector: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* The agent's live terminal: what it is running and reading right now */}
+            {live && (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[11px] font-bold tracking-wider uppercase text-[#5B5B5B] flex items-center justify-between">
+                  <span>Live Terminal</span>
+                  <span className="font-mono text-[10px] normal-case text-[#8E8E8E]">{selectedAgent.name}</span>
+                </div>
+                <LiveTerminal lines={selectedAgent.terminal ?? []} agentName={selectedAgent.name} maxHeight={320} />
+              </div>
+            )}
 
             {/* Recent Tool Invocations */}
             {!live && <div className="flex flex-col gap-1.5">

@@ -49,7 +49,8 @@ describe('ControlPlaneView', () => {
       type: 'agent.updated',
       payload: { ...agent, status: 'speaking', activeTask: 'Shared task' },
     });
-    expect(await screen.findByText('Shared task')).toBeInTheDocument();
+    // the roster card and the inspector (which now follows the selected agent live) both show it
+    expect((await screen.findAllByText('Shared task')).length).toBeGreaterThan(0);
   });
 
   it('keeps presentational tab selection independent from workspace data', async () => {

@@ -15,6 +15,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { ArrowRight, GitPullRequest, CheckCircle, Code, Cpu, ExternalLink, X } from 'lucide-react';
 import { Agent } from '../../types';
+import { LiveTerminal } from '../common/LiveTerminal';
 
 interface ScrumMasterData {
   label?: string;
@@ -143,7 +144,10 @@ interface BuildPhaseProps {
 }
 
 export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild, live = false, graph, summary }) => {
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  // Remembered by id and looked up each time, so a live agent's terminal keeps changing while its panel is open.
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
+  const setSelectedAgent = (agent: Agent | null) => setSelectedAgentId(agent ? agent.id : null);
 
   // Compute status summary
   const buildingCount = agents.filter((a) => a.status === 'active').length;
@@ -318,12 +322,12 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild, l
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      const match = agents.find((a) => a.id === node.id);
+      const match = agents.find((a) => a.id === (node.id === 'scrum-master' && live ? 'agent-sm' : node.id));
       if (match) {
         setSelectedAgent(match);
       }
     },
-    [agents]
+    [agents, live]
   );
 
   return (
@@ -382,7 +386,7 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild, l
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="absolute top-4 right-4 z-20 w-80 bg-[#FCFCFB] border border-[#E7E6DF] rounded-2xl p-5 shadow-xl"
+              className={`absolute top-4 right-4 z-20 ${live ? 'w-[26rem]' : 'w-80'} bg-[#FCFCFB] border border-[#E7E6DF] rounded-2xl p-5 shadow-xl`}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -417,10 +421,17 @@ export const BuildPhase: React.FC<BuildPhaseProps> = ({ agents, onFinishBuild, l
                   <span className="text-[#161616] font-medium">{selectedAgent.activeBranch}</span>
                 </div>
 
-                <div className="flex items-center justify-between font-mono text-[11px]">
+                {!live && <div className="flex items-center justify-between font-mono text-[11px]">
                   <span className="text-[#5B5B5B]">Context window:</span>
                   <span className="text-[#161616]">{selectedAgent.contextUsagePercent}% utilized</span>
-                </div>
+                </div>}
+
+                {live && (
+                  <div className="pt-2 border-t border-[#E7E6DF]">
+                    <span className="text-[10px] uppercase font-mono text-[#8E8E8E] block mb-1">Live terminal</span>
+                    <LiveTerminal lines={selectedAgent.terminal ?? []} agentName={selectedAgent.name} maxHeight={260} />
+                  </div>
+                )}
 
                 {!live && <div className="pt-2 border-t border-[#E7E6DF] flex items-center gap-2 text-emerald-700">
                   <CheckCircle className="w-3.5 h-3.5" />

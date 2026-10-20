@@ -153,6 +153,7 @@ class Settings:
     auto: bool = True
     keep: int = 15_000
     buffer: Optional[int] = None
+    window: Optional[int] = None  # treat the model's window as at most this many tokens: a long conversation is compacted well before a huge window (1M tokens) is full
 
 
 @dataclass
@@ -241,6 +242,16 @@ def estimate_prompt(context: Loaded) -> R.InputTokens:
 def estimate_context(context: Loaded) -> float:
     p = estimate_prompt(context)
     return p.measured + p.estimated
+
+
+def capped(limit: ModelLimit, window: Optional[int]) -> ModelLimit:
+    """The model's limit, but no larger than a working window: a model that takes a million tokens is slower, dearer and worse at using them than one given a few hundred thousand."""
+    if not window or window <= 0:
+        return limit
+    current = limit.input or limit.context
+    if current and current <= window:
+        return limit
+    return ModelLimit(context=window, input=window, output=limit.output)
 
 
 def calculate_ceiling(limit: ModelLimit, buffer: Optional[int]) -> float:
@@ -475,9 +486,9 @@ class Compaction:
         # Only the user compacts when automatic compaction is off, overflow included.
         if trigger.reason != "manual" and not settings.auto:
             return Outcome("skipped")
-        if trigger.reason == "auto" and not self._due(context, calculate_ceiling(context.model.limit, settings.buffer)):
+        if trigger.reason == "auto" and not self._due(context, calculate_ceiling(capped(context.model.limit, settings.window), settings.buffer)):
             return Outcome("skipped")
-        ceiling = calculate_ceiling(context.model.limit, settings.buffer)
+        ceiling = calculate_ceiling(capped(context.model.limit, settings.window), settings.buffer)
         # An unknown window never triggers auto compaction, but the compaction request still needs a size to aim for.
         cap = ceiling if math.isfinite(ceiling) else calculate_ceiling(ModelLimit(UNKNOWN_WINDOW, context.model.limit.input, context.model.limit.output), settings.buffer)
         # The provider just rejected this context, so the estimate ran low; the first attempt already aims below it.

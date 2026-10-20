@@ -72,6 +72,9 @@ def add_build_arguments(p: argparse.ArgumentParser, skip: frozenset[str] = froze
     add("--repair-rounds", type=int, default=2, help="repair rounds when the verification commands fail")
     add("--publish", nargs="?", const="source", metavar="TARGET", help="push the finished branches to TARGET (a URL or path); with no value, to the repository given by --repo. Never main")
     add("--no-publish", action="store_true", help="do not push the finished branches to the repository you gave (by default they are, never main)")
+    add("--no-checkpoints", action="store_true", help="commit once per task instead of saving work as small commits while it happens")
+    add("--no-live-publish", action="store_true", help="push to the repository only when the run ends (by default every branch is pushed as it is created and merged, with a pull request per feature)")
+    add("--no-feature-prs", action="store_true", help="do not open a pull request for each feature branch (needs the GitHub CLI)")
     add("--final-only", action="store_true", help="when publishing, push only final/<run>; by default every branch is pushed (integration, each feature, repairs)")
     add("--publish-all", action="store_true", help=argparse.SUPPRESS)  # the old name for what is now the default
     add("--pr", action="store_true", help="with --publish: open a pull request for the final branch (needs the GitHub CLI); you still do the merging")
@@ -118,6 +121,7 @@ def config_from_args(args: argparse.Namespace) -> tuple[TeamConfig, Optional[Pat
     )
     config = TeamConfig(
         max_parallel=args.max_parallel, repair_rounds=args.repair_rounds, memory_dir=memory_dir, publish=publish_choice(args), publish_all=not args.final_only,
+        checkpoint_commits=not getattr(args, "no_checkpoints", False), live_publish=not getattr(args, "no_live_publish", False), feature_pull_requests=not getattr(args, "no_feature_prs", False),
         pull_request=args.pr, max_llm_concurrency=args.max_llm, git_fix_rounds=args.git_fix_rounds, agile=agile,
     )
     if args.run_id:

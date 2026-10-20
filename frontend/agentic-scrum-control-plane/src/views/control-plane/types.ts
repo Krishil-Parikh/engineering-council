@@ -1,4 +1,4 @@
-export type TabType = 'overview' | 'canvas' | 'meet' | 'artifacts' | 'timeline';
+export type TabType = 'overview' | 'canvas' | 'meet' | 'artifacts' | 'timeline' | 'memory';
 
 export type AgentRole = 'scrum_master' | 'frontend' | 'backend' | 'database' | 'devops' | 'sme' | 'qa';
 
@@ -24,6 +24,8 @@ export interface Agent {
   recentTools: string[];
   /** The feature branch the developer works on (a real team only). */
   activeBranch?: string;
+  /** Live terminal lines (a real team only), newest last. */
+  terminal?: string[];
 }
 
 export interface SkillCategory {

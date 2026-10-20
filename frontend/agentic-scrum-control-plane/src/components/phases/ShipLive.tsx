@@ -26,6 +26,8 @@ export const ShipLive: React.FC<ShipLiveProps> = ({ artifacts, messages, totalMe
   const branch = [...messages].reverse().find((m) => /The final branch (\S+) is ready/.test(m.text));
   const branchName = branch ? (branch.text.match(/The final branch (\S+) is ready/)?.[1] ?? '') : '';
   const readable = artifacts.filter((a) => a.markdownContent);
+  const pushed = [...messages].reverse().find((m) => m.kind === 'system' && /^Pushed /.test(m.text));
+  const notPushed = [...messages].reverse().find((m) => m.kind === 'system' && /^Nothing was pushed/.test(m.text));
 
   return (
     <motion.div
@@ -47,7 +49,9 @@ export const ShipLive: React.FC<ShipLiveProps> = ({ artifacts, messages, totalMe
         <div className="mb-6 w-full rounded-2xl border border-[#161616] bg-[#FCFCFB] p-4 text-left shadow-md">
           <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[#5B5B5B]">Review and merge this branch yourself</div>
           <code className="text-sm font-semibold text-[#161616]">{branchName}</code>
-          <p className="mt-1 text-xs text-[#5B5B5B]">Nothing has been merged into main. If a repository was given, the branches have been pushed there.</p>
+          <p className="mt-1 text-xs text-[#5B5B5B]">Nothing has been merged into main.</p>
+          {pushed && <p role="status" className="mt-2 text-xs font-medium text-emerald-700">{pushed.text}</p>}
+          {!pushed && notPushed && <p role="status" className="mt-2 text-xs font-medium text-[#B27000]">{notPushed.text}</p>}
         </div>
       )}
 

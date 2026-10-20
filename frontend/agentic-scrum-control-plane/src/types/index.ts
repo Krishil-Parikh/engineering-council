@@ -19,6 +19,8 @@ export interface Agent {
   activeBranch?: string;
   contextUsagePercent?: number;
   avatarColor: string;
+  /** Live terminal lines (a real team only). */
+  terminal?: string[];
 }
 
 export interface Skill {

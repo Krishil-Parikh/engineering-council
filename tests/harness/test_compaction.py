@@ -261,3 +261,22 @@ def test_an_errored_assistant_is_not_an_anchor(store):
     store.add(s.id, user("hi"))
     store.add(s.id, bad)
     assert C.estimate_prompt(loaded(store, s)).measured == 0
+
+
+def test_a_working_window_makes_automatic_compaction_happen_long_before_a_huge_window_is_full(store):
+    s = seed(store)
+    big = make_compaction(store, FakeLLM(SUMMARY), settings=C.Settings(keep=2000))
+    assert run(big.compact(Trigger("auto", loaded(store, s)))).status == "skipped"  # the model's own window is nowhere near full
+    capped = make_compaction(store, FakeLLM(SUMMARY), settings=C.Settings(keep=2000, window=4_000))
+    out = run(capped.compact(Trigger("auto", loaded(store, s))))
+    assert out.status == "completed"
+    assert isinstance(history.load(store, s.id)[0], M.CompactionCompleted)  # and history now starts at the checkpoint
+
+
+def test_the_working_window_never_raises_a_models_limit():
+    small = ModelLimit(context=50_000, input=40_000, output=4_000)
+    assert C.capped(small, 150_000) is small and C.capped(small, None) is small and C.capped(small, 0) is small
+    huge = ModelLimit(context=1_000_000, input=934_464, output=65_536)
+    capped = C.capped(huge, 150_000)
+    assert capped.input == 150_000 and capped.context == 150_000 and capped.output == 65_536
+    assert 100_000 < C.calculate_ceiling(capped, None) < 150_000  # automatic compaction starts a little below the working window

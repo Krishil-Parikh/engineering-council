@@ -18,6 +18,7 @@ from gateway.bridges import KICKOFF, MeetingBridge, Questions, TeamBridge, publi
 from gateway.models import PHASES
 from gateway.narrator import Narrator, agent_id, clip
 from gateway.projection import Projection
+from gateway.terminal import AgentTerminals
 
 log = logging.getLogger("gateway.runner")
 
@@ -71,7 +72,9 @@ class WorkspaceRun:
         self.narrator = Narrator(projection)
         self.narrator.seed()
         self.questions = Questions(self.narrator)
+        self.terminals = AgentTerminals()
         self.engine: Any = None
+        self._reopened: Any = None
         self.meeting_dir: Optional[Path] = None
         self.project_name = ""
         self.document_accepted = False
@@ -89,6 +92,34 @@ class WorkspaceRun:
     @property
     def active(self) -> bool:
         return self.state in ("meeting", "building")
+
+    # ------------------------------------------------------------------ memory (what the Memory tab shows)
+
+    @property
+    def memory_pointer(self) -> Path:
+        return Path(self.settings.data_dir) / self.workspace_id / "memory_root.txt"
+
+    def remember_memory_location(self, memory: Any) -> None:
+        """Where the team's memory lives, so the Memory tab can still show it after the gateway is restarted."""
+        if memory is not None and getattr(memory, "root", None) is not None:
+            try:
+                self.memory_pointer.parent.mkdir(parents=True, exist_ok=True)
+                self.memory_pointer.write_text(str(memory.root), encoding="utf-8")
+            except OSError:
+                pass
+
+    def team_memory(self) -> Any:
+        """The running team's memory, else the last run's (opened from disk, read-only use), else None."""
+        engine = self.engine
+        if engine is not None and getattr(engine, "memory", None) is not None:
+            return engine.memory
+        if self._reopened is None and self.memory_pointer.exists():
+            root = Path(self.memory_pointer.read_text(encoding="utf-8").strip())
+            if (root / "project.sqlite").exists():
+                from memory.team import TeamMemory
+
+                self._reopened = TeamMemory(root)
+        return self._reopened
 
     @property
     def desk(self):
@@ -111,6 +142,12 @@ class WorkspaceRun:
         self.narrator = Narrator(self.p)
         self.narrator.seed()
         self.questions = Questions(self.narrator)
+        self.terminals = AgentTerminals()
+        self._reopened = None  # the previous project's memory is not this project's
+        try:
+            self.memory_pointer.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     # ------------------------------------------------------------------ starting
 
@@ -211,11 +248,20 @@ class WorkspaceRun:
         )
         log.info("build starting (the team branches from: %s)", source or "a new project")
         self.engine, self.state = engine, "building"
+        self.remember_memory_location(getattr(engine, "memory", None))
         for note in self.queued_notes:
             if engine.agile is not None:
                 engine.agile.desk.note(note)
         self.queued_notes.clear()
         result = await engine.run()
+        for warning in result.warnings:
+            log.warning("team: %s", warning)
+            self.narrator.system("team", f"Warning: {warning}")
+        if not result.published_to:
+            where = engine.repo.origin
+            log.warning("nothing was pushed to a remote repository; the branches are in %s", where)
+            self.narrator.system("team", f"Nothing was pushed to GitHub (no repository with a remote was given, or the push failed: see the warnings above). "
+                                         f"The branches are in the team's own repository: {where}. To push them: python -m council publish \"{self.meeting_dir}\" <repository url>")
         publish_documents(self, "approved", human_accepted=True)
         report = read_text(self.meeting_dir / "team_report.md")
         if report:
