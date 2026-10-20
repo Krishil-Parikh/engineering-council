@@ -59,7 +59,7 @@ from harness.tool.registry import ToolRegistry
 from harness.util.global_paths import GlobalPaths
 from harness.worktree import WorktreeManager
 
-DEFAULT_MODEL = "gemini-3.1-flash-lite"
+DEFAULT_MODEL = "gemini-3.6-flash"
 DEFAULT_PROVIDER = "google"
 
 Reply = Union[str, tuple[str, Optional[str]]]

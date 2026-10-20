@@ -41,7 +41,7 @@ def parse_json(text: str) -> Any:
 class GeminiMemoryModel:
     FALLBACKS = ("gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest")  # tried in turn when the chosen model is overloaded
 
-    def __init__(self, api_key: str, model: str = "gemini-3.1-flash-lite", embed_model: str = "gemini-embedding-001", dimensions: int = DIMENSIONS,
+    def __init__(self, api_key: str, model: str = "gemini-3.6-flash", embed_model: str = "gemini-embedding-001", dimensions: int = DIMENSIONS,
                  fallbacks: Optional[tuple[str, ...]] = None) -> None:
         from google import genai
         from google.genai import types
@@ -97,6 +97,6 @@ def default_model(api_key: Optional[str], model: Optional[str] = None) -> Option
     if not api_key:
         return None
     try:
-        return GeminiMemoryModel(api_key, model or "gemini-3.1-flash-lite")
+        return GeminiMemoryModel(api_key, model or "gemini-3.6-flash")
     except Exception:  # noqa: BLE001
         return None

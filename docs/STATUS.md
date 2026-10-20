@@ -1,6 +1,6 @@
 # Status: harness (opencode port), team engine, agile playbook
 
-Everything below is built and covered by offline tests (no network, scripted model). The first real-model run (Habitly, Gemini 3.1 Flash-Lite,
+Everything below is built and covered by offline tests (no network, scripted model). The first real-model run (Habitly, Gemini 3.6 Flash,
 6 features, 2 sprints, about $0.08) completed and was reviewed; see "Lessons from the first real run" below.
 
 ## The pipeline
