@@ -60,7 +60,7 @@ def test_invalid_commands_are_400_with_the_browsers_own_messages(client, body, m
 
 
 def test_every_command_and_event_type_in_the_contract_is_known():
-    assert len(COMMAND_TYPES) == 8 and len(EVENT_TYPES) == 10 and PHASES == ("kickoff", "brainstorm", "prd", "build", "review", "ship")
+    assert len(COMMAND_TYPES) == 8 and len(EVENT_TYPES) == 11 and PHASES == ("kickoff", "brainstorm", "prd", "build", "review", "ship")
 
 
 def test_a_workspace_id_that_does_not_match_the_url_is_refused(client):

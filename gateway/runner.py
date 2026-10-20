@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from gateway import autopilot
+from gateway.standup_hub import StandupHub
 from gateway.bridges import KICKOFF, MeetingBridge, Questions, TeamBridge, publish_documents, read_text
 from gateway.models import PHASES
 from gateway.narrator import Narrator, agent_id, clip
@@ -87,6 +89,11 @@ class WorkspaceRun:
         self.task: Optional[asyncio.Task] = None
         self.background: set[asyncio.Task] = set()
         self.phase_log: list[str] = []
+        self.brief = ""
+        self.constraints: list[str] = []
+        self.autopilot_log: list[str] = []
+        self.standup = StandupHub(self)
+        self.questions.on_open = self.hand_to_autopilot
 
     # ------------------------------------------------------------------ state
 
@@ -128,6 +135,9 @@ class WorkspaceRun:
     def desk(self):
         return self.engine.agile.desk if self.engine is not None and self.engine.agile is not None else None
 
+    def hand_to_autopilot(self, qid: str, kind: str, text: str, context: str, options: list[str], recommended: Optional[str]) -> None:
+        autopilot.on_question(self, qid, kind, text, context, options, recommended)
+
     def set_phase(self, phase: str) -> None:
         if phase in PHASES and self.p.phase != phase:
             log.info("phase: %s -> %s", self.p.phase, phase)
@@ -145,6 +155,8 @@ class WorkspaceRun:
         self.narrator = Narrator(self.p)
         self.narrator.seed()
         self.questions = Questions(self.narrator)
+        self.questions.on_open = self.hand_to_autopilot
+        self.autopilot_log = []
         self.terminals = AgentTerminals()
         self._reopened = None  # the previous project's memory is not this project's
         self.explore_memory = None
@@ -171,6 +183,7 @@ class WorkspaceRun:
         self.engine, self.error = None, None
         self.document_accepted, self.document_revisions, self.docs_approval_ids = False, 0, set()
         self.project_name = project_name_from(brief, title)
+        self.brief, self.constraints = brief.strip(), [c.strip() for c in (constraints or []) if isinstance(c, str) and c.strip()]
         target = (repo or self.settings.repo or "").strip()
         is_url = target.lower().startswith(("http://", "https://"))
         name = self.project_name

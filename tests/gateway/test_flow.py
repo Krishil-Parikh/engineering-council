@@ -86,8 +86,26 @@ def test_a_brief_becomes_documents_you_accept_and_then_a_built_project(client):
     events = stream_events(client, 40)
     versions = [e["version"] for e in events]
     assert versions == sorted(versions) and len({e["eventId"] for e in events}) == len(events)
-    assert all(e["workspaceId"] == WORKSPACE and e["type"] in {"agent.updated", "message.created", "phase.changed", "artifact.updated", "meet.updated", "metrics.updated", "skill.updated", "sprint.updated", "edge.updated"} for e in events)
+    assert all(e["workspaceId"] == WORKSPACE and e["type"] in {"agent.updated", "message.created", "phase.changed", "artifact.updated", "meet.updated", "metrics.updated", "skill.updated", "sprint.updated", "edge.updated", "standup.event"} for e in events)
     assert events[-1]["version"] <= snap["version"]
+
+    # the formal meetings were recorded as a structured, replayable stream, and the chatter was not
+    base = f"/workspace/{WORKSPACE}/standup"
+    listing = client.get(f"{base}/meetings").json()
+    by_id = {m["meeting_id"]: m for m in listing["meetings"]}
+    assert by_id["kickoff"]["status"] == "completed" and by_id["kickoff"]["meeting_type"] == "discovery"
+    assert any(m["meeting_type"] == "daily_standup" for m in by_id.values()) and any(m["meeting_type"] == "sprint_planning" for m in by_id.values())
+    assert not {"merge", "team", "briefings"} & set(by_id)  # merge talk and team chatter are not Scrum meetings
+    kick = client.get(f"{base}/meetings/kickoff").json()
+    assert kick["view"]["participants"] and any(p["skill"] for p in kick["view"]["participants"] if p["participant_type"] == "developer")
+    text = client.get(f"{base}/meetings/kickoff/transcript").text
+    assert "Meeting created: Kickoff meeting" in text and "Answer:" in text and text.rstrip().endswith("Meeting ended")
+    wire = client.get(f"{base}/meetings/kickoff/events").json()
+    assert [e["sequence_number"] for e in wire["events"]] == list(range(1, len(wire["events"]) + 1))
+    review = client.get(f"{base}/meetings/document-review").json()["view"]
+    assert {r["document_path"] for r in review["reviews"]} == {"PRD.md", "Technical_Approach.md", "Design.md"} and all(r["status"] == "approved" for r in review["reviews"])
+    assert client.get(f"{base}/meetings/nope").status_code == 404
+    assert (client.app.state.hub.get(WORKSPACE).standup.dropped) == 0
 
 
 def test_the_phases_only_ever_moved_forward_in_order(client):

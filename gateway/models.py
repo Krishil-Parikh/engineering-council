@@ -15,7 +15,7 @@ AgentStatus = Literal["idle", "active", "speaking", "blocked", "complete"]
 
 EVENT_TYPES = (
     "agent.updated", "message.created", "phase.changed", "artifact.updated", "meet.updated", "metrics.updated", "skill.updated", "sprint.updated",
-    "edge.updated", "workspace.reset",
+    "edge.updated", "workspace.reset", "standup.event",
 )
 COMMAND_TYPES = (
     "sprint.start", "phase.advance", "agent.task.reassign", "message.create", "sme.directive.submit", "prd.accept", "debate.inject", "consensus.force",

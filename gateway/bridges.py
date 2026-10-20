@@ -44,6 +44,7 @@ class Questions:
 
     def __init__(self, narrator: Narrator) -> None:
         self.n, self.pending, self._count = narrator, {}, 0  # type: ignore[var-annotated]
+        self.on_open: Optional[Callable[..., None]] = None  # told of every new question (the autopilot Business SME listens)
 
     def open(self, meet_key: str, kind: str, text: str, context: str, options: list[str], recommended: Optional[str], resolve: Callable[[str], None], qid: Optional[str] = None) -> str:
         self._count += 1
@@ -53,6 +54,11 @@ class Questions:
         self.n.say(meet_key, "scrum-master", text, kind="question", question=card)
         self.n.agent("human", status="speaking", activeTask="Waiting for your answer")
         log.warning("WAITING FOR YOU [%s/%s]: %s  options=%s", kind, qid, one_line(text, 140), options)
+        if self.on_open is not None:
+            try:
+                self.on_open(qid, kind, text, context, options, recommended)
+            except Exception:  # noqa: BLE001 - the autopilot is an extra; the question stands either way
+                log.exception("could not hand the question to the autopilot")
         return qid
 
     def find(self, question_id: Optional[str] = None, kind: Optional[str] = None) -> Optional[Pending]:
@@ -154,7 +160,11 @@ class MeetingBridge(Reporter):
             self.decisions += 1
         self._meet("live")
         log.info("  %s %s: %s", who, kind, one_line(title))
-        self.n.say(KICKOFF, who, f"{title}\n\n{body}" if body and body.strip() != title.strip() else title)
+        self.run.standup.hint = kind  # read by the meeting record while this one message is recorded
+        try:
+            self.n.say(KICKOFF, who, f"{title}\n\n{body}" if body and body.strip() != title.strip() else title)
+        finally:
+            self.run.standup.hint = None
 
     def roster(self, skills: dict[str, str]) -> None:
         log.info("  roster: %s", ", ".join(f"{dev}={skill}" for dev, skill in skills.items()))

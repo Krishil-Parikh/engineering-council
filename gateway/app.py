@@ -28,6 +28,7 @@ from gateway.logs import heartbeat_line, one_line
 from gateway.models import validate_command
 from gateway.projection import Projection
 from gateway.runner import Conflict, Deps, WorkspaceRun, default_deps
+from gateway.standup_routes import register as register_standup
 
 
 log = logging.getLogger("gateway")
@@ -181,6 +182,8 @@ def create_app(settings: Optional[GatewaySettings] = None, deps: Optional[Deps] 
             return {"query": q, "scope": scope, "hits": []}
         hits = await asyncio.to_thread(mem.search, scope, q, max(1, min(k, 40)), rerank)
         return {"query": q, "scope": scope, "hits": [h.public() for h in hits]}
+
+    register_standup(app, workspace, problem)
 
     @app.get("/workspace/{workspace_id}/events")
     async def events(request: Request, workspace_id: str):
