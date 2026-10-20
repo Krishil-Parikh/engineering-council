@@ -73,6 +73,7 @@ export function StandupView({ initialMeetingId, onMeetingChange, initialLayout =
   const [linesPlaying, setLinesPlaying] = useState(true);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [recap, setRecap] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(true);
   const [help, setHelp] = useState(false);
   const [person, setPerson] = useState<string | null>(null);
   const [waitingAt, setWaitingAt] = useState(0);
@@ -187,7 +188,7 @@ export function StandupView({ initialMeetingId, onMeetingChange, initialLayout =
       else if (lower === 'b') setLayout((l) => (l === 'board' ? 'call' : 'board'));
       else if (lower === 'f') setCallLayout((l) => (l === 'focus' ? 'grid' : 'focus'));
       else if (lower === 'r' && shown) setRecap(true);
-      else if (lower === 'l') void openTranscript();
+      else if (lower === 'l') setTranscriptOpen((o) => !o);
       else if (k === '?') setHelp(true);
     };
     window.addEventListener('keydown', onKey);
@@ -280,8 +281,9 @@ export function StandupView({ initialMeetingId, onMeetingChange, initialLayout =
                   >
                     {voice.enabled ? <Mic size={14} aria-hidden /> : <MicOff size={14} aria-hidden />} Voice
                   </button>
+                  {layout === 'call' && <button type="button" onClick={() => setTranscriptOpen((o) => !o)} aria-pressed={transcriptOpen} title="Live transcript (L)" className="rounded-md border border-[#E2E0D9] px-2 py-1 text-[12px] aria-pressed:bg-[#161616] aria-pressed:text-white">Live transcript</button>}
                   <button type="button" onClick={() => setRecap(true)} title="Recap (R)" className="flex items-center gap-1 rounded-md border border-[#E2E0D9] px-2 py-1 text-[12px]"><FileText size={14} aria-hidden /> Recap</button>
-                  <button type="button" onClick={() => void openTranscript()} title="Transcript (L)" className="rounded-md border border-[#E2E0D9] px-2 py-1 text-[12px]">Transcript</button>
+                  <button type="button" onClick={() => void openTranscript()} title="The whole transcript as text" className="rounded-md border border-[#E2E0D9] px-2 py-1 text-[12px]">Transcript</button>
                   <button type="button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts" title="Shortcuts (?)" className="rounded-md border border-[#E2E0D9] p-1.5"><HelpCircle size={14} aria-hidden /></button>
                 </div>
               </div>
@@ -289,6 +291,10 @@ export function StandupView({ initialMeetingId, onMeetingChange, initialLayout =
                 {layout === 'call' && (
                   <CallView
                     view={shown}
+                    events={meeting.events.filter((e) => mode !== 'replay' || e.sequence_number <= replay.position)}
+                    transcriptOpen={transcriptOpen}
+                    replaying={mode === 'replay'}
+                    onSeek={replay.seek}
                     playing={mode === 'replay' ? replay.playing : linesPlaying}
                     speed={mode === 'replay' ? replay.speed : 1}
                     layout={callLayout}

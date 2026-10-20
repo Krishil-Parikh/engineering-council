@@ -25,6 +25,9 @@ test.describe('the Standup call screen in demo mode', () => {
     await expect(page.getByTestId('call-tile').filter({ hasText: 'Business SME' })).toHaveAttribute('data-state', 'needs_sme');
     await expect(page.getByTestId('call-tile').filter({ hasText: 'Developer 03' })).toHaveAttribute('data-state', 'blocked');
     await expect(page.getByTestId('subtitle-text')).not.toBeEmpty();
+    await expect(page.getByTestId('live-transcript')).toBeVisible();
+    await expect(page.getByTestId('transcript-line').last()).toContainText('Is a limit of 10 timers right?');
+    await expect(page.getByTestId('turn-on-voice')).toBeVisible(); // the voice is offered, not started by itself
     await page.screenshot({ path: 'e2e/screenshots/standup-call.png', fullPage: true });
   });
 
@@ -44,6 +47,8 @@ test.describe('the Standup call screen in demo mode', () => {
     await expect(page.locator('[data-testid="call-tile"][data-speaking="true"]')).toHaveCount(1, { timeout: 20_000 });
     await expect(page.getByTestId('speech-bubble')).toBeVisible();
     await expect(page.getByTestId('sharing-badge')).toContainText('is sharing');
+    await expect(page.locator('[data-testid="transcript-line"][data-now="true"]')).toHaveCount(1); // the transcript marks the line being said
+    await expect(page.getByTestId('transcript-now')).toBeVisible();
     await page.screenshot({ path: 'e2e/screenshots/standup-call-speaking.png', fullPage: true });
     await page.getByRole('button', { name: 'Pause replay' }).click();
   });

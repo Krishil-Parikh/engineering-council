@@ -9,7 +9,7 @@ export const SHORTCUTS: [string, string][] = [
   ['B', 'Board of all meetings and call'],
   ['F', 'Focus layout (a bigger shared screen) and grid'],
   ['R', 'Recap'],
-  ['L', 'Transcript'],
+  ['L', 'Live transcript beside the call, on or off'],
   ['?', 'This help'],
   ['Esc', 'Close'],
 ];

@@ -5,11 +5,11 @@ import { HighlightsBar } from '../../call/HighlightsBar';
 import { NeedsYouLine } from '../../call/NeedsYouLine';
 import { entry, makeView, person } from '../helpers';
 
-const voice = { supported: false, enabled: false, setEnabled: () => undefined, speak: vi.fn(), stop: vi.fn() };
+const voice = { supported: false, enabled: false, setEnabled: () => undefined, say: vi.fn(() => () => undefined), stop: vi.fn() };
 const actions = { disabled: false, autopilot: false, onAnswer: () => undefined, onDecide: () => undefined };
 
 function call(view = makeView(), extra: Partial<Parameters<typeof CallView>[0]> = {}) {
-  return <CallView view={view} playing speed={1} layout="grid" pinned={null} onPin={() => undefined} actions={actions} voice={voice} resetKey="k" selectedId={null} onSelectPerson={() => undefined} {...extra} />;
+  return <CallView view={view} events={[]} transcriptOpen={false} replaying={false} playing speed={1} layout="grid" pinned={null} onPin={() => undefined} actions={actions} voice={voice} resetKey="k" selectedId={null} onSelectPerson={() => undefined} {...extra} />;
 }
 
 beforeEach(() => vi.useFakeTimers());
